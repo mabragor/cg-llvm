@@ -128,6 +128,28 @@
 (define-cg-llvm-rule integer-type ()
   #\i (llvm-integer (parse-integer (text (postimes ns-dec-digit)))))
 
+(define-cg-llvm-rule void-type ()
+  "void"
+  (make-instance 'llvm-void-type))
+
+(defun parse-function-argtypes (lst)
+  (if (eq '*** (cdr (last lst)))
+      (values (butlast lst) t)
+      (values lst nil)))
+
+(define-cg-llvm-rule function-type ()
+  (let ((ret-type (|| void-type
+		      llvm-firstclass-type)))
+    (if (or (typep ret-type llvm-label)
+	    (typep ret-type llvm-metadata))
+	(fail-parse "Got label or metadata type as function return type"))
+    (? whitespace) "(" c!-1-function-argtypes ")"
+    (multiple-value-bind (param-types vararg-p) (parse-function-argtypes c!-1)
+      (make-instance 'llvm-function-type
+		     :ret-type ret-type
+		     :param-types param-types
+		     :vararg-p vararg-p))))
+
 (define-cg-llvm-rule float-type ()
   (llvm-float (cond-parse (progn "double" 'double)
 			  (progn "half" 'half)
@@ -193,11 +215,21 @@
 (define-cg-llvm-rule nonpointer-type ()
   (|| void-type function-type integer-type float-type x86-mmx vector label metadata array literal-struct))
 
+(define-cg-llvm-rule nonpointer-firstclass-type ()
+  (|| integer-type float-type x86-mmx vector label metadata array literal-struct))
+
 (define-cg-llvm-rule stars ()
   (times elt-pointer))
 
 (define-cg-llvm-rule llvm-type ()
   (let ((under-type nonpointer-type)
+	(stars pointer-stars))
+    (iter (for addrspace in stars)
+	  (setf under-type (llvm-pointer under-type addrspace)))
+    under-type))
+
+(define-cg-llvm-rule llvm-firstclass-type ()
+  (let ((under-type nonpointer-firstclass-type)
 	(stars pointer-stars))
     (iter (for addrspace in stars)
 	  (setf under-type (llvm-pointer under-type addrspace)))

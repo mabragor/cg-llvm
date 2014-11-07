@@ -81,10 +81,11 @@
 (defun unreachable ()
   "unreachable")
 
-(defun trim-llvm (str)
-  (if (m~ "^llvm_(.*)" str)
-      $1
-      str))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun trim-llvm (str)
+    (if (m~ "^llvm_(.*)" str)
+	$1
+	str)))
 
 (defmacro define-no-wrap-binop (name)
   `(defun ,name (type op1 op2 &key no-signed-wrap no-unsigned-wrap)
