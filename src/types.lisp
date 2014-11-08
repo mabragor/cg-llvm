@@ -7,6 +7,8 @@
 (cl-interpol:enable-interpol-syntax)
 (enable-read-macro-tokens)
 
+(defgeneric emit-lisp-repr (obj)
+  (:documentation "Emit cons-style representation of the object"))
 
 (defclass llvm-type ()
   ())
@@ -15,6 +17,14 @@
   ((ret-type :initarg :ret-type)
    (param-types :initarg :param-types)
    (vararg-p :initarg :vararg-p)))
+
+(defmethod emit-lisp-repr ((obj llvm-void-type))
+  'void)
+
+(defmethod emit-lisp-repr ((obj llvm-function-type))
+  (with-slots (ret-type param-types vararg-p) obj
+    `(function ,(emit-lisp-repr ret-type) ,(mapcar #'emit-lisp-repr param-types)
+	       :vararg-p ,vararg-p)))
 
 (defclass llvm-first-class-type (llvm-type) ())
 
@@ -27,6 +37,9 @@
 	  (> nbits max-nbits))
       (error "NBITS argument should be positive integer not greater than ~a" max-nbits))
   (make-instance 'llvm-integer :nbits nbits))
+
+(defmethod emit-lisp-repr ((obj llvm-integer))
+  `(integer ,(slot-value obj 'nbits)))
 
 (defclass llvm-float (llvm-first-class-type)
   ((nbits :initarg :nbits)
@@ -43,11 +56,23 @@
 	    ((string= "ppc_fp128" str) (frob 128))
 	    (t (error "Unknown floating point specifier: ~a" sym))))))
 
+(defmethod emit-lisp-repr ((obj llvm-float))
+  `(float ,(slot-value obj 'nbits) ,(slot-value obj 'mantissa)))
+
 (defclass llvm-x86-mmx (llvm-first-class-type) ())
+
+(defmethod emit-lisp-repr ((obj llvm-x86-mmx))
+  'x86-mmx)
 
 (defclass llvm-pointer (llvm-first-class-type)
   ((pointee :initarg :pointee)
    (address-space :initform 0 :initarg :address-space)))
+
+(defmethod emit-lisp-repr ((obj llvm-pointer))
+  (with-slots (pointee address-space) obj
+    `(pointer ,(emit-lisp-repr pointee)
+	      ,@(if (not (equal 0 address-space))
+		    `(,address-space)))))
 
 (defun coerce-to-llvm-type (x)
   (cond ((typep x 'llvm-type) x)
@@ -78,14 +103,27 @@
 	(error "Element type of vector should be integer, float or pointer, but got/deduced ~a" type))
     (make-instance 'llvm-vector :num-elts n :elt-type type)))
 
+(defmethod emit-lisp-repr ((obj llvm-vector))
+  (with-slots (num-elts elt-type) obj
+    `(vector ,(emit-lisp-repr elt-type) ,num-elts)))
+
 (defclass llvm-label (llvm-first-class-type) ())
 (defclass llvm-metadata (llvm-first-class-type) ())
+
+(defmethod emit-lisp-repr ((obj llvm-label))
+  'label)
+(defmethod emit-lisp-repr ((obj llvm-metadata))
+  'metadata)
 
 (defclass llvm-aggregate-type (llvm-first-class-type) ())
 
 (defclass llvm-array (llvm-aggregate-type)
   ((num-elts :initarg :num-elts)
    (elt-type :initarg :elt-type)))
+
+(defmethod emit-lisp-repr ((obj llvm-array))
+  (with-slots (num-elts elt-type) obj
+    `(array ,(emit-lisp-repr elt-type) ,num-elts)))
 
 (defun llvm-sizey-type-p (type)
   t)
@@ -103,7 +141,15 @@
   ((elt-types :initarg :elt-types)
    (packed-p :initarg :packed-p)))
 
+(defmethod emit-lisp-repr ((obj llvm-struct))
+  (with-slots (elt-types packed-p) obj
+    `(struct ,(mapcar #'emit-lisp-repr elt-types)
+	     :packed-p ,packed-p)))
+
 (defclass llvm-opaque-struct () ())
+
+(defmethod emit-lisp-repr ((obj llvm-opaque-struct))
+  'opaque)
 
 (defun llvm-struct (&rest types)
   (destructuring-bind (packed-p opaque-p . types) (parse-out-keywords '(:packed-p :opaque-p) types)
