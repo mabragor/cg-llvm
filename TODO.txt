@@ -1,3 +1,0 @@
-* (done, untested) parsing of llvm type grammar
-* emitting llvm type grammar from lisp-side types
-* (?) type-implication for llvm operations
