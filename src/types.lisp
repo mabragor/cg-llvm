@@ -299,3 +299,20 @@
 	  (setf under-type (llvm-pointer under-type addrspace)))
     under-type))
 
+
+;; parsing of s-exp grammar
+
+(defun parse-lisp-repr (expr)
+  (match expr
+    ('void (make-instance 'llvm-void-type))
+    ;; ((cons 'function body) (parse-function-repr body))
+    ((list 'integer arity) (llvm-integer arity))
+    ((list 'float nbits mantissa) (make-instance 'llvm-float :nbits nbits :mantissa mantissa))
+    (otherwise (error "Do not know how to parse form ~a" expr))))
+
+
+(defun test-frob (expr)
+  (match expr
+    ('foo 1)
+    (otherwise 'otherwise)))
+
