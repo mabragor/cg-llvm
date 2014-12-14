@@ -86,7 +86,7 @@
 	  ((typep pointee 'llvm-label)
 	   (progn (warn "When declaring pointer type, LABEL-typed pointee encountered, coercing to i8")
 		  (setf pointee (llvm-integer 8)))))
-    (make-instance 'llvm-point :pointee pointee
+    (make-instance 'llvm-pointer :pointee pointee
 		   :address-space (or addrspace 0))))
 
 (defclass llvm-vector (llvm-first-class-type)
@@ -168,6 +168,9 @@
 
 
 ;;; parsing
+(define-cg-llvm-rule whitespace ()
+  (postimes (|| #\space #\tab #\newline #\return)))
+
 (define-cg-llvm-rule ns-dec-digit ()
   (character-ranges (#\0 #\9)))
 
@@ -179,15 +182,24 @@
   (make-instance 'llvm-void-type))
 
 (defun parse-function-argtypes (lst)
-  (if (eq '*** (cdr (last lst)))
+  (if (eq '*** (car (last lst)))
       (values (butlast lst) t)
       (values lst nil)))
+
+(define-cg-llvm-rule function-argtype ()
+  (|| llvm-type
+      (progn "..." '***)))
+
+(define-cg-llvm-rule function-argtypes ()
+  (cons function-argtype
+	(times (progn (? whitespace) #\, (? whitespace)
+		      function-argtype))))
 
 (define-cg-llvm-rule function-type ()
   (let ((ret-type (|| void-type
 		      llvm-firstclass-type)))
-    (if (or (typep ret-type llvm-label)
-	    (typep ret-type llvm-metadata))
+    (if (or (typep ret-type 'llvm-label)
+	    (typep ret-type 'llvm-metadata))
 	(fail-parse "Got label or metadata type as function return type"))
     (? whitespace) "(" c!-1-function-argtypes ")"
     (multiple-value-bind (param-types vararg-p) (parse-function-argtypes c!-1)
@@ -197,12 +209,12 @@
 		     :vararg-p vararg-p))))
 
 (define-cg-llvm-rule float-type ()
-  (llvm-float (cond-parse (progn "double" 'double)
-			  (progn "half" 'half)
-			  (progn "float" 'float)
-			  (progn "fp128" 'fp128)
-			  (progn "x86_fp80" 'x86-fp80)
-			  (progn "ppc_fp128" 'ppc-fp128))))
+  (llvm-float (cond-parse ("double" 'double)
+			  ("half" 'half)
+			  ("float" 'float)
+			  ("fp128" 'fp128)
+			  ("x86_fp80" 'x86-fp80)
+			  ("ppc_fp128" 'ppc-fp128))))
 
 (define-cg-llvm-rule x86-mmx ()
   "x86_mmx"
@@ -219,7 +231,7 @@
 ;; TODO: smart pointer parsing
 
 (define-cg-llvm-rule simple-int ()
-  (parse-integer (text (postimes (ns-dec-digit)))))
+  (parse-integer (text (postimes ns-dec-digit))))
 
 (define-cg-llvm-rule vector ()
   #\< (? whitespace) c!-nelts-simple-int (? whitespace) #\x (? whitespace) c!-type-llvm-type (? whitespace) #\>
@@ -233,6 +245,12 @@
 (define-cg-llvm-rule array ()
   #\[ (? whitespace) c!-nelts-simple-int (? whitespace) #\x (? whitespace) c!-type-llvm-type (? whitespace) #\]
   (llvm-array c!-nelts c!-type))
+
+
+(define-cg-llvm-rule comma-separated-types ()
+  c!-type-llvm-type (? whitespace) (? (progn #\, (? whitespace) c!-rectypes-comma-separated-types))
+  (cons c!-type c!-rectypes))
+
 
 (define-cg-llvm-rule nonpacked-literal-struct ()
   #\{ (? whitespace) c!-1-comma-separated-types (? whitespace) #\}
@@ -264,7 +282,7 @@
 (define-cg-llvm-rule nonpointer-firstclass-type ()
   (|| integer-type float-type x86-mmx vector label metadata array literal-struct))
 
-(define-cg-llvm-rule stars ()
+(define-cg-llvm-rule pointer-stars ()
   (times elt-pointer))
 
 (define-cg-llvm-rule llvm-type ()
