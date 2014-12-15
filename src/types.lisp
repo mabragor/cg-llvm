@@ -10,6 +10,9 @@
 (defgeneric emit-lisp-repr (obj)
   (:documentation "Emit cons-style representation of the object"))
 
+(defgeneric emit-text-repr (obj)
+  (:documentation "Emit text-style representation of the object"))
+
 (defclass llvm-type ()
   ())
 (defclass llvm-void-type (llvm-type) ())
@@ -26,6 +29,15 @@
     `(function ,(emit-lisp-repr ret-type) ,(mapcar #'emit-lisp-repr param-types)
 	       :vararg-p ,vararg-p)))
 
+(defmethod emit-text-repr ((obj llvm-void-type))
+  "void")
+
+(defmethod emit-text-repr ((obj llvm-function-type))
+  (with-slots (ret-type param-types vararg-p) obj
+    (if (not vararg-p)
+	(format nil "~a (~{~a~^, ~})" (emit-text-repr ret-type) (mapcar #'emit-text-repr param-types))
+	(format nil "~a (~{~a, ~}...)" (emit-text-repr ret-type) (mapcar #'emit-text-repr param-types)))))
+
 (defclass llvm-first-class-type (llvm-type) ())
 
 (defclass llvm-integer (llvm-first-class-type)
@@ -40,6 +52,9 @@
 
 (defmethod emit-lisp-repr ((obj llvm-integer))
   `(integer ,(slot-value obj 'nbits)))
+
+(defmethod emit-text-repr ((obj llvm-integer))
+  #?"i$((slot-value obj 'nbits))")
 
 (defclass llvm-float (llvm-first-class-type)
   ((nbits :initarg :nbits)
@@ -59,10 +74,23 @@
 (defmethod emit-lisp-repr ((obj llvm-float))
   `(float ,(slot-value obj 'nbits) ,(slot-value obj 'mantissa)))
 
+(defmethod emit-text-repr ((obj llvm-float))
+  (with-slots (nbits mantissa) obj
+    (cond ((and (equal 16 nbits) (equal 8 mantissa)) "half")
+	  ((and (equal 32 nbits) (equal 16 mantissa)) "float")
+	  ((and (equal 64 nbits) (equal 32 mantissa)) "double")
+	  ((and (equal 128 nbits) (equal 112 mantissa)) "fp128")
+	  ((and (equal 80 nbits) (equal 40 mantissa)) "x86_fp80")
+	  ((and (equal 128 nbits) (equal 64 mantissa)) "ppc_fp128")
+	  (t (error "Don't know how to represent given float as text: ~a ~a" nbits mantissa)))))
+
 (defclass llvm-x86-mmx (llvm-first-class-type) ())
 
 (defmethod emit-lisp-repr ((obj llvm-x86-mmx))
   'x86-mmx)
+
+(defmethod emit-text-repr ((obj llvm-x86-mmx))
+  "x86_mmx")
 
 (defclass llvm-pointer (llvm-first-class-type)
   ((pointee :initarg :pointee)
@@ -73,6 +101,13 @@
     `(pointer ,(emit-lisp-repr pointee)
 	      ,@(if (not (equal 0 address-space))
 		    `(,address-space)))))
+
+(defmethod emit-text-repr ((obj llvm-pointer))
+  (with-slots (pointee address-space) obj
+    (if (equal 0 address-space)
+	#?"$((emit-text-repr pointee)) *"
+	#?"$((emit-text-repr pointee)) addrspace($(address-space))*")))
+
 
 (defun coerce-to-llvm-type (x)
   (cond ((typep x 'llvm-type) x)
@@ -107,6 +142,10 @@
   (with-slots (num-elts elt-type) obj
     `(vector ,(emit-lisp-repr elt-type) ,num-elts)))
 
+(defmethod emit-text-repr ((obj llvm-vector))
+  (with-slots (num-elts elt-type) obj
+    #?"<$(num-elts) x $((emit-text-repr elt-type))>"))
+
 (defclass llvm-label (llvm-first-class-type) ())
 (defclass llvm-metadata (llvm-first-class-type) ())
 
@@ -114,6 +153,11 @@
   'label)
 (defmethod emit-lisp-repr ((obj llvm-metadata))
   'metadata)
+
+(defmethod emit-text-repr ((obj llvm-label))
+  "label")
+(defmethod emit-text-repr ((obj llvm-metadata))
+  "metadata")
 
 (defclass llvm-aggregate-type (llvm-first-class-type) ())
 
@@ -124,6 +168,10 @@
 (defmethod emit-lisp-repr ((obj llvm-array))
   (with-slots (num-elts elt-type) obj
     `(array ,(emit-lisp-repr elt-type) ,num-elts)))
+
+(defmethod emit-text-repr ((obj llvm-array))
+  (with-slots (num-elts elt-type) obj
+    #?"[$(num-elts) x $((emit-text-repr elt-type))]"))
 
 (defun llvm-sizey-type-p (type)
   t)
@@ -146,10 +194,20 @@
     `(struct ,(mapcar #'emit-lisp-repr elt-types)
 	     :packed-p ,packed-p)))
 
+(defmethod emit-text-repr ((obj llvm-struct))
+  (with-slots (elt-types packed-p) obj
+    (if (not packed-p)
+	(format nil "{~{~a~^, ~}}" (mapcar #'emit-text-repr elt-types))
+	(format nil "<{~{~a~^, ~}}>" (mapcar #'emit-text-repr elt-types)))))
+
+
 (defclass llvm-opaque-struct () ())
 
 (defmethod emit-lisp-repr ((obj llvm-opaque-struct))
   'opaque)
+
+(defmethod emit-text-repr ((obj llvm-opaque-struct))
+  "opaque")
 
 (defun llvm-struct (&rest types)
   (destructuring-bind (packed-p opaque-p . types) (parse-out-keywords '(:packed-p :opaque-p) types)
