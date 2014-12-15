@@ -88,6 +88,21 @@
     (frob (cg-llvm::struct ((integer 32) (cg-llvm::pointer (float 32 16))) :packed-p nil))
     (frob (cg-llvm::struct ((integer 8) (integer 32)) :packed-p t))
     (frob cg-llvm::opaque)))
-  
+
+
+(test emitting-of-text
+  (macrolet ((frob (x &optional y)
+	       `(is (equal ,x (emit-text-repr (cg-llvm-parse 'llvm-type ,(or y x)))))))
+    (frob "i32") (frob "void")
+    (frob "double") (frob "half") (frob "float") (frob "fp128") (frob "x86_fp80") (frob "ppc_fp128")
+    (frob "x86_mmx")
+    (frob "<4 x i32>") (frob "<8 x float>") (frob "<2 x i64>") (frob "<4 x i64*>")
+    (frob "[3 x [4 x i32]]") (frob "[12 x [10 x float]]") (frob "[2 x [3 x [4 x i16]]]")
+    (frob "{i32, i16, i8}" "{ i32, i16, i8 }") (frob "{i32, float*}" "{ i32, float * }")
+    (frob "<{i8, i32}>" "<{ i8, i32 }>")
+    (frob "i32 addrspace(5)*" #?"i32\naddrspace(5)*") (frob "i32 (i32)") (frob "i1 (i2, i3, i4)")
+    (frob "i32 (i8*, ...)") (frob "{i32, i32} (i32)")
+    ))
+
 
       

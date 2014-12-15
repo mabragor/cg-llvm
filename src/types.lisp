@@ -105,7 +105,7 @@
 (defmethod emit-text-repr ((obj llvm-pointer))
   (with-slots (pointee address-space) obj
     (if (equal 0 address-space)
-	#?"$((emit-text-repr pointee)) *"
+	#?"$((emit-text-repr pointee))*"
 	#?"$((emit-text-repr pointee)) addrspace($(address-space))*")))
 
 
