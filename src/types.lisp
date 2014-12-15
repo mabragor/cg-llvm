@@ -305,9 +305,23 @@
 (defun parse-lisp-repr (expr)
   (match expr
     ('void (make-instance 'llvm-void-type))
-    ;; ((cons 'function body) (parse-function-repr body))
+    ((list 'function ret-type arg-types :vararg-p vararg-p)
+     (make-instance 'llvm-function-type
+		    :ret-type (parse-lisp-repr ret-type)
+		    :param-types (mapcar #'parse-lisp-repr arg-types)
+		    :vararg-p vararg-p))
     ((list 'integer arity) (llvm-integer arity))
     ((list 'float nbits mantissa) (make-instance 'llvm-float :nbits nbits :mantissa mantissa))
+    ('x86-mmx (make-instance 'llvm-x86-mmx))
+    ((list 'pointer pointee) (llvm-pointer (parse-lisp-repr pointee)))
+    ((list 'pointer pointee addrspace) (llvm-pointer (parse-lisp-repr pointee) addrspace))
+    ((list 'vector elt-type num-elts) (llvm-vector (parse-lisp-repr elt-type) num-elts))
+    ('label (make-instance 'llvm-label))
+    ('metadata (make-instance 'llvm-metadata))
+    ((list 'array elt-type num-elts) (llvm-array num-elts (parse-lisp-repr elt-type)))
+    ((list 'struct elt-types :packed-p packed-p) (apply #'llvm-struct (append (list :packed-p packed-p)
+									      (mapcar #'parse-lisp-repr elt-types))))
+    ('opaque (make-instance 'llvm-opaque-struct))
     (otherwise (error "Do not know how to parse form ~a" expr))))
 
 
