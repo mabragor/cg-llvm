@@ -66,3 +66,28 @@
 	  "i32 (i8*, ...)")
     (frob (function (cg-llvm::struct ((integer 32) (integer 32)) :packed-p nil) ((integer 32)) :vararg-p nil)
 	  "{i32, i32} (i32)")))
+
+
+(test parsing-of-s-exps
+  (macrolet ((frob (x)
+	       `(is (equal ',x (emit-lisp-repr (parse-lisp-repr ',x))))))
+    (frob (integer 32))
+    (frob (cg-llvm::pointer (integer 32) 5))
+    (frob (cg-llvm::pointer (function (integer 32) ((cg-llvm::pointer (integer 32))) :vararg-p nil)))
+    (frob (function (integer 32) ((integer 32)) :vararg-p nil))
+    (frob (function (integer 1) ((integer 2) (integer 3) (integer 4)) :vararg-p nil))
+    (frob (function (integer 32) ((cg-llvm::pointer (integer 8))) :vararg-p t))
+    (frob (function (cg-llvm::struct ((integer 32) (integer 32)) :packed-p nil) ((integer 32)) :vararg-p nil))
+    (frob cg-llvm::void)
+    (frob (float 64 32))
+    (frob cg-llvm::x86-mmx)
+    (frob (vector (integer 32) 4))
+    (frob (vector (cg-llvm::pointer (integer 64)) 4))
+    (frob (array (array (array (integer 16) 4) 3) 2))
+    (frob (cg-llvm::struct ((integer 32) (integer 16) (integer 8)) :packed-p nil))
+    (frob (cg-llvm::struct ((integer 32) (cg-llvm::pointer (float 32 16))) :packed-p nil))
+    (frob (cg-llvm::struct ((integer 8) (integer 32)) :packed-p t))
+    (frob cg-llvm::opaque)))
+  
+
+      

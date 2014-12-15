@@ -15,6 +15,6 @@ For that, the following rough list of tasks should be done:
 * (done) emitting s-exp llvm type grammar from lisp-side types
 * emitting text llvm type grammar from lisp-side types
 * compile-time parsing of lisp-style llvm grammar
-* (done, untested) runtime parsing of s-exp llvm type grammar
+* (done, tested) runtime parsing of s-exp llvm type grammar
 * (?) type-implication for llvm operations
 

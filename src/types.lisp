@@ -315,7 +315,7 @@
     ('x86-mmx (make-instance 'llvm-x86-mmx))
     ((list 'pointer pointee) (llvm-pointer (parse-lisp-repr pointee)))
     ((list 'pointer pointee addrspace) (llvm-pointer (parse-lisp-repr pointee) addrspace))
-    ((list 'vector elt-type num-elts) (llvm-vector (parse-lisp-repr elt-type) num-elts))
+    ((list 'vector elt-type num-elts) (llvm-vector num-elts (parse-lisp-repr elt-type)))
     ('label (make-instance 'llvm-label))
     ('metadata (make-instance 'llvm-metadata))
     ((list 'array elt-type num-elts) (llvm-array num-elts (parse-lisp-repr elt-type)))
