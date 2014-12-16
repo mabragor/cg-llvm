@@ -13,16 +13,55 @@
       (list x)
       x))
 
-;;; Terminating instructions
-(defun %llvm-return (type &optional value)
-  (cond ((eq type :void)
-	 (assert (not value))
-	 "ret void")
-	(t (assert value)
-	   #?"ret $(type) $(value)")))
+(defparameter *context* :toplevel)
 
-(defun llvm-return (value)
-  (apply #'%llvm-return (reverse (ensure-cons value))))
+(defmethod emit-text-repr ((obj t))
+  (format nil "~a" obj))
+
+(defclass typed-value ()
+  ((type :initform (error "You should specify the LLVM type of the value")
+	 :initarg :type)
+   (value :initform (error "You should specify the value")
+	  :initarg :value)))
+
+(defclass llvm-no-value (llvm-type)
+  ())
+
+(defmethod emit-text-repr ((typed-value typed-value))
+  (with-slots (type value) typed-value
+    (cond ((typep type 'llvm-no-value)
+	   (error "Attempt to emit the no-value (terminating instructions used as input ?)"))
+	  ((typep type 'llvm-void-type)
+	   "void")
+	  (t #?"$((emit-text-repr type)) $((emit-text-repr value))"))))
+	   
+
+;;; Terminating instructions
+(defun %llvm-return (typed-value)
+  (if (not (eq :function *context*))
+      (error "Return should only be used in function context, but context is ~a" *context*))
+  (format t #?"ret $((emit-text-repr typed-value))")
+  (make-instance 'typed-value :type (make-instance 'llvm-no-value) :value nil))
+
+(defun imply-type (smth)
+  (cond ((typep smth 'typed-value) smth)
+	((floatp smth)
+	 (make-instance 'typed-value
+			:type (cg-llvm-parse 'llvm-type "float")
+			:value smth))
+	((integerp smth)
+	 (make-instance 'typed-value
+			:type (cg-llvm-parse 'llvm-type "i32")
+			:value smth))
+	((eq :void smth)
+	 (make-instance 'typed-value :type (make-instance 'llvm-void-type) :value :void))
+	(t (error "Failed to imply type for this: ~a" smth))))
+
+(defun llvm-return (value &optional type)
+  (%llvm-return (if type
+		    (make-instance 'typed-value :type type :value value)
+		    (imply-type value))))
+
 
 (defun %print-typevalue (typevalue)
   "Typevalue is supposed to be the LIST of the form (VALUE TYPE). VALUE and TYPE are supposed to be atoms."
