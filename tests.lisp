@@ -105,4 +105,14 @@
     ))
 
 
-      
+
+;; terminating instructions
+
+(test terminating-instructions
+  (macrolet ((frob (x y)
+	       `(is (equal ,x (with-output-to-string (*standard-output*)
+				(let ((cg-llvm::*context* :function))
+				  (llvm-return ,y)))))))
+    (frob "ret void" :void)
+    (frob "ret i14 42" '(42 (integer 14)))
+    (frob "ret i14 42" '(42 "i14"))))

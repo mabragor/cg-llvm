@@ -114,16 +114,22 @@
 	    (setf tmp nil)))
     (nreverse res)))
 	
-(defun %print-label (label)
-  #?"label $(label)")
-
 (defun switch (value default-dest &rest branch-specs)
-  (frnl "switch ~a, ~a [~a]"
-	(%print-typevalue value)
-	(%print-label default-dest)
-	(joinl " " (mapcar (lambda (x)
-			     #?"$((%print-typevalue (car x))), $((%print-label (cadr x)))")
-			   (pairs branch-specs)))))
+  (let ((tvalue (imply-type value))
+	(tdefault-dest (imply-type default-dest))
+	(tbranch-specs (mapcar #'imply-type branch-specs)))
+    (assert (eq 'integer (car (emit-lisp-repr (slot-value tvalue 'type)))))
+    (assert (typep 'llvm-label (slot-value tdefault-dest 'type)))
+    (format t "switch ~a, ~a [~a]"
+	    (emit-text-repr tvalue)
+	    (emit-text-repr default-dest)
+	    (joinl " " (mapcar (lambda (x)
+				 (destructuring-bind (condition label) x
+				   (assert (eq 'integer (car (emit-lisp-repr (slot-value condition 'type)))))
+				   (assert (typep 'llvm-label (slot-value label 'type)))
+				   (joinl ", " (mapcar #'emit-text-repr x))))
+			       (pairs tbranch-specs))))
+    (mk-novalue)))
 
 
 (defun indirect-branch (typevalue &rest labels)
