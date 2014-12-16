@@ -36,12 +36,15 @@
 	  (t #?"$((emit-text-repr type)) $((emit-text-repr value))"))))
 	   
 
+(defun mk-novalue ()
+  (make-instance 'typed-value :type (make-instance 'llvm-no-value) :value nil))
+
 ;;; Terminating instructions
 (defun %llvm-return (typed-value)
   (if (not (eq :function *context*))
       (error "Return should only be used in function context, but context is ~a" *context*))
-  (format t #?"ret $((emit-text-repr typed-value))")
-  (make-instance 'typed-value :type (make-instance 'llvm-no-value) :value nil))
+  (emit-cmd "ret" typed-value)
+  (mk-novalue))
 
 (defun imply-type (smth)
   (cond ((typep smth 'typed-value) smth)
@@ -53,8 +56,20 @@
 	 (make-instance 'typed-value
 			:type (cg-llvm-parse 'llvm-type "i32")
 			:value smth))
+	((symbolp smth)
+	 (make-instance 'typed-value
+			:type (cg-llvm-parse 'llvm-type "label")
+			:value smth))
 	((eq :void smth)
 	 (make-instance 'typed-value :type (make-instance 'llvm-void-type) :value :void))
+	((listp smth)
+	 (destructuring-bind (value type) smth
+	   (make-instance 'typed-value
+			  :type (cond ((typep type 'llvm-type) type)
+				      ((stringp type) (cg-llvm-parse 'llvm-type type))
+				      ((consp type) (parse-lisp-repr type))
+				      (t "Can't guessed type from this notation: ~a" type))
+			  :value value)))
 	(t (error "Failed to imply type for this: ~a" smth))))
 
 (defun llvm-return (value &optional type)
@@ -68,10 +83,25 @@
   (assert (equal 2 (length typevalue)))
   #?"$((cadr typevalue) (car typevalue))")
 
+(defun emit-cmd (name &rest args)
+  (format t "~a ~{~a~^, ~}" name (mapcar #'emit-text-repr args)))
+
 (defun unconditional-branch (label)
-  #?"br label $(label)")
+  (let ((it (imply-type label)))
+    (with-slots (type value) it
+      (assert (typep type 'llvm-label))
+      (emit-cmd "br" it)
+      (mk-novalue))))
+
 (defun conditional-branch (test then else)
-  #?"br i1 $(test), label $(then), label $(else)")
+  (let ((ttest (imply-type test))
+	(tthen (imply-type then))
+	(telse (imply-type else)))
+    (assert (equal '(integer 1) (emit-lisp-repr (slot-value ttest 'type))))
+    (assert (typep (slot-value tthen 'type) 'llvm-label))
+    (assert (typep (slot-value telse 'type) 'llvm-label))
+    (emit-cmd "br" ttest tthen telse)
+    (mk-novalue)))
 
 (defun pairs (lst)
   (assert (evenp (length lst)))
