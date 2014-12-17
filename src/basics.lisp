@@ -18,6 +18,9 @@
 (defmethod emit-text-repr ((obj t))
   (format nil "~a" obj))
 
+(defmethod emit-text-repr ((obj symbol))
+  (stringify-symbol obj))
+
 (defclass typed-value ()
   ((type :initform (error "You should specify the LLVM type of the value")
 	 :initarg :type)
@@ -48,6 +51,8 @@
 
 (defun imply-type (smth)
   (cond ((typep smth 'typed-value) smth)
+	((eq :void smth)
+	 (make-instance 'typed-value :type (make-instance 'llvm-void-type) :value :void))
 	((floatp smth)
 	 (make-instance 'typed-value
 			:type (cg-llvm-parse 'llvm-type "float")
@@ -59,9 +64,7 @@
 	((symbolp smth)
 	 (make-instance 'typed-value
 			:type (cg-llvm-parse 'llvm-type "label")
-			:value smth))
-	((eq :void smth)
-	 (make-instance 'typed-value :type (make-instance 'llvm-void-type) :value :void))
+			:value (stringify-symbol smth)))
 	((listp smth)
 	 (destructuring-bind (value type) smth
 	   (make-instance 'typed-value
@@ -119,24 +122,30 @@
 	(tdefault-dest (imply-type default-dest))
 	(tbranch-specs (mapcar #'imply-type branch-specs)))
     (assert (eq 'integer (car (emit-lisp-repr (slot-value tvalue 'type)))))
-    (assert (typep 'llvm-label (slot-value tdefault-dest 'type)))
+    (assert (typep (slot-value tdefault-dest 'type) 'llvm-label))
     (format t "switch ~a, ~a [~a]"
 	    (emit-text-repr tvalue)
-	    (emit-text-repr default-dest)
+	    (emit-text-repr tdefault-dest)
 	    (joinl " " (mapcar (lambda (x)
 				 (destructuring-bind (condition label) x
 				   (assert (eq 'integer (car (emit-lisp-repr (slot-value condition 'type)))))
-				   (assert (typep 'llvm-label (slot-value label 'type)))
+				   (assert (typep (slot-value label 'type) 'llvm-label))
 				   (joinl ", " (mapcar #'emit-text-repr x))))
 			       (pairs tbranch-specs))))
     (mk-novalue)))
 
 
-(defun indirect-branch (typevalue &rest labels)
-  (frnl "indirectbr ~a, [ ~a ]"
-	(progn (assert (equal 2 (length typevalue)))
-	       #?"$((cadr typevalue))* $((car typevalue))")
-	(joinl ", " (mapcar #'%print-label labels))))
+(defun indirect-branch (address &rest destinations)
+  (let ((taddress (imply-type address))
+	(tdestinations (mapcar #'imply-type destinations)))
+    (assert (equal '(pointer (integer 8)) (emit-lisp-repr (slot-value taddress 'type))))
+    (format t "indirectbr ~a, [~a]"
+	    (emit-text-repr taddress)
+	    (joinl ", " (mapcar (lambda (x)
+				  (assert (typep (slot-value x 'type) 'llvm-label))
+				  (emit-text-repr x))
+				tdestinations)))
+    (mk-novalue)))
 
 (defun invoke (fun-type fun-val fun-args normal-label unwind-label
 	       &key call-conv return-attrs fun-attrs)
@@ -151,10 +160,12 @@
 				  "unwind" (%print-label unwind-label)))))
 				  
 (defun resume (typevalue)
-  #?"resume $((%print-typevalue typevalue))")
+  (emit-cmd "resume" (imply-type typevalue))
+  (mk-novalue))
 
 (defun unreachable ()
-  "unreachable")
+  (format t "unreachable")
+  (mk-novalue))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun trim-llvm (str)

@@ -1,7 +1,7 @@
 (in-package :cl-user)
 
 (defpackage :cg-llvm-tests
-  (:use :alexandria :cl :cg-llvm :fiveam :iterate :cl-read-macro-tokens)
+  (:use :cl :cg-llvm :fiveam :iterate :cl-read-macro-tokens)
   (:export #:run-tests))
 
 (in-package :cg-llvm-tests)
@@ -115,4 +115,67 @@
 				  (llvm-return ,y)))))))
     (frob "ret void" :void)
     (frob "ret i14 42" '(42 (integer 14)))
-    (frob "ret i14 42" '(42 "i14"))))
+    (frob "ret i14 42" '(42 "i14")))
+  (macrolet ((frob (x y)
+	       `(is (equal ,x (with-output-to-string (*standard-output*)
+				(let ((cg-llvm::*context* :function))
+				  (unconditional-branch ,y)))))))
+    (frob "br label asdf" 'asdf)
+    (frob "br label %Asdf" '+%asdf)
+    (frob "br label ASDF" '*asdf))
+  (macrolet ((frob (x y z w)
+	       `(is (equal ,x (with-output-to-string (*standard-output*)
+				(let ((cg-llvm::*context* :function))
+				  (conditional-branch ,y ,z ,w)))))))
+    (frob "br i1 %cond, label %IfEqual, label %IfUnequal" '(%cond "i1") '+%if-equal '+%if-unequal))
+  (macrolet ((frob (x &rest args)
+	       `(is (equal ,x (with-output-to-string (*standard-output*)
+				(let ((cg-llvm::*context* :function))
+				  (switch ,@args)))))))
+    (frob "switch i32 %Val, label %truedest [i32 0, label %falsedest]"
+	  '(+%val  "i32") '%truedest 0 '%falsedest)
+    (frob "switch i32 0, label %dest []"
+	  0 '%dest)
+    (frob "switch i32 %val, label %otherwise [i32 0, label %onzero i32 1, label %onone i32 2, label %ontwo]"
+	  '(%val "i32") '%otherwise 0 '%onzero 1 '%onone 2 '%ontwo))
+  (macrolet ((frob (x y &rest args)
+	       `(is (equal ,x (with-output-to-string (*standard-output*)
+				(let ((cg-llvm::*context* :function))
+				  (indirect-branch ,y ,@args)))))))
+    (frob "indirectbr i8* %Addr, [label %bb1, label %bb2, label %bb3]"
+	  '(+%addr "i8*") '%bb1 '%bb2 '%bb3))
+  (macrolet ((frob (x y)
+	       `(is (equal ,x (with-output-to-string (*standard-output*)
+				(let ((cg-llvm::*context* :function))
+				  (resume ,y)))))))
+    (frob "resume {i8*, i32} %exn" '(%exn "{i8*, i32}")))
+  (is (equal "unreachable" (with-output-to-string (*standard-output*) (unreachable))))
+  (macrolet ((frob (x y)
+	       `(is (equal ,x (with-output-to-string (*standard-output*)
+				(let ((cg-llvm::*context* :function))
+				  (resume ,y)))))))
+    (frob "invoke i32 @Test(i32 15) to label %Continue unwind label %TestCleanup"
+	  '(+@test "i32 (i32)") '(15) '+%continue '+%test-cleanup)
+    (frob "invoke i32 @Test(i32 15) to label %Continue unwind label %TestCleanup"
+	  '(+@test "i32") '(15) '+%continue '+%test-cleanup)
+    (frob "invoke coldcc i32 %Testfnptr(i32 15) to label %Continue unwind label %TestCleanup"
+	  '(+%testfnptr "i32 (i32)") '(15) '+%continue '+%test-cleanup
+	  :callconv 'coldcc)
+    (frob "invoke coldcc i32 %Testfnptr(i32 15) to label %Continue unwind label %TestCleanup"
+	  '(+%testfnptr "i32") '(15) '+%continue '+%test-cleanup
+	  :callconv 'coldcc)
+    (frob "invoke coldcc i32 %Testfnptr(i32 15) to label %Continue unwind label %TestCleanup"
+	  '(+%testfnptr "i32(i32)*") '(15) '+%continue '+%test-cleanup
+	  :callconv 'coldcc)))
+    
+    
+  
+
+
+
+    
+
+
+
+
+    
