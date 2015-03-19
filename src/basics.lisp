@@ -147,17 +147,122 @@
 				tdestinations)))
     (mk-novalue)))
 
-(defun invoke (fun-type fun-val fun-args normal-label unwind-label
+(defparameter known-cconvs '("ccc" "fastcc" "coldcc" "webkit_jscc" "anyregcc" "preserve_mostcc"
+			     "preserve_allcc"))
+
+(defun coerce-to-cconv (smth)
+  (cond ((not smth) "")
+	((stringp smth) #?"$(smth) ")
+	((symbolp smth) (let ((txt (stringify-symbol smth)))
+			  (assert (member txt known-cconvs :test #'string=))
+			  #?"$(txt) "))
+	((consp smth) (destructuring-bind (cc number) smth
+			(assert (integerp number))
+			(assert (symbolp cc))
+			(let ((txt (stringify-symbol cc)))
+			  (if (string= "cc" txt)
+			      #?"$(txt) $(number)"
+			      (error "Don't know the numbered cconv ~a" smth)))))
+	(t (error "Don't know how to coerce this to calling convention: ~a" smth))))
+
+(defparameter known-parameter-attrs '("zeroext" "signext" "inreg" "byval"
+				      "inalloca" "sret" "noalias" "nocapture"
+				      "nest" "returned" "nonull"))
+
+	
+(defun %coerce-param-attr (smth)
+  (cond ((not smth) "")
+	((stringp smth) #?"$(smth)")
+	((symbolp smth) (let ((txt (stringify-symbol smth)))
+			  (assert (member txt known-parameter-attrs :test #'string=))
+			  txt))
+	((consp smth) (destructuring-bind (param number) smth
+			(assert (integerp number))
+			(assert (symbolp param))
+			(let ((txt (stringify-symbol param)))
+			  ;; Hardcoded KLUDGE, but they really have different syntax, what can I do...
+			  (cond ((string= "align" txt) #?"$(txt) $(number)")
+				((string= "dereferenceable" txt) #?"$(txt)($(number))")
+				(t (error "Don't know cons parameter attribute: ~a" txt))))))
+	(t (error "Don't know how to coerce this to parameter attribute: ~a" smth))))
+
+(defun coerce-param-attrs (attrs &rest allowed-attrs)
+  (let ((coerced-attrs (mapcar #'%coerce-param-attr attrs))
+	(allowed-attrs (mapcar #'stringify-symbol allowed-attrs)))
+    (iter (for attr in coerced-attrs)
+	  (if (not (find attr allowed-attrs :test #'string=))
+	      (error "Param attribute ~a is not among allowed ones, which are (~{~a~^ ~})"
+		     attr allowed-attrs)))
+    (if (not coerced-attrs)
+	""
+	#?"$((joinl " " coerced-attrs)) ")))
+	  
+(defparameter known-fun-attrs '("alwaysinline" "builtin" "cold" "inlinehint"
+				"jumptable" "minsize" "naked" "nobuiltin"
+				"noduplicate" "noimplicitfloat" "noinline"
+				"nonlazybind" "noredzone" "noreturn"
+				"nounwind" "optnone" "optsize" "readnone"
+				"readonly" "returns_twice" "sanitize_address"
+				"sanitize_memory" "sanitize_thread" "ssp" "sspreq"
+				"sspstrong" "thunk" "uwtable"))
+
+
+;; OK, I know it's a duplication, but so many details needs to be transfered to
+;; a metafunction to correctly tell all the differences, that the pros of meta-ing kind of fade
+
+(defun %coerce-fun-attr (smth)
+  (cond ((not smth) "")
+	((stringp smth) #?"$(smth)")
+	((symbolp smth) (let ((txt (stringify-symbol smth)))
+			  (assert (member txt known-fun-attrs :test #'string=))
+			  txt))
+	((consp smth) (destructuring-bind (param number) smth
+			(assert (integerp number))
+			(assert (symbolp param))
+			(let ((txt (stringify-symbol param)))
+			  ;; Hardcoded KLUDGE, but they really have different syntax, what can I do...
+			  (cond ((string= "alignstack" txt) #?"$(txt)($(number))")
+				(t (error "Don't know cons function attribute: ~a" txt))))))
+	(t (error "Don't know how to coerce this to function attribute: ~a" smth))))
+
+(defun coerce-fun-attrs (attrs &rest allowed-attrs)
+  (let ((coerced-attrs (mapcar #'%coerce-fun-attr attrs))
+	(allowed-attrs (mapcar #'stringify-symbol allowed-attrs)))
+    (iter (for attr in coerced-attrs)
+	  (if (not (find attr allowed-attrs :test #'string=))
+	      (error "Function attribute ~a is not among allowed ones, which are (~{~a~^ ~})"
+		     attr allowed-attrs)))
+    (if (not coerced-attrs)
+	""
+	#?"$((joinl " " coerced-attrs)) ")))
+
+;; TODO: I'll write for now like that but clearly I meant something more smart here...
+;; Probably, possibility to not duplicate types of arguments, if they can be implied
+;; from type of function or vice versa.
+(defmacro nimply-fun-and-args-types (fun-var args-var)
+  `(progn (setf ,fun-var (imply-type ,fun-var))
+	  (setf ,args-var (mapcar #'imply-type ,args-var))))
+
+(defun invoke (fun args normal-label unwind-label
 	       &key call-conv return-attrs fun-attrs)
-  (joinl " " (remove-if-not #'identity
-			    (list "invoke"
-				  call-conv
-				  return-attrs
-				  fun-type
-				  (frnl "~a(~a)" fun-val (joinl ", " fun-args))
-				  fun-attrs
-				  "to" (%print-label normal-label)
-				  "unwind" (%print-label unwind-label)))))
+  (let ((tfun (imply-type fun))
+	(targs (mapcar #'imply-type args))
+	(tnormal-label (imply-type normal-label))
+	(tunwind-label (imply-type unwind-label))
+	(tcall-conv (coerce-to-cconv call-conv))
+	(treturn-attrs (coerce-param-attrs return-attrs :zeroext :signext :inreg))
+	(tfun-attrs (coerce-fun-attrs fun-attrs :noreturn :nounwind :readonly :readnone)))
+    (nimply-fun-and-args-types tfun targs)
+    (format t "invoke ~a~a~a(~a) ~ato ~a unwind ~a"
+	    tcall-conv
+	    treturn-attrs
+	    (emit-text-repr tfun)
+	    (joinl ", " (mapcar #'emit-text-repr targs))
+	    tfun-attrs
+	    (emit-text-repr tnormal-label)
+	    (emit-text-repr tunwind-label))
+    ;; OK, this is clearly NOT right, but what to do here?
+    (mk-novalue)))
 				  
 (defun resume (typevalue)
   (emit-cmd "resume" (imply-type typevalue))

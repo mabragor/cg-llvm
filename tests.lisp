@@ -150,10 +150,10 @@
 				  (resume ,y)))))))
     (frob "resume {i8*, i32} %exn" '(%exn "{i8*, i32}")))
   (is (equal "unreachable" (with-output-to-string (*standard-output*) (unreachable))))
-  (macrolet ((frob (x y)
+  (macrolet ((frob (x &rest args)
 	       `(is (equal ,x (with-output-to-string (*standard-output*)
 				(let ((cg-llvm::*context* :function))
-				  (resume ,y)))))))
+				  (invoke ,@args)))))))
     (frob "invoke i32 @Test(i32 15) to label %Continue unwind label %TestCleanup"
 	  '(+@test "i32 (i32)") '(15) '+%continue '+%test-cleanup)
     (frob "invoke i32 @Test(i32 15) to label %Continue unwind label %TestCleanup"
