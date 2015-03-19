@@ -104,9 +104,9 @@
   (let ((ttest (imply-type test))
 	(tthen (imply-type then))
 	(telse (imply-type else)))
-    (assert (equal '(integer 1) (emit-lisp-repr (slot-value ttest 'type))))
-    (assert (typep (slot-value tthen 'type) 'llvm-label))
-    (assert (typep (slot-value telse 'type) 'llvm-label))
+    (assert (llvm-typep '(integer 1) ttest))
+    (assert (llvm-typep 'label tthen))
+    (assert (llvm-typep 'label telse))
     (emit-cmd "br" ttest tthen telse)
     (mk-novalue)))
 
@@ -125,15 +125,15 @@
   (let ((tvalue (imply-type value))
 	(tdefault-dest (imply-type default-dest))
 	(tbranch-specs (mapcar #'imply-type branch-specs)))
-    (assert (eq 'integer (car (emit-lisp-repr (slot-value tvalue 'type)))))
-    (assert (typep (slot-value tdefault-dest 'type) 'llvm-label))
+    (assert (llvm-typep '(integer *) tvalue))
+    (assert (llvm-typep 'label tdefault-dest))
     (format t "switch ~a, ~a [~a]"
 	    (emit-text-repr tvalue)
 	    (emit-text-repr tdefault-dest)
 	    (joinl " " (mapcar (lambda (x)
 				 (destructuring-bind (condition label) x
-				   (assert (eq 'integer (car (emit-lisp-repr (slot-value condition 'type)))))
-				   (assert (typep (slot-value label 'type) 'llvm-label))
+				   (assert (llvm-typep '(integer *) condition))
+				   (assert (llvm-typep 'label label))
 				   (joinl ", " (mapcar #'emit-text-repr x))))
 			       (pairs tbranch-specs))))
     (mk-novalue)))
@@ -142,11 +142,11 @@
 (defun indirect-branch (address &rest destinations)
   (let ((taddress (imply-type address))
 	(tdestinations (mapcar #'imply-type destinations)))
-    (assert (equal '(pointer (integer 8)) (emit-lisp-repr (slot-value taddress 'type))))
+    (assert (llvm-typep '(pointer (integer 8)) taddress))
     (format t "indirectbr ~a, [~a]"
 	    (emit-text-repr taddress)
 	    (joinl ", " (mapcar (lambda (x)
-				  (assert (typep (slot-value x 'type) 'llvm-label))
+				  (assert (llvm-typep 'label x))
 				  (emit-text-repr x))
 				tdestinations)))
     (mk-novalue)))
@@ -300,13 +300,13 @@
   (defun make-tmp-var (sym type)
     (let* ((str (string sym))
 	   (num (incf (gethash str counts-hash 0))))
-      (mk-typed-value type (intern #?"TMP$(str)$(num)")))))
+      (mk-typed-value type (intern #?"%TMP$(str)$(num)")))))
 
 (defmacro define-no-wrap-binop (name &body type-checks)
   `(defun ,name (op1 op2 &key no-signed-wrap no-unsigned-wrap)
      (let ((top1 (imply-type op1))
 	   (top2 (imply-type op2)))
-       (assert (equal (slot-value top1 'type) (slot-value top2 'type)))
+       (assert (llvm-same-typep top1 top2))
        ,@type-checks
        (let ((res-var (make-tmp-var ',name (slot-value top1 'type))))
 	 (format t "~a = ~a~%"
@@ -318,8 +318,8 @@
 					       (if no-signed-wrap "nsw")
 					       (join ", "
 						     (emit-text-repr top1)
-						     (emit-text-repr (slot-value top2 'value)))))))))
-     res-var))
+						     (emit-text-repr (slot-value top2 'value)))))))
+	 res-var))))
 
 ;; OK, I probably want to reuse the results returned by these binary operations
 ;; in C++ library functions just simply return this result, outputting the result of
@@ -331,7 +331,7 @@
   `(defun ,name (type op1 op2 &rest flags)
      (let ((top1 (imply-type op1))
 	   (top2 (imply-type op2)))
-       (assert (equal (slot-value top1 'type) (slot-value top2 'type)))
+       (assert (llvm-same-typep top1 top2))
        ,@type-checks
        (let ((res-var (make-tmp-var ',name (slot-value top1 'type))))
 	 (format t "~a = ~a~%"
@@ -350,7 +350,7 @@
   `(defun ,name (type op1 op2 &rest flags)
      (let ((top1 (imply-type op1))
 	   (top2 (imply-type op2)))
-       (assert (equal (slot-value top1 'type) (slot-value top2 'type)))
+       (assert (llvm-same-typep top1 top2))
        ,@type-checks
        (let ((res-var (make-tmp-var ',name (slot-value top1 'type))))
 	 (format t "~a = ~a~%"
@@ -369,7 +369,7 @@
   `(defun ,name (type op1 op2)
      (let ((top1 (imply-type op1))
 	   (top2 (imply-type op2)))
-       (assert (equal (slot-value top1 'type) (slot-value top2 'type)))
+       (assert (llvm-same-typep top1 top2))
        ,@type-checks
        (let ((res-var (make-tmp-var ',name (slot-value top1 'type))))
 	 (format t "~a = ~a~%"

@@ -388,3 +388,22 @@
     ('foo 1)
     (otherwise 'otherwise)))
 
+(defun wildcard-equal (x y)
+  (if (atom x)
+      (or (equal x '*)
+	  (equal x y))
+      (and (wildcard-equal (car x) (car y))
+	   (wildcard-equal (cdr x) (cdr y)))))
+
+(defun lispy-llvm-type (smth)
+  (cond ((typep smth 'typed-value) (emit-lisp-repr (slot-value smth 'type)))
+	((typep smth 'llvm-type) (emit-lisp-repr smth))
+	(t (error "Don't know how to calculate LLVM-TYPE of this: ~a" smth))))
+
+
+(defun llvm-typep (type smth)
+  (wildcard-equal type (lispy-llvm-type smth)))
+
+(defun llvm-same-typep (smth1 smth2)
+  (wildcard-equal (lispy-llvm-type smth1)
+		  (lispy-llvm-type smth2)))
