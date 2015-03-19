@@ -4,5 +4,9 @@
   (:use #:cl #:cg-common-ground #:iterate #:lol-re #:esrap-liquid #:optima)
   (:export #:cg-llvm-parse #:emit-lisp-repr #:parse-lisp-repr #:emit-text-repr
 	   #:*context* #:llvm-return #:unconditional-branch #:conditional-branch #:switch
-	   #:indirect-branch #:invoke #:resume #:unreachable))
+	   #:indirect-branch #:invoke #:resume #:unreachable
+	   #:add #:sub #:mul #:shl
+	   #:fadd #:fsub #:smul #:fdiv #:frem
+	   #:udiv #:sdiv #:lshr #:ashr
+	   #:urem #:srem #:llvm-and #:llvm-or #:llvm-xor))
 

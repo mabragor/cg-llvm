@@ -169,13 +169,15 @@
 	  :call-conv 'coldcc)))
     
     
-  
-
-
-
-    
-
-
-
-
-    
+(test binary-operators
+  (macrolet ((frob (x y)
+	       `(is (equal ,x (with-output-to-string (*standard-output*)
+				(let ((cg-llvm::*context* :function))
+				  (cg-llvm::reset-tmp-var-counts)
+				  ,y))))))
+    (frob (cg-llvm::join "~%"
+			 "%tmpadd1 = add i32 1, 2"
+			 "%tmpadd2 = add i32 3, 4"
+			 "%tmpadd3 = add i32 %tmpadd1, %tmpadd2"
+			 "ret i32 %tmpadd3")
+	  (llvm-return (add (add 1 2) (add 3 4))))))

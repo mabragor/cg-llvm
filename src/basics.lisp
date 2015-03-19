@@ -300,7 +300,9 @@
   (defun make-tmp-var (sym type)
     (let* ((str (string sym))
 	   (num (incf (gethash str counts-hash 0))))
-      (mk-typed-value type (intern #?"%TMP$(str)$(num)")))))
+      (mk-typed-value type (intern #?"%TMP$(str)$(num)"))))
+  (defun reset-tmp-var-counts ()
+    (clrhash counts-hash)))
 
 (defmacro define-no-wrap-binop (name &body type-checks)
   `(defun ,name (op1 op2 &key no-signed-wrap no-unsigned-wrap)
