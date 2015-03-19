@@ -423,3 +423,56 @@
 ;; I want some type-propagation to be automatic.
 
 
+;;; Operations on vectors
+
+(defmacro! emit-resulty (tmp-var-spec &body things)
+  `(let ((,g!-tmp ,tmp-var-spec))
+     (format t "~a = ~a~%"
+	     (emit-text-repr (slot-value ,g!-tmp 'value))
+	     (joinl " "
+		    (remove-if-not #'identity
+				   (list ,@things))))
+     ,g!-tmp))
+
+(defun extractelement (vector index)
+  (let ((tvector (imply-type vector))
+	(tindex (imply-type index)))
+    (assert (llvm-typep '(vector * *) tvector))
+    (assert (llvm-typep '(integer *) tindex))
+    (emit-resulty (make-tmp-var 'exelt (slot-value (slot-value tvector 'type) 'elt-type))
+      "extractelement"
+      (join ", "
+	    (emit-text-repr tvector)
+	    (emit-text-repr tindex)))))
+
+
+(defun insertelement (vector elt index)
+  (let ((tvector (imply-type vector))
+	(telt (imply-type elt))
+	(tindex (imply-type index)))
+    (assert (llvm-typep '(vector * *) tvector))
+    (assert (llvm-typep '(integer *) tindex))
+    (assert (llvm-same-typep telt (slot-value (slot-value tvector 'type) 'elt-type)))
+    (emit-resulty (make-tmp-var 'inselt (slot-value tvector 'type))
+      "insertelement"
+      (join ", "
+	    (emit-text-repr tvector)
+	    (emit-text-repr telt)
+	    (emit-text-repr tindex)))))
+
+(defun shufflevector (vec1 vec2 mask)
+  (let ((tvec1 (imply-type vec1))
+	(tvec2 (imply-type vec2))
+	(tmask (imply-type mask)))
+    (assert (llvm-typep '(vector * *) tvec1))
+    (assert (llvm-typep '(vector * *) tvec2))
+    (assert (llvm-typep '(vector (integer 32) *) tmask))
+    (assert (llvm-same-typep (slot-value (slot-value tvec1 'type) 'elt-type)
+			     (slot-value (slot-value tvec2 'type) 'elt-type)))
+    (emit-resulty (make-tmp-var 'shufvec (slot-value tvec1 'type))
+      "shufflevector"
+      (join ", "
+	    (emit-text-repr tvec1)
+	    (emit-text-repr tvec2)
+	    (emit-text-repr tmask)))))
+
