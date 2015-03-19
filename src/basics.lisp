@@ -27,6 +27,10 @@
    (value :initform (error "You should specify the value")
 	  :initarg :value)))
 
+(defun mk-typed-value (type value)
+  (make-instance 'typed-value :type type :value value))
+  
+
 (defclass llvm-no-value (llvm-type)
   ())
 
@@ -236,6 +240,20 @@
 	""
 	#?"$((joinl " " coerced-attrs)) ")))
 
+(defparameter known-fast-math-flags '("nnan" "ninf" "nsz" "arcp" "fast"))
+
+
+(defun coerce-fast-math-flag (smth)
+  (cond ((not smth) "")
+	((stringp smth) #?"$(smth)")
+	((symbolp smth) (let ((txt (stringify-symbol smth)))
+			  (assert (member txt known-fast-math-flags :test #'string=))
+			  txt))
+	(t (error "Don't know how to coerce this to function attribute: ~a" smth))))
+  
+
+
+
 ;; TODO: I'll write for now like that but clearly I meant something more smart here...
 ;; Probably, possibility to not duplicate types of arguments, if they can be implied
 ;; from type of function or vice versa.
@@ -278,14 +296,30 @@
 	$1
 	str)))
 
-(defmacro define-no-wrap-binop (name)
-  `(defun ,name (type op1 op2 &key no-signed-wrap no-unsigned-wrap)
-     (joinl " " (remove-if-not #'identity
-			       (list ,(trim-llvm (underscorize name))
-				     (if no-signed-wrap "nsw")
-				     (if no-unsigned-wrap "nuw")
-				     type op1 op2)))))
+(let ((counts-hash (make-hash-table :test #'equal)))
+  (defun make-tmp-var (sym type)
+    (let* ((str (string sym))
+	   (num (incf (gethash str counts-hash 0))))
+      (mk-typed-value type (intern #?"TMP$(str)$(num)")))))
 
+(defmacro define-no-wrap-binop (name &body type-checks)
+  `(defun ,name (op1 op2 &key no-signed-wrap no-unsigned-wrap)
+     (let ((top1 (imply-type op1))
+	   (top2 (imply-type op2)))
+       (assert (equal (slot-value top1 'type) (slot-value top2 'type)))
+       ,@type-checks
+       (let ((res-var (make-tmp-var ',name (slot-value top1 'type))))
+	 (format t "~a = ~a~%"
+		 (emit-text-repr (slot-value res-var 'value))
+		 (joinl " "
+			(remove-if-not #'identity
+					 (list ,(trim-llvm (underscorize name))
+					       (if no-unsigned-wrap "nuw")
+					       (if no-signed-wrap "nsw")
+					       (join ", "
+						     (emit-text-repr top1)
+						     (emit-text-repr (slot-value top2 'value)))))))))
+     res-var))
 
 ;; OK, I probably want to reuse the results returned by these binary operations
 ;; in C++ library functions just simply return this result, outputting the result of
@@ -293,24 +327,63 @@
 
 ;; So, what is the really smart and concise way to do this?
 
-(defmacro define-float-binop (name)
+(defmacro define-float-binop (name &body type-checks)
   `(defun ,name (type op1 op2 &rest flags)
-     (joinl " " (remove-if-not #'identity
-			       `(,(trim-llvm (underscorize name)) ,@flags ,type ,op1 ,op2)))))
+     (let ((top1 (imply-type op1))
+	   (top2 (imply-type op2)))
+       (assert (equal (slot-value top1 'type) (slot-value top2 'type)))
+       ,@type-checks
+       (let ((res-var (make-tmp-var ',name (slot-value top1 'type))))
+	 (format t "~a = ~a~%"
+		 (emit-text-repr (slot-value res-var 'value))
+		 (joinl " "
+			(remove-if-not #'identity
+				       `(list ,',(trim-llvm (underscorize name))
+					      ,@(mapcar #'coerce-to-fast-math-flag flags)
+					      (join ", "
+						    (emit-text-repr top1)
+						    (emit-text-repr (slot-value top2 'value)))))))
+	 res-var))))
 
-(defmacro define-exactable-binop (name)
-  `(defun ,name (type op1 op2 &key exact)
-     (joinl " " (remove-if-not #'identity
-			       `(,(trim-llvm (underscorize name))
-				  ,(if exact "exact")
-				  ,type ,op1 ,op2)))))
 
-(defmacro define-simple-binop (name)
+(defmacro define-exactable-binop (name &body type-checks)
+  `(defun ,name (type op1 op2 &rest flags)
+     (let ((top1 (imply-type op1))
+	   (top2 (imply-type op2)))
+       (assert (equal (slot-value top1 'type) (slot-value top2 'type)))
+       ,@type-checks
+       (let ((res-var (make-tmp-var ',name (slot-value top1 'type))))
+	 (format t "~a = ~a~%"
+		 (emit-text-repr (slot-value res-var 'value))
+		 (joinl " "
+			(remove-if-not #'identity
+				       `(list ,',(trim-llvm (underscorize name))
+					      ,(if exact "exact")
+					      (join ", "
+						    (emit-text-repr top1)
+						    (emit-text-repr (slot-value top2 'value)))))))
+	 res-var))))
+
+
+(defmacro define-simple-binop (name &body type-checks)
   `(defun ,name (type op1 op2)
-     (joinl " " (remove-if-not #'identity
-			       `(,(trim-llvm (underscorize name)) ,type ,op1 ,op2)))))
+     (let ((top1 (imply-type op1))
+	   (top2 (imply-type op2)))
+       (assert (equal (slot-value top1 'type) (slot-value top2 'type)))
+       ,@type-checks
+       (let ((res-var (make-tmp-var ',name (slot-value top1 'type))))
+	 (format t "~a = ~a~%"
+		 (emit-text-repr (slot-value res-var 'value))
+		 (joinl " "
+			(remove-if-not #'identity
+				       `(list ,',(trim-llvm (underscorize name))
+					      (join ", "
+						    (emit-text-repr top1)
+						    (emit-text-repr (slot-value top2 'value)))))))
+	 res-var))))
 
 
+;; TODO : assert INTEGER or VECTOR of INTEGERS type here
 (define-no-wrap-binop add)
 (define-no-wrap-binop sub)
 (define-no-wrap-binop mul)
@@ -324,7 +397,7 @@
 
 (define-exactable-binop udiv)
 (define-exactable-binop sdiv)
-(define-exactable-binop shr)
+(define-exactable-binop lshr)
 (define-exactable-binop ashr)
 
 (define-simple-binop urem)

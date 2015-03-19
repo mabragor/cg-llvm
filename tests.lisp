@@ -160,13 +160,13 @@
 	  '(+@test "i32") '(15) '+%continue '+%test-cleanup)
     (frob "invoke coldcc i32 %Testfnptr(i32 15) to label %Continue unwind label %TestCleanup"
 	  '(+%testfnptr "i32 (i32)") '(15) '+%continue '+%test-cleanup
-	  :callconv 'coldcc)
+	  :call-conv 'coldcc)
     (frob "invoke coldcc i32 %Testfnptr(i32 15) to label %Continue unwind label %TestCleanup"
 	  '(+%testfnptr "i32") '(15) '+%continue '+%test-cleanup
-	  :callconv 'coldcc)
+	  :call-conv 'coldcc)
     (frob "invoke coldcc i32 %Testfnptr(i32 15) to label %Continue unwind label %TestCleanup"
 	  '(+%testfnptr "i32(i32)*") '(15) '+%continue '+%test-cleanup
-	  :callconv 'coldcc)))
+	  :call-conv 'coldcc)))
     
     
   
