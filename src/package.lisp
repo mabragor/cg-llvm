@@ -9,5 +9,6 @@
 	   #:fadd #:fsub #:smul #:fdiv #:frem
 	   #:udiv #:sdiv #:lshr #:ashr
 	   #:urem #:srem #:llvm-and #:llvm-or #:llvm-xor
-	   #:extractelement #:insertelement #:shufflevector))
+	   #:extractelement #:insertelement #:shufflevector
+	   #:mk-typed-value))
 

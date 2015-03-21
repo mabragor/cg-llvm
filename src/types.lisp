@@ -109,7 +109,12 @@
 	#?"$((emit-text-repr pointee)) addrspace($(address-space))*")))
 
 
-(defun coerce-to-llvm-type (x)
+(defun coerce-to-llvm-type (smth)
+  (cond ((typep smth 'llvm-type) smth)
+	((stringp smth) (cg-llvm-parse 'llvm-type smth))
+	((or (consp smth) (symbolp smth)) (parse-lisp-repr smth))
+	(t (error "Don't know how to coerce this to LLVM type: ~a" smth))))
+
   (cond ((typep x 'llvm-type) x)
 	(t (error "Don't know how to coerce ~a to LLVM type" x))))
 

@@ -28,7 +28,11 @@
 	  :initarg :value)))
 
 (defun mk-typed-value (type value)
-  (make-instance 'typed-value :type type :value value))
+  (make-instance 'typed-value
+		 :type (cond ((typep type 'llvm-type) type)
+			     ((consp type) (parse-lisp-repr type))
+			     (t (error "Don't know how to coerce this to LLVM type: ~a" type)))
+		 :value value))
   
 
 (defclass llvm-no-value (llvm-type)
@@ -340,16 +344,16 @@
 		 (emit-text-repr (slot-value res-var 'value))
 		 (joinl " "
 			(remove-if-not #'identity
-				       `(list ,',(trim-llvm (underscorize name))
-					      ,@(mapcar #'coerce-to-fast-math-flag flags)
-					      (join ", "
-						    (emit-text-repr top1)
-						    (emit-text-repr (slot-value top2 'value)))))))
+				       `(,(trim-llvm (underscorize name))
+					  ,@(mapcar #'coerce-to-fast-math-flag flags)
+					  ,(join ", "
+						 (emit-text-repr top1)
+						 (emit-text-repr (slot-value top2 'value)))))))
 	 res-var))))
 
 
 (defmacro define-exactable-binop (name &body type-checks)
-  `(defun ,name (type op1 op2 &rest flags)
+  `(defun ,name (type op1 op2 &key exact)
      (let ((top1 (imply-type op1))
 	   (top2 (imply-type op2)))
        (assert (llvm-same-typep top1 top2))
@@ -359,11 +363,11 @@
 		 (emit-text-repr (slot-value res-var 'value))
 		 (joinl " "
 			(remove-if-not #'identity
-				       `(list ,',(trim-llvm (underscorize name))
-					      ,(if exact "exact")
-					      (join ", "
-						    (emit-text-repr top1)
-						    (emit-text-repr (slot-value top2 'value)))))))
+				       (list (trim-llvm (underscorize name))
+					     (if exact "exact")
+					     (join ", "
+						   (emit-text-repr top1)
+						   (emit-text-repr (slot-value top2 'value)))))))
 	 res-var))))
 
 
@@ -476,3 +480,8 @@
 	    (emit-text-repr tvec2)
 	    (emit-text-repr tmask)))))
 
+;; This shows that assertion checks are made only in runtime
+;; I dunno, whether I can persuade compiler somehow to do them in compile-time,
+;; and even if it's a good thing, since everything is still compile time for LLVM code
+(defun foo ()
+  (extractelement 1 2))

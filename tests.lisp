@@ -181,3 +181,23 @@
 			 "%tmpadd3 = add i32 %tmpadd1, %tmpadd2"
 			 "ret i32 %tmpadd3")
 	  (llvm-return (add (add 1 2) (add 3 4))))))
+
+(test vector-operations
+  (macrolet ((frob (x y)
+	       `(is (equal ,x (with-output-to-string (*standard-output*)
+				(cg-llvm::reset-tmp-var-counts)
+				,y)))))
+    (frob #?"%tmpexelt1 = extractelement <8 x i8> %tmpvec, i32 3\n"
+	  (extractelement (mk-typed-value '(vector (integer 8) 8) '%tmpvec) 3))
+    (frob #?"%tmpinselt1 = insertelement <8 x i8> %tmpvec, i8 %tmpint, i32 0\n"
+	  (insertelement (mk-typed-value '(vector (integer 8) 8) '%tmpvec)
+			 (mk-typed-value '(integer 8) '%tmpint)
+			 0))
+    (frob #?"%tmpshufvec1 = shufflevector <4 x i32> %v1, <4 x i32> %v2, <4 x i32> <i32 0, i32 4, i32 1, i32 5>\n"
+	  (shufflevector (mk-typed-value '(vector (integer 32) 4) '%v1)
+			 (mk-typed-value '(vector (integer 32) 4) '%v2)
+			 ;; TODO : I don't know yet how to write vectors is lisp-notation
+			 ;; so I just write text rep here
+			 (mk-typed-value '(vector (integer 32) 4) "<i32 0, i32 4, i32 1, i32 5>")))))
+
+	  
