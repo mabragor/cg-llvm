@@ -225,4 +225,27 @@
   
 	  
 
+(test aggregate-operations
+  (macrolet ((frob (x y)
+	       `(is (equal ,x (with-output-to-string (*standard-output*)
+				(cg-llvm::reset-tmp-var-counts)
+				(let ((cg-llvm::*context* :function))
+				  ,y))))))
+    (frob (join "~%"
+		#?"%tmpexval1 = extractvalue {i32, float} %agg, 0"
+		"ret i32 %tmpexval1")
+	  (llvm-return (extractvalue (mk-typed-value "{i32, float}" '%agg) 0)))
+    (frob (join "~%"
+		#?"%tmpexval1 = extractvalue {i32, float} %agg, 1"
+		"ret float %tmpexval1")
+	  (llvm-return (extractvalue (mk-typed-value "{i32, float}" '%agg) 1)))
+    (frob (join "~%"
+		"%tmpinsval1 = insertvalue {i32, float} undef, i32 1, 0"
+		"%tmpinsval2 = insertvalue {i32, float} %tmpinsval1, float %val, 1"
+		#?"%tmpinsval3 = insertvalue {i32, {float}} undef, float %val, 1, 0\n")
+	  (progn (insertvalue (insertvalue (mk-typed-value "{i32, float}" 'undef) 1 0)
+			      (mk-typed-value "float" '%val) 1)
+		 (insertvalue (mk-typed-value "{i32, {float}}" 'undef)
+			      (mk-typed-value "float" '%val)
+			      1 0)))))
 	  

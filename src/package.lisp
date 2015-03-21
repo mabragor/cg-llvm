@@ -10,5 +10,6 @@
 	   #:udiv #:sdiv #:lshr #:ashr
 	   #:urem #:srem #:llvm-and #:llvm-or #:llvm-xor
 	   #:extractelement #:insertelement #:shufflevector
-	   #:mk-typed-value))
+	   #:mk-typed-value
+	   #:extractvalue #:insertvalue))
 

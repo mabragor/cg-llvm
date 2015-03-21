@@ -485,3 +485,43 @@
 ;; and even if it's a good thing, since everything is still compile time for LLVM code
 (defun foo ()
   (extractelement 1 2))
+
+
+
+;;; Aggregate operations
+
+(defun extractvalue (aggregate &rest indices)
+  (let ((taggregate (imply-type aggregate)))
+    (assert (typep (slot-value taggregate 'type) 'llvm-aggregate-type))
+    (assert indices)
+    (let ((type (slot-value taggregate 'type)))
+      (iter (for index in indices)
+	    (assert (integerp index))
+	    (setf type (cond ((typep type 'llvm-struct) (elt (slot-value type 'elt-types) index))
+			     ((typep type 'llvm-array) (slot-value type 'elt-type))
+			     (t (error "Attempt to take element of non-aggregate type: ~a" type)))))
+      (emit-resulty (make-tmp-var 'exval type)
+	"extractvalue"
+	(join ", "
+	      (emit-text-repr taggregate)
+	      (joinl ", " (mapcar #'emit-text-repr indices)))))))
+
+
+(defun insertvalue (aggregate elt &rest indices)
+  (let ((taggregate (imply-type aggregate))
+	(telt (imply-type elt)))
+    (assert (typep (slot-value taggregate 'type) 'llvm-aggregate-type))
+    (assert indices)
+    (let ((type (slot-value taggregate 'type)))
+      (iter (for index in indices)
+	    (assert (integerp index))
+	    (setf type (cond ((typep type 'llvm-struct) (elt (slot-value type 'elt-types) index))
+			     ((typep type 'llvm-array) (slot-value type 'elt-type))
+			     (t (error "Attempt to insert into non-aggregate type: ~a" type)))))
+      (assert (llvm-same-typep type telt))
+      (emit-resulty (make-tmp-var 'insval (slot-value taggregate 'type))
+	"insertvalue"
+	(join ", "
+	      (emit-text-repr taggregate)
+	      (emit-text-repr telt)
+	      (joinl ", " (mapcar #'emit-text-repr indices)))))))
