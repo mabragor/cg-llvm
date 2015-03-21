@@ -2,6 +2,7 @@
 
 (defpackage :cg-llvm-tests
   (:use :cl :cg-llvm :fiveam :iterate :cl-read-macro-tokens)
+  (:shadowing-import-from #:cg-llvm #:join)
   (:export #:run-tests))
 
 (in-package :cg-llvm-tests)
@@ -198,6 +199,30 @@
 			 (mk-typed-value '(vector (integer 32) 4) '%v2)
 			 ;; TODO : I don't know yet how to write vectors is lisp-notation
 			 ;; so I just write text rep here
-			 (mk-typed-value '(vector (integer 32) 4) "<i32 0, i32 4, i32 1, i32 5>")))))
+			 (mk-typed-value '(vector (integer 32) 4) "<i32 0, i32 4, i32 1, i32 5>")))
+    (frob #?"%tmpshufvec1 = shufflevector <4 x i32> %v1, <4 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>\n"
+	  (shufflevector (mk-typed-value '(vector (integer 32) 4) '%v1)
+			 (mk-typed-value '(vector (integer 32) 4) 'undef)
+			 (mk-typed-value '(vector (integer 32) 4) "<i32 0, i32 1, i32 2, i32 3>")))
+    (frob (join "~%"
+		(join " " #?"%tmpshufvec1 = shufflevector <8 x i32> %v1, <8 x i32> undef,"
+		      "<4 x i32> <i32 0, i32 1, i32 2, i32 3>")
+		"ret <4 x i32> %tmpshufvec1")
+	  (let ((cg-llvm::*context* :function))
+	    (llvm-return (shufflevector (mk-typed-value '(vector (integer 32) 8) '%v1)
+					(mk-typed-value '(vector (integer 32) 8) 'undef)
+					(mk-typed-value '(vector (integer 32) 4) "<i32 0, i32 1, i32 2, i32 3>")))))
+    (frob (join "~%"
+		(join " " #?"%tmpshufvec1 = shufflevector <4 x i32> %v1, <4 x i32> %v2,"
+		      "<8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>")
+		"ret <8 x i32> %tmpshufvec1")
+	  (let ((cg-llvm::*context* :function))
+	    (llvm-return
+	     (shufflevector (mk-typed-value '(vector (integer 32) 4) '%v1)
+			    (mk-typed-value '(vector (integer 32) 4) '%v2)
+			    (mk-typed-value '(vector (integer 32) 8)
+					    "<i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>")))))))
+  
+	  
 
 	  

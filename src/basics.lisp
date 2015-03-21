@@ -29,9 +29,7 @@
 
 (defun mk-typed-value (type value)
   (make-instance 'typed-value
-		 :type (cond ((typep type 'llvm-type) type)
-			     ((consp type) (parse-lisp-repr type))
-			     (t (error "Don't know how to coerce this to LLVM type: ~a" type)))
+		 :type (coerce-to-llvm-type type)
 		 :value value))
   
 
@@ -473,7 +471,9 @@
     (assert (llvm-typep '(vector (integer 32) *) tmask))
     (assert (llvm-same-typep (slot-value (slot-value tvec1 'type) 'elt-type)
 			     (slot-value (slot-value tvec2 'type) 'elt-type)))
-    (emit-resulty (make-tmp-var 'shufvec (slot-value tvec1 'type))
+    (emit-resulty (make-tmp-var 'shufvec
+				(llvm-vector (slot-value (slot-value tmask 'type) 'num-elts)
+					     (slot-value (slot-value tvec1 'type) 'elt-type)))
       "shufflevector"
       (join ", "
 	    (emit-text-repr tvec1)
