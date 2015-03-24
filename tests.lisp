@@ -224,28 +224,40 @@
 					    "<i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>")))))))
   
 	  
+(defmacro frob-context (x y)
+  `(is (equal ,x (with-output-to-string (*standard-output*)
+		   (cg-llvm::reset-tmp-var-counts)
+		   (let ((cg-llvm::*context* :function))
+		     ,y)))))
+
 
 (test aggregate-operations
-  (macrolet ((frob (x y)
-	       `(is (equal ,x (with-output-to-string (*standard-output*)
-				(cg-llvm::reset-tmp-var-counts)
-				(let ((cg-llvm::*context* :function))
-				  ,y))))))
-    (frob (join "~%"
-		#?"%tmpexval1 = extractvalue {i32, float} %agg, 0"
-		"ret i32 %tmpexval1")
-	  (llvm-return (extractvalue (mk-typed-value "{i32, float}" '%agg) 0)))
-    (frob (join "~%"
-		#?"%tmpexval1 = extractvalue {i32, float} %agg, 1"
-		"ret float %tmpexval1")
-	  (llvm-return (extractvalue (mk-typed-value "{i32, float}" '%agg) 1)))
-    (frob (join "~%"
-		"%tmpinsval1 = insertvalue {i32, float} undef, i32 1, 0"
-		"%tmpinsval2 = insertvalue {i32, float} %tmpinsval1, float %val, 1"
-		#?"%tmpinsval3 = insertvalue {i32, {float}} undef, float %val, 1, 0\n")
-	  (progn (insertvalue (insertvalue (mk-typed-value "{i32, float}" 'undef) 1 0)
-			      (mk-typed-value "float" '%val) 1)
-		 (insertvalue (mk-typed-value "{i32, {float}}" 'undef)
-			      (mk-typed-value "float" '%val)
-			      1 0)))))
-	  
+  (frob-context (join "~%"
+		      #?"%tmpexval1 = extractvalue {i32, float} %agg, 0"
+		      "ret i32 %tmpexval1")
+		(llvm-return (extractvalue (mk-typed-value "{i32, float}" '%agg) 0)))
+  (frob-context (join "~%"
+		      #?"%tmpexval1 = extractvalue {i32, float} %agg, 1"
+		      "ret float %tmpexval1")
+		(llvm-return (extractvalue (mk-typed-value "{i32, float}" '%agg) 1)))
+  (frob-context (join "~%"
+		      "%tmpinsval1 = insertvalue {i32, float} undef, i32 1, 0"
+		      "%tmpinsval2 = insertvalue {i32, float} %tmpinsval1, float %val, 1"
+		      #?"%tmpinsval3 = insertvalue {i32, {float}} undef, float %val, 1, 0\n")
+		(progn (insertvalue (insertvalue (mk-typed-value "{i32, float}" 'undef) 1 0)
+				    (mk-typed-value "float" '%val) 1)
+		       (insertvalue (mk-typed-value "{i32, {float}}" 'undef)
+				    (mk-typed-value "float" '%val)
+				    1 0))))
+
+(test memory-operations
+  (frob-context #?"%tmpptr1 = alloca i32\n"
+		(alloca "i32"))
+  (frob-context #?"%tmpptr1 = alloca i32, i32 4\n"
+		(alloca "i32" :num-elts 4))
+  (frob-context #?"%tmpptr1 = alloca i32, i32 4, align 1024\n"
+		(alloca "i32" :num-elts 4 :align 1024))
+  (frob-context #?"%tmpptr1 = alloca i32, align 1024\n"
+		(alloca "i32" :align 1024)))
+  
+

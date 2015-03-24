@@ -4,6 +4,7 @@
 
 (cl-interpol:enable-interpol-syntax)
 (enable-read-macro-tokens)
+(quasiquote-2.0:enable-quasiquote-2.0)
 
 ;; TODO: extra sugar like autounderscoring symbols or assembling lists into something sensible?
 ;; Does this make sense for LLVM IR at all?
@@ -245,13 +246,13 @@
 (defparameter known-fast-math-flags '("nnan" "ninf" "nsz" "arcp" "fast"))
 
 
-(defun coerce-fast-math-flag (smth)
+(defun coerce-to-fast-math-flag (smth)
   (cond ((not smth) "")
 	((stringp smth) #?"$(smth)")
 	((symbolp smth) (let ((txt (stringify-symbol smth)))
 			  (assert (member txt known-fast-math-flags :test #'string=))
 			  txt))
-	(t (error "Don't know how to coerce this to function attribute: ~a" smth))))
+	(t (error "Don't know how to coerce this to fast math flag: ~a" smth))))
   
 
 
@@ -306,86 +307,42 @@
   (defun reset-tmp-var-counts ()
     (clrhash counts-hash)))
 
-(defmacro define-no-wrap-binop (name &body type-checks)
-  `(defun ,name (op1 op2 &key no-signed-wrap no-unsigned-wrap)
-     (let ((top1 (imply-type op1))
-	   (top2 (imply-type op2)))
-       (assert (llvm-same-typep top1 top2))
-       ,@type-checks
-       (let ((res-var (make-tmp-var ',name (slot-value top1 'type))))
-	 (format t "~a = ~a~%"
-		 (emit-text-repr (slot-value res-var 'value))
-		 (joinl " "
-			(remove-if-not #'identity
-					 (list ,(trim-llvm (underscorize name))
-					       (if no-unsigned-wrap "nuw")
-					       (if no-signed-wrap "nsw")
-					       (join ", "
+(defmacro define-binop-definer (name extra-args &body body)
+  `(defmacro ,name (name &body type-checks)
+     `(defun ,name (op1 op2 ,,@extra-args)
+	(let ((top1 (imply-type op1))
+	      (top2 (imply-type op2)))
+	  (assert (llvm-same-typep top1 top2))
+	  ,@type-checks
+	  (let ((res-var (make-tmp-var ',name (slot-value top1 'type))))
+	    (format t "~a = ~a~%"
+		    (emit-text-repr (slot-value res-var 'value))
+		    (joinl " "
+			   (remove-if-not #'identity
+					  `(,,(trim-llvm (underscorize name))
+					      ,,,@body
+					      ,(join ", "
 						     (emit-text-repr top1)
 						     (emit-text-repr (slot-value top2 'value)))))))
-	 res-var))))
+	    res-var)))))
+
+(define-binop-definer define-no-wrap-binop (&key no-signed-wrap no-unsigned-wrap)
+  ,(if no-unsigned-wrap "nuw")
+  ,(if no-signed-wrap "nsw"))
+
+(define-binop-definer define-float-binop (&rest flags)
+  ,@(mapcar #'coerce-to-fast-math-flag flags))
+
+(define-binop-definer define-exactable-binop (&key exact)
+  ,(if exact "exact"))
+
+(define-binop-definer define-simple-binop ())
 
 ;; OK, I probably want to reuse the results returned by these binary operations
 ;; in C++ library functions just simply return this result, outputting the result of
 ;; code-generation as a side-effect somehow.
 
 ;; So, what is the really smart and concise way to do this?
-
-(defmacro define-float-binop (name &body type-checks)
-  `(defun ,name (type op1 op2 &rest flags)
-     (let ((top1 (imply-type op1))
-	   (top2 (imply-type op2)))
-       (assert (llvm-same-typep top1 top2))
-       ,@type-checks
-       (let ((res-var (make-tmp-var ',name (slot-value top1 'type))))
-	 (format t "~a = ~a~%"
-		 (emit-text-repr (slot-value res-var 'value))
-		 (joinl " "
-			(remove-if-not #'identity
-				       `(,(trim-llvm (underscorize name))
-					  ,@(mapcar #'coerce-to-fast-math-flag flags)
-					  ,(join ", "
-						 (emit-text-repr top1)
-						 (emit-text-repr (slot-value top2 'value)))))))
-	 res-var))))
-
-
-(defmacro define-exactable-binop (name &body type-checks)
-  `(defun ,name (type op1 op2 &key exact)
-     (let ((top1 (imply-type op1))
-	   (top2 (imply-type op2)))
-       (assert (llvm-same-typep top1 top2))
-       ,@type-checks
-       (let ((res-var (make-tmp-var ',name (slot-value top1 'type))))
-	 (format t "~a = ~a~%"
-		 (emit-text-repr (slot-value res-var 'value))
-		 (joinl " "
-			(remove-if-not #'identity
-				       (list (trim-llvm (underscorize name))
-					     (if exact "exact")
-					     (join ", "
-						   (emit-text-repr top1)
-						   (emit-text-repr (slot-value top2 'value)))))))
-	 res-var))))
-
-
-(defmacro define-simple-binop (name &body type-checks)
-  `(defun ,name (type op1 op2)
-     (let ((top1 (imply-type op1))
-	   (top2 (imply-type op2)))
-       (assert (llvm-same-typep top1 top2))
-       ,@type-checks
-       (let ((res-var (make-tmp-var ',name (slot-value top1 'type))))
-	 (format t "~a = ~a~%"
-		 (emit-text-repr (slot-value res-var 'value))
-		 (joinl " "
-			(remove-if-not #'identity
-				       `(list ,',(trim-llvm (underscorize name))
-					      (join ", "
-						    (emit-text-repr top1)
-						    (emit-text-repr (slot-value top2 'value)))))))
-	 res-var))))
-
 
 ;; TODO : assert INTEGER or VECTOR of INTEGERS type here
 (define-no-wrap-binop add)
@@ -525,3 +482,55 @@
 	      (emit-text-repr taggregate)
 	      (emit-text-repr telt)
 	      (joinl ", " (mapcar #'emit-text-repr indices)))))))
+
+;;; Memory access and addressing operations
+
+(defun alloca (type &key num-elts align inalloca)
+  (let ((ttype (coerce-to-llvm-type type)))
+    (emit-resulty (make-tmp-var 'ptr (llvm-pointer ttype))
+      "alloca"
+      (if inalloca "inalloca")
+      (joinl ", "
+	     (remove-if-not #'identity
+			    (list (emit-text-repr ttype)
+				  (if num-elts (emit-text-repr (imply-type num-elts)))
+				  (if align #?"align $((emit-text-repr align))")))))))
+    
+
+;; The description of these operations is too large and scary for
+;; me to attack them directly ...
+(defun llvm-load ()
+  nil)
+(defun store ()
+  nil)
+
+(defparameter known-orderings '("unordered" "monotonic" "acquire" "release" "acq_rel" "seq_cst"))
+
+(defun coerce-to-ordering (smth)
+  (cond ((not smth) "")
+	((stringp smth) #?"$(smth)")
+	((symbolp smth) (let ((txt (stringify-symbol smth)))
+			  (assert (member txt known-fast-math-flags :test #'string=))
+			  txt))
+	(t (error "Don't know how to coerce this to ordering: ~a" smth))))
+
+
+(defun fence (ordering &key singlethread)
+  (format t (joinl " "
+		   (remove-if-not #'identity
+				  (list "fence"
+					(if singlethread "singlethread")
+					(coerce-to-ordering ordering))))))
+
+;; (defun cmpxchg (ptr cmp new success-ord fail-ord &key weak volatile singlethread)
+;;   (let ((tptr (imply-type ptr))
+;; 	(tcmp (imply-type cmp))
+;; 	(tnew (imply-type new)))
+;;     (assert (llvm-same-typep tcmp tnew))
+;;     (assert (llvm-same-typep (slot-value tptr 'pointee) tcmp))
+;;     (emit-resulty (make-tmp-var 'xchg (llvm-struct (slot-value tcmp 'type) (coerce-to-llvm-type "i1")))
+;;       "cmpxchg"
+;;       nil)))
+
+
+

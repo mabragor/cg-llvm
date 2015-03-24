@@ -115,9 +115,6 @@
 	((or (consp smth) (symbolp smth)) (parse-lisp-repr smth))
 	(t (error "Don't know how to coerce this to LLVM type: ~a" smth))))
 
-  (cond ((typep x 'llvm-type) x)
-	(t (error "Don't know how to coerce ~a to LLVM type" x))))
-
 (defun llvm-pointer (pointee &optional addrspace)
   (let ((pointee (coerce-to-llvm-type pointee)))
     (cond ((typep pointee 'llvm-void-type)

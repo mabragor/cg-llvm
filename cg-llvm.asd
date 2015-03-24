@@ -6,7 +6,8 @@
   :author "Alexandr Popolitov <popolit@gmail.com>"
   :license "GPL"
   :depends-on (#:cl-trivial-templates #:cl-ppcre #:cl-interpol #:iterate #:cg-common-ground #:lol-re
-				      #:esrap-liquid #:optima #:defmacro-enhance)
+				      #:esrap-liquid #:optima #:defmacro-enhance
+				      #:quasiquote-2.0)
   :pathname "src/"
   :components ((:file "package")
 	       (:file "types-macros")

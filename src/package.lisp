@@ -11,5 +11,6 @@
 	   #:urem #:srem #:llvm-and #:llvm-or #:llvm-xor
 	   #:extractelement #:insertelement #:shufflevector
 	   #:mk-typed-value
-	   #:extractvalue #:insertvalue))
+	   #:extractvalue #:insertvalue
+	   #:alloca #:llvm-load #:store #:fence #:cmpxchg #:atomicrmw #:getelementptr))
 
