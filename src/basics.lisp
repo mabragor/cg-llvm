@@ -550,3 +550,45 @@
       ;; TODO : checks for allowed orderings
       (coerce-to-ordering ord))))
 
+
+(defun getelementptr (type ptrval indices &key inbounds)
+  (let ((ttype (coerce-to-llvm-type type))
+	(tptrval (imply-type ptrval))
+	(tindices (mapcar #'imply-type indices)))
+    (emit-resulty (make-tmp-var 'getelptr (extract-getelementptr-type ttype tindices))
+      "getelementptr"
+      (tsymstr inbounds)
+      ;; TODO : add those numerous checks about correct type of TPTRVAL and TINDICES
+      (joining-with-comma-space ,ttype ,tptrval ,@tindices))))
+
+
+;;; conversion operations
+
+(defmacro define-conversion-op (name &body type-checks)
+  (destructuring-bind (name opname) (if (atom name)
+					(list name (string-downcase name))
+					name)
+    `(defun ,name (val type)
+       (let ((tval (imply-type val))
+	     (ttype (coerce-to-llvm-type type)))
+	 ,@type-checks
+	 (emit-resulty (make-tmp-var ',name ttype)
+	   ,opname
+	   (emit-text-repr tval)
+	   "to"
+	   (emit-text-repr ttype))))))
+
+(define-conversion-op trunc)
+(define-conversion-op zext)
+(define-conversion-op sext)
+(define-conversion-op fptrunc)
+(define-conversion-op fpext)
+(define-conversion-op fptoui)
+(define-conversion-op fptosi)
+(define-conversion-op uitofp)
+(define-conversion-op sitofp)
+(define-conversion-op ptrtoint)
+(define-conversion-op inttoptr)
+(define-conversion-op bitcast)
+(define-conversion-op addrspacecast)
+

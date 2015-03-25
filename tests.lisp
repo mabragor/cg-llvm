@@ -261,3 +261,20 @@
 		(alloca "i32" :align 1024)))
   
 
+(test conversion-operations
+  (let ((my-fav-vector (mk-typed-value '(vector (integer 16) 2)
+				       "<i16 8, i16 7>")))
+    (frob-context #?"%tmptrunc1 = trunc i32 4 to i1\n" (trunc 4 "i1"))
+    (frob-context #?"%tmptrunc1 = trunc <2 x i16> <i16 8, i16 7> to <2 x i8>\n"
+		  (trunc my-fav-vector "<2 x i8>"))
+    (frob-context #?"%tmpzext1 = zext i32 257 to i64\n" (zext 257 "i64"))
+    (frob-context #?"%tmpzext1 = zext <2 x i16> <i16 8, i16 7> to <2 x i32>\n"
+		  (zext my-fav-vector "<2 x i32>"))
+    (frob-context #?"%tmpsext1 = sext i8 -1 to i16\n" (sext (mk-typed-value "i8" -1) "i16"))
+    (frob-context #?"%tmpsext1 = sext i1 true to i32\n" (sext (mk-typed-value "i1" 'true) "i32"))
+    (frob-context #?"%tmpsext1 = sext <2 x i16> <i16 8, i16 7> to <2 x i32>\n"
+		  (sext my-fav-vector "<2 x i32>"))
+    (frob-context #?"%tmpfptrunc1 = fptrunc double 123.0 to float\n"
+		  (fptrunc (mk-typed-value "double" 123.0) "float"))))
+  
+
