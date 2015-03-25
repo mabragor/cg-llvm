@@ -113,6 +113,7 @@
   (cond ((typep smth 'llvm-type) smth)
 	((stringp smth) (cg-llvm-parse 'llvm-type smth))
 	((or (consp smth) (symbolp smth)) (parse-lisp-repr smth))
+	((typep smth 'typed-value) (slot-value smth 'type))
 	(t (error "Don't know how to coerce this to LLVM type: ~a" smth))))
 
 (defun llvm-pointer (pointee &optional addrspace)

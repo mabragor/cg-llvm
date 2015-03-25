@@ -9,10 +9,26 @@
 ;; TODO: extra sugar like autounderscoring symbols or assembling lists into something sensible?
 ;; Does this make sense for LLVM IR at all?
 
+(defmacro joining-with-comma-space (&body body)
+  `(joinl ", " (mapcar #'emit-text-repr
+		       (remove-if-not #'identity  `(,,@body)))))
+
+(defmacro tsymstr (sym)
+  `(if ,sym ,(string-downcase sym)))
+
 (defun ensure-cons (x)
   (if (atom x)
       (list x)
       x))
+
+(defmacro! emit-resulty (tmp-var-spec &body things)
+  `(let ((,g!-tmp ,tmp-var-spec))
+     (format t "~a = ~a~%"
+	     (emit-text-repr (slot-value ,g!-tmp 'value))
+	     (joinl " "
+		    (remove-if-not #'identity
+				   (list ,@things))))
+     ,g!-tmp))
 
 (defparameter *context* :toplevel)
 
@@ -243,17 +259,21 @@
 	""
 	#?"$((joinl " " coerced-attrs)) ")))
 
+(defmacro! define-coercer (name known-var)
+  `(defun ,(intern #?"COERCE-TO-$((string name))") (smth)
+     (if (not smth)
+	 ""
+	 (let ((txt (cond ((stringp smth) #?"$(smth)")
+			  ((symbolp smth) (stringify-symbol smth))
+			  (t (error ,#?"Don't know how to coerce this to $((stringify-symbol name)): ~a"
+				    smth)))))
+	   (if (not (member txt ,known-var :test #'string=))
+	       (error ,#?"~s is not a known $((string-downcase name)), see variable $((string known-var))" txt))
+	   txt))))
+
 (defparameter known-fast-math-flags '("nnan" "ninf" "nsz" "arcp" "fast"))
 
-
-(defun coerce-to-fast-math-flag (smth)
-  (cond ((not smth) "")
-	((stringp smth) #?"$(smth)")
-	((symbolp smth) (let ((txt (stringify-symbol smth)))
-			  (assert (member txt known-fast-math-flags :test #'string=))
-			  txt))
-	(t (error "Don't know how to coerce this to fast math flag: ~a" smth))))
-  
+(define-coercer fast-math-flag known-fast-math-flags)
 
 
 
@@ -278,7 +298,7 @@
 	    tcall-conv
 	    treturn-attrs
 	    (emit-text-repr tfun)
-	    (joinl ", " (mapcar #'emit-text-repr targs))
+	    (joining-with-comma-space ,@targs)
 	    tfun-attrs
 	    (emit-text-repr tnormal-label)
 	    (emit-text-repr tunwind-label))
@@ -314,17 +334,16 @@
 	      (top2 (imply-type op2)))
 	  (assert (llvm-same-typep top1 top2))
 	  ,@type-checks
-	  (let ((res-var (make-tmp-var ',name (slot-value top1 'type))))
-	    (format t "~a = ~a~%"
-		    (emit-text-repr (slot-value res-var 'value))
-		    (joinl " "
-			   (remove-if-not #'identity
-					  `(,,(trim-llvm (underscorize name))
-					      ,,,@body
-					      ,(join ", "
-						     (emit-text-repr top1)
-						     (emit-text-repr (slot-value top2 'value)))))))
-	    res-var)))))
+	  (emit-resulty (make-tmp-var ',name top1)
+	    (joinl " "
+		   (remove-if-not #'identity
+				  `(,,(trim-llvm (underscorize name))
+				      ,,,@body
+				      (quasiquote-2.0:oinject
+				       (joining-with-comma-space
+					 ,top1
+					 ,(slot-value top2 'value)))))))))))
+
 
 (define-binop-definer define-no-wrap-binop (&key no-signed-wrap no-unsigned-wrap)
   ,(if no-unsigned-wrap "nuw")
@@ -334,7 +353,7 @@
   ,@(mapcar #'coerce-to-fast-math-flag flags))
 
 (define-binop-definer define-exactable-binop (&key exact)
-  ,(if exact "exact"))
+  ,(tsymstr exact))
 
 (define-binop-definer define-simple-binop ())
 
@@ -384,14 +403,6 @@
 
 ;;; Operations on vectors
 
-(defmacro! emit-resulty (tmp-var-spec &body things)
-  `(let ((,g!-tmp ,tmp-var-spec))
-     (format t "~a = ~a~%"
-	     (emit-text-repr (slot-value ,g!-tmp 'value))
-	     (joinl " "
-		    (remove-if-not #'identity
-				   (list ,@things))))
-     ,g!-tmp))
 
 (defun extractelement (vector index)
   (let ((tvector (imply-type vector))
@@ -400,9 +411,7 @@
     (assert (llvm-typep '(integer *) tindex))
     (emit-resulty (make-tmp-var 'exelt (slot-value (slot-value tvector 'type) 'elt-type))
       "extractelement"
-      (join ", "
-	    (emit-text-repr tvector)
-	    (emit-text-repr tindex)))))
+      (joining-with-comma-space ,tvector ,tindex))))
 
 
 (defun insertelement (vector elt index)
@@ -414,10 +423,7 @@
     (assert (llvm-same-typep telt (slot-value (slot-value tvector 'type) 'elt-type)))
     (emit-resulty (make-tmp-var 'inselt (slot-value tvector 'type))
       "insertelement"
-      (join ", "
-	    (emit-text-repr tvector)
-	    (emit-text-repr telt)
-	    (emit-text-repr tindex)))))
+      (joining-with-comma-space ,tvector ,telt ,tindex))))
 
 (defun shufflevector (vec1 vec2 mask)
   (let ((tvec1 (imply-type vec1))
@@ -432,10 +438,7 @@
 				(llvm-vector (slot-value (slot-value tmask 'type) 'num-elts)
 					     (slot-value (slot-value tvec1 'type) 'elt-type)))
       "shufflevector"
-      (join ", "
-	    (emit-text-repr tvec1)
-	    (emit-text-repr tvec2)
-	    (emit-text-repr tmask)))))
+      (joining-with-comma-space ,tvec1 ,tvec2 ,tmask))))
 
 ;; This shows that assertion checks are made only in runtime
 ;; I dunno, whether I can persuade compiler somehow to do them in compile-time,
@@ -459,9 +462,8 @@
 			     (t (error "Attempt to take element of non-aggregate type: ~a" type)))))
       (emit-resulty (make-tmp-var 'exval type)
 	"extractvalue"
-	(join ", "
-	      (emit-text-repr taggregate)
-	      (joinl ", " (mapcar #'emit-text-repr indices)))))))
+	(joining-with-comma-space ,taggregate ,@indices)))))
+
 
 
 (defun insertvalue (aggregate elt &rest indices)
@@ -478,23 +480,21 @@
       (assert (llvm-same-typep type telt))
       (emit-resulty (make-tmp-var 'insval (slot-value taggregate 'type))
 	"insertvalue"
-	(join ", "
-	      (emit-text-repr taggregate)
-	      (emit-text-repr telt)
-	      (joinl ", " (mapcar #'emit-text-repr indices)))))))
+	(joining-with-comma-space ,taggregate ,telt ,@indices)))))
+
 
 ;;; Memory access and addressing operations
 
 (defun alloca (type &key num-elts align inalloca)
-  (let ((ttype (coerce-to-llvm-type type)))
+  (let ((ttype (coerce-to-llvm-type type))
+	(tnum-elts (if num-elts (imply-type num-elts))))
     (emit-resulty (make-tmp-var 'ptr (llvm-pointer ttype))
       "alloca"
-      (if inalloca "inalloca")
-      (joinl ", "
-	     (remove-if-not #'identity
-			    (list (emit-text-repr ttype)
-				  (if num-elts (emit-text-repr (imply-type num-elts)))
-				  (if align #?"align $((emit-text-repr align))")))))))
+      (tsymstr inalloca)
+      (joining-with-comma-space
+	,ttype
+	,tnum-elts
+	,(if align #?"align $((emit-text-repr align))")))))
     
 
 ;; The description of these operations is too large and scary for
@@ -506,31 +506,47 @@
 
 (defparameter known-orderings '("unordered" "monotonic" "acquire" "release" "acq_rel" "seq_cst"))
 
-(defun coerce-to-ordering (smth)
-  (cond ((not smth) "")
-	((stringp smth) #?"$(smth)")
-	((symbolp smth) (let ((txt (stringify-symbol smth)))
-			  (assert (member txt known-fast-math-flags :test #'string=))
-			  txt))
-	(t (error "Don't know how to coerce this to ordering: ~a" smth))))
-
+(define-coercer ordering known-orderings)
 
 (defun fence (ordering &key singlethread)
   (format t (joinl " "
 		   (remove-if-not #'identity
 				  (list "fence"
-					(if singlethread "singlethread")
+					(tsymstr singlethread)
 					(coerce-to-ordering ordering))))))
 
-;; (defun cmpxchg (ptr cmp new success-ord fail-ord &key weak volatile singlethread)
-;;   (let ((tptr (imply-type ptr))
-;; 	(tcmp (imply-type cmp))
-;; 	(tnew (imply-type new)))
-;;     (assert (llvm-same-typep tcmp tnew))
-;;     (assert (llvm-same-typep (slot-value tptr 'pointee) tcmp))
-;;     (emit-resulty (make-tmp-var 'xchg (llvm-struct (slot-value tcmp 'type) (coerce-to-llvm-type "i1")))
-;;       "cmpxchg"
-;;       nil)))
+(defun cmpxchg (ptr cmp new success-ord fail-ord &key weak volatile singlethread)
+  (let ((tptr (imply-type ptr))
+	(tcmp (imply-type cmp))
+	(tnew (imply-type new)))
+    (assert (llvm-same-typep tcmp tnew))
+    (assert (llvm-same-typep (slot-value tptr 'pointee) tcmp))
+    (emit-resulty (make-tmp-var 'xchg (llvm-struct (slot-value tcmp 'type) (coerce-to-llvm-type "i1")))
+      "cmpxchg"
+      (tsymstr weak)
+      (tsymstr volatile)
+      (joining-with-comma-space ,tptr ,tcmp ,tnew)
+      (tsymstr singlethread)
+      ;; TODO : checks for allowed orderings
+      (coerce-to-ordering success-ord)
+      (coerce-to-ordering fail-ord))))
+
+(defparameter known-operations '("xchg" "add" "sub" "and" "nand" "or" "xor"
+				 "max" "min" "umax" "umin"))
+
+(define-coercer operation known-operations)
 
 
+(defun atomicrmw (op ptr val ord &key volatile singlethread)
+  (let ((tptr (imply-type ptr))
+	(tval (imply-type val)))
+    (assert (llvm-same-typep (slot-value tptr 'pointee) tval))
+    (emit-resulty (make-tmp-var 'armw tval)
+      "atomicrmw"
+      (tsymstr volatile)
+      (coerce-to-operation op)
+      (joining-with-comma-space ,tptr ,tval)
+      (tsymstr singlethread)
+      ;; TODO : checks for allowed orderings
+      (coerce-to-ordering ord))))
 
