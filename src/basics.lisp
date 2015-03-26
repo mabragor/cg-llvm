@@ -592,3 +592,17 @@
 (define-conversion-op bitcast)
 (define-conversion-op addrspacecast)
 
+;;; Miscellaneous operations
+
+(defparameter known-cmp-ops '("eq" "ne" "ugt" "uge" "ult" "ule" "sgt" "sge" "slt" "sle"))
+(define-coercer cmp-op known-cmp-ops)
+
+(defun icmp (cmp-op val1 val2)
+  (let ((tval1 (imply-type val1))
+	(tval2 (imply-type val2)))
+    ;; TODO : smart checks abount vector types
+    (emit-resulty (make-tmp-var 'icmp "i1")
+      "icmp"
+      (coerce-to-cmp-op cmp-op)
+      tval1
+      (slot-value tval2 'value))))
