@@ -85,9 +85,11 @@
 			:type (cg-llvm-parse 'llvm-type "i32")
 			:value smth))
 	((symbolp smth)
-	 (make-instance 'typed-value
-			:type (cg-llvm-parse 'llvm-type "label")
-			:value (stringify-symbol smth)))
+	 (cond ((string= "TRUE" (string smth)) (mk-typed-value "i1" "true"))
+	       ((string= "FALSE" (string smth)) (mk-typed-value "i1" "false"))
+	       (t (make-instance 'typed-value
+				 :type (cg-llvm-parse 'llvm-type "label")
+				 :value (stringify-symbol smth)))))
 	((listp smth)
 	 (destructuring-bind (value type) smth
 	   (make-instance 'typed-value
@@ -594,15 +596,56 @@
 
 ;;; Miscellaneous operations
 
-(defparameter known-cmp-ops '("eq" "ne" "ugt" "uge" "ult" "ule" "sgt" "sge" "slt" "sle"))
-(define-coercer cmp-op known-cmp-ops)
+(defparameter known-icmp-ops '("eq" "ne" "ugt" "uge" "ult" "ule" "sgt" "sge" "slt" "sle"))
+(define-coercer icmp-op known-icmp-ops)
+
+(defparameter known-fcmp-ops '("false" "oeq" "ogt" "oge" "olt" "ole" "one" "ord"
+			       "ueq" "ugt" "uge" "ult" "ule" "une" "uno" "true"))
+(define-coercer fcmp-op known-fcmp-ops)
 
 (defun icmp (cmp-op val1 val2)
   (let ((tval1 (imply-type val1))
 	(tval2 (imply-type val2)))
-    ;; TODO : smart checks abount vector types
+    ;; TODO : smart checks about vector types
     (emit-resulty (make-tmp-var 'icmp "i1")
       "icmp"
-      (coerce-to-cmp-op cmp-op)
+      (coerce-to-icmp-op cmp-op)
       tval1
       (slot-value tval2 'value))))
+
+(defun fcmp (cmp-op val1 val2)
+  (let ((tval1 (imply-type val1))
+	(tval2 (imply-type val2)))
+    ;; TODO : smart checks about vector types
+    (emit-resulty (make-tmp-var 'fcmp "i1")
+      "fcmp"
+      (coerce-to-fcmp-op cmp-op)
+      tval1
+      (slot-value tval2 'value))))
+
+(defun phi (&rest value-labels)
+  (let ((tvalues (mapcar (lambda (x) (imply-type (car x))) value-labels))
+	(tlabels (mapcar (lambda (x) (imply-type (cadr x))) value-labels)))
+    (iter (for tvalue in (cdr tvalues))
+	  (if (not (llvm-same-typep (car tvalues) tvalue))
+	      (error "Not all incoming values of the phi node have same type.")))
+    (iter (for tlabel in tlabels)
+	  (assert (llvm-typep 'label tlabel)))
+    (emit-resulty (make-tmp-var 'phi (car tvalues))
+      "phi"
+      (emit-text-repr (slot-value (car tvalues) 'type))
+      (joining-with-comma-space ,@(mapcar (lambda (x y)
+					    #?"[ $((slot-value x 'value)), $((slot-value y 'value)) ]")
+					  tvalues tlabels)))))
+
+(defun select (test val1 val2)
+  (let ((ttest (imply-type test))
+	(tval1 (imply-type val1))
+	(tval2 (imply-type val2)))
+    (assert (or (llvm-typep '(integer 1) ttest)
+		(llvm-typep '(vector (integer 1) *) ttest)))
+    ;; TODO : more type checks
+    (emit-resulty (make-tmp-var 'sel tval1)
+      "select"
+      (joining-with-comma-space ,ttest ,tval1 ,tval2))))
+

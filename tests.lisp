@@ -278,3 +278,10 @@
 		  (fptrunc (mk-typed-value "double" 123.0) "float"))))
   
 
+(test misc-operations
+  (frob-context #?"%tmpphi1 = phi i32 [ 1, %x ], [ 2, %y ]\n"
+		(phi '(1 %x) '(2 %y)))
+  (frob-context #?"%tmpsel1 = select i1 true, i32 17, i32 42\n"
+		(select 'true 17 42)))
+
+
