@@ -235,8 +235,11 @@
 (define-cg-llvm-rule ns-dec-digit ()
   (character-ranges (#\0 #\9)))
 
+(define-cg-llvm-rule integer ()
+  (parse-integer (text (postimes ns-dec-digit))))
+
 (define-cg-llvm-rule integer-type ()
-  #\i (llvm-integer (parse-integer (text (postimes ns-dec-digit)))))
+  #\i (llvm-integer integer))
 
 (define-cg-llvm-rule void-type ()
   "void"

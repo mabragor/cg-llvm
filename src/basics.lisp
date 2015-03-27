@@ -190,9 +190,6 @@
 			      (error "Don't know the numbered cconv ~a" smth)))))
 	(t (error "Don't know how to coerce this to calling convention: ~a" smth))))
 
-(defparameter known-parameter-attrs '("zeroext" "signext" "inreg" "byval"
-				      "inalloca" "sret" "noalias" "nocapture"
-				      "nest" "returned" "nonull"))
 
 	
 (defun %coerce-param-attr (smth)
@@ -222,14 +219,6 @@
 	""
 	#?"$((joinl " " coerced-attrs)) ")))
 	  
-(defparameter known-fun-attrs '("alwaysinline" "builtin" "cold" "inlinehint"
-				"jumptable" "minsize" "naked" "nobuiltin"
-				"noduplicate" "noimplicitfloat" "noinline"
-				"nonlazybind" "noredzone" "noreturn"
-				"nounwind" "optnone" "optsize" "readnone"
-				"readonly" "returns_twice" "sanitize_address"
-				"sanitize_memory" "sanitize_thread" "ssp" "sspreq"
-				"sspstrong" "thunk" "uwtable"))
 
 
 ;; OK, I know it's a duplication, but so many details needs to be transfered to
