@@ -12,7 +12,8 @@
   :components ((:file "package")
 	       (:file "types-macros")
 	       (:file "types")
-	       (:file "basics")))
+	       (:file "basics")
+	       (:file "fun-defs")))
 
 
 (defsystem :cg-llvm-tests
