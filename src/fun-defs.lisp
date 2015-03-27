@@ -38,3 +38,17 @@
 ;; * it seems feasible to really write the back-and-forth translation between lispy, text and clos
 ;;   representations of at least these function definitions and declarations, not to mention the whole LLVM
 ;; * as usual, the easiest thing is to start with ESRAP rules for parsing text representation.
+
+
+(defparameter known-linkage-types '(private internal available-externally
+				    linkonce weak common appending extern-weak
+				    linkonce-odr weak-odr external))
+
+(defmacro define-kwd-rule (name known-var)
+  `(define-cg-llvm-rule ,name ()
+     (destringify-symbol (|| ,@(mapcar (lambda (x)
+					 `(descend-with-rule 'string ,(stringify-symbol x)))
+				       (symbol-value known-var)))
+			 (literal-string "KEYWORD"))))
+
+(define-kwd-rule linkage-type known-linkage-types)
