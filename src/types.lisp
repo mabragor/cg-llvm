@@ -235,11 +235,14 @@
 (define-cg-llvm-rule ns-dec-digit ()
   (character-ranges (#\0 #\9)))
 
-(define-cg-llvm-rule integer ()
+(define-cg-llvm-rule pos-integer ()
   (parse-integer (text (postimes ns-dec-digit))))
 
+(define-cg-llvm-rule integer ()
+  (parse-integer (text (? "-") (postimes ns-dec-digit))))
+
 (define-cg-llvm-rule integer-type ()
-  #\i (llvm-integer integer))
+  #\i (llvm-integer pos-integer))
 
 (define-cg-llvm-rule void-type ()
   "void"
@@ -394,11 +397,15 @@
     ('foo 1)
     (otherwise 'otherwise)))
 
+(define-condition wildcard () ())
+
 (defun wildcard-equal (x y)
   (if (atom x)
-      (or (equal x '*)
-	  (equal x y))
-      (and (wildcard-equal (car x) (car y))
+      (cond ((equal x '*) t)
+	    ((equal x '***) (error 'wildcard))
+	    (t (equal x y)))
+      (and (handler-case (wildcard-equal (car x) (car y))
+	     (wildcard () (return-from wildcard-equal t)))
 	   (wildcard-equal (cdr x) (cdr y)))))
 
 (defun lispy-llvm-type (smth)

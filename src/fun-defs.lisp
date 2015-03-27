@@ -70,7 +70,7 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter known-cconvs '(ccc fastccc coldcc webkit-jscc anyregcc preserve-mostcc preserve-allcc))
-  (defparameter known-cons-cconvs '((cc integer))))
+  (defparameter known-cons-cconvs '((cc pos-integer))))
 
 (defmacro define-consy-kwd-rule (name known-var known-cons-var)
   (let ((g!-name (gensym (string name))))
@@ -92,8 +92,8 @@
   (defparameter known-parameter-attrs '(zeroext signext inreg byval
 					inalloca sret noalias nocapture
 					nest returned nonull))
-  (defparameter known-cons-parameter-attrs '((align integer)))
-  (defparameter known-algol-parameter-attrs '((dereferenceable integer))))
+  (defparameter known-cons-parameter-attrs '((align pos-integer)))
+  (defparameter known-algol-parameter-attrs '((dereferenceable pos-integer))))
 
 
 (defmacro define-algol-consy-kwd-rule (name known-var known-cons-var known-algol-var)
@@ -132,7 +132,7 @@
 				  sanitize-memory sanitize-thread ssp sspreq sspstrong
 				  thunk uwtable))
   (defparameter known-cons-fun-attrs '())
-  (defparameter known-algol-fun-attrs '((alignstack integer))))
+  (defparameter known-algol-fun-attrs '((alignstack pos-integer))))
 
 (define-algol-consy-kwd-rule fun-attr known-fun-attrs known-cons-fun-attrs known-algol-fun-attrs)
 
@@ -169,9 +169,113 @@
 		   "(" (prog1 ,subrule ")"))))))
 
 
-(define-python-rule align integer)
+(define-python-rule align pos-integer)
 (define-algol-rule comdat (progn "$" alphanumeric-word))
 (define-python-rule (gc-name gc) (progm #\" alphanumeric-word #\"))
 
 (define-python-rule prefix llvm-constant)
 (define-python-rule prologue llvm-constant)
+
+;; TODO : attribute groups ?
+
+(define-cg-llvm-rule boolean-constant ()
+  (let ((type llvm-type))
+    (if (not (llvm-typep '(integer 1) type))
+	(fail-parse "Boolean must really be integer of 1 bit."))
+    whitespace
+    (list type (text (|| "true" "false")))))
+
+(define-cg-llvm-rule integer-constant ()
+  (let ((type (emit-lisp-repr llvm-type)))
+    (if (not (llvm-typep '(integer *) type))
+	(fail-parse-format "Integer constant must be of integer type but got ~a." type))
+    whitespace
+    (list type integer)))
+
+(define-cg-llvm-rule sign ()
+  (|| "+" "-"))
+
+(define-cg-llvm-rule decimal-float ()
+  (parse-number:parse-number (text (? sign)
+				   (times ns-dec-digit)
+				   #\. (times ns-dec-digit)
+				   (? (list #\e sign (postimes ns-dec-digit))))))
+
+;; TODO : hexadecimal float ???
+
+(define-cg-llvm-rule llvm-float ()
+  (|| decimal-float
+      hexadecimal-float))
+
+(define-cg-llvm-rule float-constant ()
+  (let ((type (emit-lisp-repr llvm-type)))
+    (if (not (llvm-typep '(float *) type))
+	(fail-parse-format  "Float constant must be of float type but got ~a." type))
+    whitespace
+    (list type llvm-float)))
+
+(define-cg-llvm-rule null-ptr-constant ()
+  (let ((type (emit-lisp-repr llvm-type)))
+    (if (not (or (llvm-typep '(pointer *) type)
+		 (llvm-typep '(pointer * *) type)))
+	(fail-parse-format """Null ptr constant must be of pointer type but got ~a.""" type))
+    (list type (text "null"))))
+
+(define-cg-llvm-rule simple-constant ()
+  (|| boolean-constant
+      integer-constant
+      float-constant
+      null-ptr-constant))
+
+(define-cg-llvm-rule llvm-constant ()
+  (|| simple-constant complex-constant))
+
+(define-plural-rule llvm-constants llvm-constant (progn (? whitespace) #\, (? whitespace)))
+
+(defmacro define-complex-constant-rule (name lb rb type-test content-test errstr1 errstr2)
+  `(define-cg-llvm-rule ,name ()
+     (let ((type (emit-lisp-repr llvm-type)))
+       (if ,type-test
+	   (fail-parse-format ,(join "" errstr1 " constant must be of " errstr2 " type, but got ~a") type))
+       (let ((content (progm (progn (descend-with-rule 'string ,lb) (? whitespace))
+			     llvm-constants
+			     (progn (? whitespace) (descend-with-rule 'string ,rb)))))
+	 ,content-test
+	 (list type content)))))
+
+(define-complex-constant-rule structure-constant "{" "}"
+  (not (llvm-typep '(struct ***) type))
+  (if (not (equal (length (cadr type)) (length content)))
+      (fail-parse "Number of elements of type and content do not match.")
+      (iter (for theor-subtype in (cadr type))
+	    (for (expr-subtype nil) in content)
+	    (if (not (llvm-same-typep theor-subtype expr-subtype))
+		(fail-parse "Type of structure field does not match declared one."))))
+  "Structure" "structure" )
+
+(define-complex-constant-rule array-constant "[" "]"
+  (not (llvm-typep '(array ***) type))
+  (if (not (equal (caddr type) (length content)))
+      (fail-parse "Number of elements of type and content do not match.")
+      (iter (for (expr-subtype nil) in content)
+	    (if (not (llvm-same-typep (cadr type) expr-subtype))
+		(fail-parse "Type of array element does not match declared one."))))
+  "Array" "array")
+
+(define-complex-constant-rule vector-constant "<" ">"
+  (not (llvm-typep '(vector ***) type))
+  (if (not (equal (caddr type) (length content)))
+      (fail-parse "Number of elements of type and content do not match.")
+      (iter (for (expr-subtype nil) in content)
+	    (if (not (llvm-same-typep (cadr type) expr-subtype))
+		(fail-parse "Type of vector element does not match declared one."))))
+  "Vector" "vector")
+
+
+(define-cg-llvm-rule complex-constant ()
+  (|| structure-constant
+      array-constant
+      string-constant ; just a special syntax for array of chars
+      vector-constant
+      zero-init
+      metadata-node))
