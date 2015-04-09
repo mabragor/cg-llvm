@@ -142,6 +142,9 @@
   "unnamed_addr"
   '(:unnamed-addr t))
 
+(define-cg-llvm-rule alpha-char ()
+  (character-ranges (#\a #\z) (#\A #\Z)))
+
 (define-cg-llvm-rule alphanumeric-char ()
   (character-ranges (#\0 #\9) (#\a #\z) (#\A #\Z)))
 
@@ -291,3 +294,51 @@
       vector-constant
       zero-init
       metadata-node))
+
+
+(define-cg-llvm-rule usual-identifier ()
+  (let ((raw-text (text (list (|| #\@ #\%)
+			      (|| alpha-char #\- #\$ #\. #\_)
+			      (times (|| alphanumeric-char #\- #\$ #\. #\_))))))
+    (handler-case (destringify-symbol raw-text)
+      (error () raw-text))))
+
+(define-cg-llvm-rule hex-digit ()
+  (character-ranges (#\0 #\9) (#\a #\f) (#\A #\F)))
+
+(define-cg-llvm-rule double-hex-escaped-char ()
+  #\\
+  (code-char (parse-number:parse-number (text (times hex-digit :exactly 2))
+					:radix 16)))
+
+(define-cg-llvm-rule escaped-identifier ()
+  (text (progm #\"
+	       (times (progn (! #\")
+			     (|| double-hex-escaped-char
+				 (descend-with-rule 'character nil))))
+	       #\")))
+  
+
+(define-cg-llvm-rule llvm-identifier ()
+  (|| usual-identifier
+      escaped-identifier))
+
+;; (define-cg-llvm-rule function-declaration ()
+;;   "define" whitespace
+;;   (macrolet ((frob (x)
+;; 	       `(? (prog1 ,x whitespace))))
+;;     (let* ((linkage (frob linkage-type))
+;; 	   (visibility (frob visibility-style))
+;; 	   (dll-class (frob dll-storage-class))
+;; 	   (cconv (frob cconv))
+;; 	   (unnamed-addr (frob unnamed-addr))
+;; 	   (return-type (prog1 llvm-type whitespace))
+;; 	   (return-attrs (frob parameter-attrs))
+;; 	   (setf fname alphanumeric-word) whitespace ; should be different
+;;   ;; TODO: arguments
+;;   "args" whitespace 
+;;   (setf alignment (? align)) whitespace
+;;   (setf gc (? gc-name)) whitespace
+;;   (setf prefix (? prefix)) whitespace
+;;   (setf prologue (? prologue)))
+  

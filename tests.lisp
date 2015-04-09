@@ -285,3 +285,8 @@
 ;; 		(select 'true 17 42)))
 
 
+(test llvm-identifier
+  (is (string= "@FOO" (string (cg-llvm-parse 'llvm-identifier "@foo"))))
+  (is (string= "foo" (string (cg-llvm-parse 'llvm-identifier "\"foo\""))))
+  (is (string= (concatenate 'string (string (code-char 1)) "foo")
+	       (string (cg-llvm-parse 'llvm-identifier "\"\\01foo\"")))))
