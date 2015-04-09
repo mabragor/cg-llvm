@@ -7,13 +7,15 @@
   :license "GPL"
   :depends-on (#:cl-trivial-templates #:cl-ppcre #:cl-interpol #:iterate #:cg-common-ground #:lol-re
 				      #:esrap-liquid #:optima #:defmacro-enhance
-				      #:quasiquote-2.0)
+				      #:quasiquote-2.0 #:parse-number)
   :pathname "src/"
   :components ((:file "package")
 	       (:file "types-macros")
 	       (:file "types")
-	       (:file "basics")
-	       (:file "fun-defs")))
+	       (:file "fun-defs")
+	       ;; (:file "basics")
+	       ))
+
 
 
 (defsystem :cg-llvm-tests

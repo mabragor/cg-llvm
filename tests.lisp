@@ -107,181 +107,181 @@
 
 
 
-;; terminating instructions
+;; ;; terminating instructions
 
-(test terminating-instructions
-  (macrolet ((frob (x y)
-	       `(is (equal ,x (with-output-to-string (*standard-output*)
-				(let ((cg-llvm::*context* :function))
-				  (llvm-return ,y)))))))
-    (frob "ret void" :void)
-    (frob "ret i14 42" '(42 (integer 14)))
-    (frob "ret i14 42" '(42 "i14")))
-  (macrolet ((frob (x y)
-	       `(is (equal ,x (with-output-to-string (*standard-output*)
-				(let ((cg-llvm::*context* :function))
-				  (unconditional-branch ,y)))))))
-    (frob "br label asdf" 'asdf)
-    (frob "br label %Asdf" '+%asdf)
-    (frob "br label ASDF" '*asdf))
-  (macrolet ((frob (x y z w)
-	       `(is (equal ,x (with-output-to-string (*standard-output*)
-				(let ((cg-llvm::*context* :function))
-				  (conditional-branch ,y ,z ,w)))))))
-    (frob "br i1 %cond, label %IfEqual, label %IfUnequal" '(%cond "i1") '+%if-equal '+%if-unequal))
-  (macrolet ((frob (x &rest args)
-	       `(is (equal ,x (with-output-to-string (*standard-output*)
-				(let ((cg-llvm::*context* :function))
-				  (switch ,@args)))))))
-    (frob "switch i32 %Val, label %truedest [i32 0, label %falsedest]"
-	  '(+%val  "i32") '%truedest 0 '%falsedest)
-    (frob "switch i32 0, label %dest []"
-	  0 '%dest)
-    (frob "switch i32 %val, label %otherwise [i32 0, label %onzero i32 1, label %onone i32 2, label %ontwo]"
-	  '(%val "i32") '%otherwise 0 '%onzero 1 '%onone 2 '%ontwo))
-  (macrolet ((frob (x y &rest args)
-	       `(is (equal ,x (with-output-to-string (*standard-output*)
-				(let ((cg-llvm::*context* :function))
-				  (indirect-branch ,y ,@args)))))))
-    (frob "indirectbr i8* %Addr, [label %bb1, label %bb2, label %bb3]"
-	  '(+%addr "i8*") '%bb1 '%bb2 '%bb3))
-  (macrolet ((frob (x y)
-	       `(is (equal ,x (with-output-to-string (*standard-output*)
-				(let ((cg-llvm::*context* :function))
-				  (resume ,y)))))))
-    (frob "resume {i8*, i32} %exn" '(%exn "{i8*, i32}")))
-  (is (equal "unreachable" (with-output-to-string (*standard-output*) (unreachable))))
-  (macrolet ((frob (x &rest args)
-	       `(is (equal ,x (with-output-to-string (*standard-output*)
-				(let ((cg-llvm::*context* :function))
-				  (invoke ,@args)))))))
-    (frob "invoke i32 @Test(i32 15) to label %Continue unwind label %TestCleanup"
-	  '(+@test "i32 (i32)") '(15) '+%continue '+%test-cleanup)
-    (frob "invoke i32 @Test(i32 15) to label %Continue unwind label %TestCleanup"
-	  '(+@test "i32") '(15) '+%continue '+%test-cleanup)
-    (frob "invoke coldcc i32 %Testfnptr(i32 15) to label %Continue unwind label %TestCleanup"
-	  '(+%testfnptr "i32 (i32)") '(15) '+%continue '+%test-cleanup
-	  :call-conv 'coldcc)
-    (frob "invoke coldcc i32 %Testfnptr(i32 15) to label %Continue unwind label %TestCleanup"
-	  '(+%testfnptr "i32") '(15) '+%continue '+%test-cleanup
-	  :call-conv 'coldcc)
-    (frob "invoke coldcc i32 %Testfnptr(i32 15) to label %Continue unwind label %TestCleanup"
-	  '(+%testfnptr "i32(i32)*") '(15) '+%continue '+%test-cleanup
-	  :call-conv 'coldcc)))
+;; (test terminating-instructions
+;;   (macrolet ((frob (x y)
+;; 	       `(is (equal ,x (with-output-to-string (*standard-output*)
+;; 				(let ((cg-llvm::*context* :function))
+;; 				  (llvm-return ,y)))))))
+;;     (frob "ret void" :void)
+;;     (frob "ret i14 42" '(42 (integer 14)))
+;;     (frob "ret i14 42" '(42 "i14")))
+;;   (macrolet ((frob (x y)
+;; 	       `(is (equal ,x (with-output-to-string (*standard-output*)
+;; 				(let ((cg-llvm::*context* :function))
+;; 				  (unconditional-branch ,y)))))))
+;;     (frob "br label asdf" 'asdf)
+;;     (frob "br label %Asdf" '+%asdf)
+;;     (frob "br label ASDF" '*asdf))
+;;   (macrolet ((frob (x y z w)
+;; 	       `(is (equal ,x (with-output-to-string (*standard-output*)
+;; 				(let ((cg-llvm::*context* :function))
+;; 				  (conditional-branch ,y ,z ,w)))))))
+;;     (frob "br i1 %cond, label %IfEqual, label %IfUnequal" '(%cond "i1") '+%if-equal '+%if-unequal))
+;;   (macrolet ((frob (x &rest args)
+;; 	       `(is (equal ,x (with-output-to-string (*standard-output*)
+;; 				(let ((cg-llvm::*context* :function))
+;; 				  (switch ,@args)))))))
+;;     (frob "switch i32 %Val, label %truedest [i32 0, label %falsedest]"
+;; 	  '(+%val  "i32") '%truedest 0 '%falsedest)
+;;     (frob "switch i32 0, label %dest []"
+;; 	  0 '%dest)
+;;     (frob "switch i32 %val, label %otherwise [i32 0, label %onzero i32 1, label %onone i32 2, label %ontwo]"
+;; 	  '(%val "i32") '%otherwise 0 '%onzero 1 '%onone 2 '%ontwo))
+;;   (macrolet ((frob (x y &rest args)
+;; 	       `(is (equal ,x (with-output-to-string (*standard-output*)
+;; 				(let ((cg-llvm::*context* :function))
+;; 				  (indirect-branch ,y ,@args)))))))
+;;     (frob "indirectbr i8* %Addr, [label %bb1, label %bb2, label %bb3]"
+;; 	  '(+%addr "i8*") '%bb1 '%bb2 '%bb3))
+;;   (macrolet ((frob (x y)
+;; 	       `(is (equal ,x (with-output-to-string (*standard-output*)
+;; 				(let ((cg-llvm::*context* :function))
+;; 				  (resume ,y)))))))
+;;     (frob "resume {i8*, i32} %exn" '(%exn "{i8*, i32}")))
+;;   (is (equal "unreachable" (with-output-to-string (*standard-output*) (unreachable))))
+;;   (macrolet ((frob (x &rest args)
+;; 	       `(is (equal ,x (with-output-to-string (*standard-output*)
+;; 				(let ((cg-llvm::*context* :function))
+;; 				  (invoke ,@args)))))))
+;;     (frob "invoke i32 @Test(i32 15) to label %Continue unwind label %TestCleanup"
+;; 	  '(+@test "i32 (i32)") '(15) '+%continue '+%test-cleanup)
+;;     (frob "invoke i32 @Test(i32 15) to label %Continue unwind label %TestCleanup"
+;; 	  '(+@test "i32") '(15) '+%continue '+%test-cleanup)
+;;     (frob "invoke coldcc i32 %Testfnptr(i32 15) to label %Continue unwind label %TestCleanup"
+;; 	  '(+%testfnptr "i32 (i32)") '(15) '+%continue '+%test-cleanup
+;; 	  :call-conv 'coldcc)
+;;     (frob "invoke coldcc i32 %Testfnptr(i32 15) to label %Continue unwind label %TestCleanup"
+;; 	  '(+%testfnptr "i32") '(15) '+%continue '+%test-cleanup
+;; 	  :call-conv 'coldcc)
+;;     (frob "invoke coldcc i32 %Testfnptr(i32 15) to label %Continue unwind label %TestCleanup"
+;; 	  '(+%testfnptr "i32(i32)*") '(15) '+%continue '+%test-cleanup
+;; 	  :call-conv 'coldcc)))
     
     
-(test binary-operators
-  (macrolet ((frob (x y)
-	       `(is (equal ,x (with-output-to-string (*standard-output*)
-				(let ((cg-llvm::*context* :function))
-				  (cg-llvm::reset-tmp-var-counts)
-				  ,y))))))
-    (frob (cg-llvm::join "~%"
-			 "%tmpadd1 = add i32 1, 2"
-			 "%tmpadd2 = add i32 3, 4"
-			 "%tmpadd3 = add i32 %tmpadd1, %tmpadd2"
-			 "ret i32 %tmpadd3")
-	  (llvm-return (add (add 1 2) (add 3 4))))))
+;; (test binary-operators
+;;   (macrolet ((frob (x y)
+;; 	       `(is (equal ,x (with-output-to-string (*standard-output*)
+;; 				(let ((cg-llvm::*context* :function))
+;; 				  (cg-llvm::reset-tmp-var-counts)
+;; 				  ,y))))))
+;;     (frob (cg-llvm::join "~%"
+;; 			 "%tmpadd1 = add i32 1, 2"
+;; 			 "%tmpadd2 = add i32 3, 4"
+;; 			 "%tmpadd3 = add i32 %tmpadd1, %tmpadd2"
+;; 			 "ret i32 %tmpadd3")
+;; 	  (llvm-return (add (add 1 2) (add 3 4))))))
 
-(test vector-operations
-  (macrolet ((frob (x y)
-	       `(is (equal ,x (with-output-to-string (*standard-output*)
-				(cg-llvm::reset-tmp-var-counts)
-				,y)))))
-    (frob #?"%tmpexelt1 = extractelement <8 x i8> %tmpvec, i32 3\n"
-	  (extractelement (mk-typed-value '(vector (integer 8) 8) '%tmpvec) 3))
-    (frob #?"%tmpinselt1 = insertelement <8 x i8> %tmpvec, i8 %tmpint, i32 0\n"
-	  (insertelement (mk-typed-value '(vector (integer 8) 8) '%tmpvec)
-			 (mk-typed-value '(integer 8) '%tmpint)
-			 0))
-    (frob #?"%tmpshufvec1 = shufflevector <4 x i32> %v1, <4 x i32> %v2, <4 x i32> <i32 0, i32 4, i32 1, i32 5>\n"
-	  (shufflevector (mk-typed-value '(vector (integer 32) 4) '%v1)
-			 (mk-typed-value '(vector (integer 32) 4) '%v2)
-			 ;; TODO : I don't know yet how to write vectors is lisp-notation
-			 ;; so I just write text rep here
-			 (mk-typed-value '(vector (integer 32) 4) "<i32 0, i32 4, i32 1, i32 5>")))
-    (frob #?"%tmpshufvec1 = shufflevector <4 x i32> %v1, <4 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>\n"
-	  (shufflevector (mk-typed-value '(vector (integer 32) 4) '%v1)
-			 (mk-typed-value '(vector (integer 32) 4) 'undef)
-			 (mk-typed-value '(vector (integer 32) 4) "<i32 0, i32 1, i32 2, i32 3>")))
-    (frob (join "~%"
-		(join " " #?"%tmpshufvec1 = shufflevector <8 x i32> %v1, <8 x i32> undef,"
-		      "<4 x i32> <i32 0, i32 1, i32 2, i32 3>")
-		"ret <4 x i32> %tmpshufvec1")
-	  (let ((cg-llvm::*context* :function))
-	    (llvm-return (shufflevector (mk-typed-value '(vector (integer 32) 8) '%v1)
-					(mk-typed-value '(vector (integer 32) 8) 'undef)
-					(mk-typed-value '(vector (integer 32) 4) "<i32 0, i32 1, i32 2, i32 3>")))))
-    (frob (join "~%"
-		(join " " #?"%tmpshufvec1 = shufflevector <4 x i32> %v1, <4 x i32> %v2,"
-		      "<8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>")
-		"ret <8 x i32> %tmpshufvec1")
-	  (let ((cg-llvm::*context* :function))
-	    (llvm-return
-	     (shufflevector (mk-typed-value '(vector (integer 32) 4) '%v1)
-			    (mk-typed-value '(vector (integer 32) 4) '%v2)
-			    (mk-typed-value '(vector (integer 32) 8)
-					    "<i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>")))))))
+;; (test vector-operations
+;;   (macrolet ((frob (x y)
+;; 	       `(is (equal ,x (with-output-to-string (*standard-output*)
+;; 				(cg-llvm::reset-tmp-var-counts)
+;; 				,y)))))
+;;     (frob #?"%tmpexelt1 = extractelement <8 x i8> %tmpvec, i32 3\n"
+;; 	  (extractelement (mk-typed-value '(vector (integer 8) 8) '%tmpvec) 3))
+;;     (frob #?"%tmpinselt1 = insertelement <8 x i8> %tmpvec, i8 %tmpint, i32 0\n"
+;; 	  (insertelement (mk-typed-value '(vector (integer 8) 8) '%tmpvec)
+;; 			 (mk-typed-value '(integer 8) '%tmpint)
+;; 			 0))
+;;     (frob #?"%tmpshufvec1 = shufflevector <4 x i32> %v1, <4 x i32> %v2, <4 x i32> <i32 0, i32 4, i32 1, i32 5>\n"
+;; 	  (shufflevector (mk-typed-value '(vector (integer 32) 4) '%v1)
+;; 			 (mk-typed-value '(vector (integer 32) 4) '%v2)
+;; 			 ;; TODO : I don't know yet how to write vectors is lisp-notation
+;; 			 ;; so I just write text rep here
+;; 			 (mk-typed-value '(vector (integer 32) 4) "<i32 0, i32 4, i32 1, i32 5>")))
+;;     (frob #?"%tmpshufvec1 = shufflevector <4 x i32> %v1, <4 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>\n"
+;; 	  (shufflevector (mk-typed-value '(vector (integer 32) 4) '%v1)
+;; 			 (mk-typed-value '(vector (integer 32) 4) 'undef)
+;; 			 (mk-typed-value '(vector (integer 32) 4) "<i32 0, i32 1, i32 2, i32 3>")))
+;;     (frob (join "~%"
+;; 		(join " " #?"%tmpshufvec1 = shufflevector <8 x i32> %v1, <8 x i32> undef,"
+;; 		      "<4 x i32> <i32 0, i32 1, i32 2, i32 3>")
+;; 		"ret <4 x i32> %tmpshufvec1")
+;; 	  (let ((cg-llvm::*context* :function))
+;; 	    (llvm-return (shufflevector (mk-typed-value '(vector (integer 32) 8) '%v1)
+;; 					(mk-typed-value '(vector (integer 32) 8) 'undef)
+;; 					(mk-typed-value '(vector (integer 32) 4) "<i32 0, i32 1, i32 2, i32 3>")))))
+;;     (frob (join "~%"
+;; 		(join " " #?"%tmpshufvec1 = shufflevector <4 x i32> %v1, <4 x i32> %v2,"
+;; 		      "<8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>")
+;; 		"ret <8 x i32> %tmpshufvec1")
+;; 	  (let ((cg-llvm::*context* :function))
+;; 	    (llvm-return
+;; 	     (shufflevector (mk-typed-value '(vector (integer 32) 4) '%v1)
+;; 			    (mk-typed-value '(vector (integer 32) 4) '%v2)
+;; 			    (mk-typed-value '(vector (integer 32) 8)
+;; 					    "<i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>")))))))
   
 	  
-(defmacro frob-context (x y)
-  `(is (equal ,x (with-output-to-string (*standard-output*)
-		   (cg-llvm::reset-tmp-var-counts)
-		   (let ((cg-llvm::*context* :function))
-		     ,y)))))
+;; (defmacro frob-context (x y)
+;;   `(is (equal ,x (with-output-to-string (*standard-output*)
+;; 		   (cg-llvm::reset-tmp-var-counts)
+;; 		   (let ((cg-llvm::*context* :function))
+;; 		     ,y)))))
 
 
-(test aggregate-operations
-  (frob-context (join "~%"
-		      #?"%tmpexval1 = extractvalue {i32, float} %agg, 0"
-		      "ret i32 %tmpexval1")
-		(llvm-return (extractvalue (mk-typed-value "{i32, float}" '%agg) 0)))
-  (frob-context (join "~%"
-		      #?"%tmpexval1 = extractvalue {i32, float} %agg, 1"
-		      "ret float %tmpexval1")
-		(llvm-return (extractvalue (mk-typed-value "{i32, float}" '%agg) 1)))
-  (frob-context (join "~%"
-		      "%tmpinsval1 = insertvalue {i32, float} undef, i32 1, 0"
-		      "%tmpinsval2 = insertvalue {i32, float} %tmpinsval1, float %val, 1"
-		      #?"%tmpinsval3 = insertvalue {i32, {float}} undef, float %val, 1, 0\n")
-		(progn (insertvalue (insertvalue (mk-typed-value "{i32, float}" 'undef) 1 0)
-				    (mk-typed-value "float" '%val) 1)
-		       (insertvalue (mk-typed-value "{i32, {float}}" 'undef)
-				    (mk-typed-value "float" '%val)
-				    1 0))))
+;; (test aggregate-operations
+;;   (frob-context (join "~%"
+;; 		      #?"%tmpexval1 = extractvalue {i32, float} %agg, 0"
+;; 		      "ret i32 %tmpexval1")
+;; 		(llvm-return (extractvalue (mk-typed-value "{i32, float}" '%agg) 0)))
+;;   (frob-context (join "~%"
+;; 		      #?"%tmpexval1 = extractvalue {i32, float} %agg, 1"
+;; 		      "ret float %tmpexval1")
+;; 		(llvm-return (extractvalue (mk-typed-value "{i32, float}" '%agg) 1)))
+;;   (frob-context (join "~%"
+;; 		      "%tmpinsval1 = insertvalue {i32, float} undef, i32 1, 0"
+;; 		      "%tmpinsval2 = insertvalue {i32, float} %tmpinsval1, float %val, 1"
+;; 		      #?"%tmpinsval3 = insertvalue {i32, {float}} undef, float %val, 1, 0\n")
+;; 		(progn (insertvalue (insertvalue (mk-typed-value "{i32, float}" 'undef) 1 0)
+;; 				    (mk-typed-value "float" '%val) 1)
+;; 		       (insertvalue (mk-typed-value "{i32, {float}}" 'undef)
+;; 				    (mk-typed-value "float" '%val)
+;; 				    1 0))))
 
-(test memory-operations
-  (frob-context #?"%tmpptr1 = alloca i32\n"
-		(alloca "i32"))
-  (frob-context #?"%tmpptr1 = alloca i32, i32 4\n"
-		(alloca "i32" :num-elts 4))
-  (frob-context #?"%tmpptr1 = alloca i32, i32 4, align 1024\n"
-		(alloca "i32" :num-elts 4 :align 1024))
-  (frob-context #?"%tmpptr1 = alloca i32, align 1024\n"
-		(alloca "i32" :align 1024)))
+;; (test memory-operations
+;;   (frob-context #?"%tmpptr1 = alloca i32\n"
+;; 		(alloca "i32"))
+;;   (frob-context #?"%tmpptr1 = alloca i32, i32 4\n"
+;; 		(alloca "i32" :num-elts 4))
+;;   (frob-context #?"%tmpptr1 = alloca i32, i32 4, align 1024\n"
+;; 		(alloca "i32" :num-elts 4 :align 1024))
+;;   (frob-context #?"%tmpptr1 = alloca i32, align 1024\n"
+;; 		(alloca "i32" :align 1024)))
   
 
-(test conversion-operations
-  (let ((my-fav-vector (mk-typed-value '(vector (integer 16) 2)
-				       "<i16 8, i16 7>")))
-    (frob-context #?"%tmptrunc1 = trunc i32 4 to i1\n" (trunc 4 "i1"))
-    (frob-context #?"%tmptrunc1 = trunc <2 x i16> <i16 8, i16 7> to <2 x i8>\n"
-		  (trunc my-fav-vector "<2 x i8>"))
-    (frob-context #?"%tmpzext1 = zext i32 257 to i64\n" (zext 257 "i64"))
-    (frob-context #?"%tmpzext1 = zext <2 x i16> <i16 8, i16 7> to <2 x i32>\n"
-		  (zext my-fav-vector "<2 x i32>"))
-    (frob-context #?"%tmpsext1 = sext i8 -1 to i16\n" (sext (mk-typed-value "i8" -1) "i16"))
-    (frob-context #?"%tmpsext1 = sext i1 true to i32\n" (sext (mk-typed-value "i1" 'true) "i32"))
-    (frob-context #?"%tmpsext1 = sext <2 x i16> <i16 8, i16 7> to <2 x i32>\n"
-		  (sext my-fav-vector "<2 x i32>"))
-    (frob-context #?"%tmpfptrunc1 = fptrunc double 123.0 to float\n"
-		  (fptrunc (mk-typed-value "double" 123.0) "float"))))
+;; (test conversion-operations
+;;   (let ((my-fav-vector (mk-typed-value '(vector (integer 16) 2)
+;; 				       "<i16 8, i16 7>")))
+;;     (frob-context #?"%tmptrunc1 = trunc i32 4 to i1\n" (trunc 4 "i1"))
+;;     (frob-context #?"%tmptrunc1 = trunc <2 x i16> <i16 8, i16 7> to <2 x i8>\n"
+;; 		  (trunc my-fav-vector "<2 x i8>"))
+;;     (frob-context #?"%tmpzext1 = zext i32 257 to i64\n" (zext 257 "i64"))
+;;     (frob-context #?"%tmpzext1 = zext <2 x i16> <i16 8, i16 7> to <2 x i32>\n"
+;; 		  (zext my-fav-vector "<2 x i32>"))
+;;     (frob-context #?"%tmpsext1 = sext i8 -1 to i16\n" (sext (mk-typed-value "i8" -1) "i16"))
+;;     (frob-context #?"%tmpsext1 = sext i1 true to i32\n" (sext (mk-typed-value "i1" 'true) "i32"))
+;;     (frob-context #?"%tmpsext1 = sext <2 x i16> <i16 8, i16 7> to <2 x i32>\n"
+;; 		  (sext my-fav-vector "<2 x i32>"))
+;;     (frob-context #?"%tmpfptrunc1 = fptrunc double 123.0 to float\n"
+;; 		  (fptrunc (mk-typed-value "double" 123.0) "float"))))
   
 
-(test misc-operations
-  (frob-context #?"%tmpphi1 = phi i32 [ 1, %x ], [ 2, %y ]\n"
-		(phi '(1 %x) '(2 %y)))
-  (frob-context #?"%tmpsel1 = select i1 true, i32 17, i32 42\n"
-		(select 'true 17 42)))
+;; (test misc-operations
+;;   (frob-context #?"%tmpphi1 = phi i32 [ 1, %x ], [ 2, %y ]\n"
+;; 		(phi '(1 %x) '(2 %y)))
+;;   (frob-context #?"%tmpsel1 = select i1 true, i32 17, i32 42\n"
+;; 		(select 'true 17 42)))
 
 

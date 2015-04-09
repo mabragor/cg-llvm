@@ -272,6 +272,18 @@
   "Vector" "vector")
 
 
+;; (define-cg-llvm-rule string-constant ()
+;;   (let ((type (emit-lisp-repr llvm-type)))
+;;     (if (not (llvm-typep '(array (integer 8) *) type))
+;; 	(fail-parse-format "String constant must be of array-of-chars type, but got ~a") type)
+;;     (let ((content (progm (progn (descend-with-rule 'string ,lb) (? whitespace))
+;; 			  llvm-constants
+;; 			  (progn (? whitespace) (descend-with-rule 'string ,rb)))))
+;;       ,content-test
+;;       (list type content))))
+
+
+
 (define-cg-llvm-rule complex-constant ()
   (|| structure-constant
       array-constant
