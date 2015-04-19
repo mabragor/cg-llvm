@@ -372,4 +372,50 @@
 		,!m(inject-kwd-if-nonnil prefix)
 		,!m(inject-kwd-if-nonnil prologue)))))
 		
+;; Let's move to alias definitions
   
+;; @<Name> = [Linkage] [Visibility] [DLLStorageClass] [ThreadLocal] [unnamed_addr] alias <AliaseeTy> @<Aliasee>
+
+;; (alias new-name type old-name
+;;   (:linkage linkage)
+;;   (:visibility visibility)
+;;   ...)
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defparameter known-tls-models '(localdynamic initialexec localexec generaldynamic)))
+(define-kwd-rule tls-model known-tls-models)
+
+(define-algol-rule (%thread-local thread-local) tls-model)
+
+(define-cg-llvm-rule thread-local ()
+  (|| %thread-local
+      (progn "thread_local"
+	     '(:thread-local t))))
+
+(defun guard-kwd-expr (allowed-kwds expr)
+  (if (find expr allowed-kwds :test #'eq)
+      expr
+      (fail-parse-format "Keyword ~a is not among allowed keywords." expr)))
+
+
+(define-cg-llvm-rule alias ()
+  (macrolet ((frob (x)
+	       `(? (progn whitespace ,x))))
+    (let ((name llvm-identifier))
+      " ="
+      (let* ((linkage (frob (guard-kwd-expr '(:private :internal :linkoce :weak :linkonce-odr :weak-odr :external)
+					    linkage-type)))
+	     (visibility (frob visibility-style))
+	     (dll-storage-class (frob dll-storage-class))
+	     (thread-local (frob thread-local))
+	     (unnamed-addr (frob unnamed-addr)))
+	whitespace "alias"
+	(let* ((type (progn whitespace llvm-type))
+	       (old-name (progn whitespace llvm-identifier)))
+	  `(alias ,name ,old-name ,(emit-lisp-repr type)
+		  ,!m(inject-kwd-if-nonnil linkage)
+		  ,!m(inject-kwd-if-nonnil visibility)
+		  ,!m(inject-kwd-if-nonnil dll-storage-class)
+		  ,!m(inject-if-nonnil thread-local)
+		  ,!m(inject-if-nonnil unnamed-addr)))))))
+		  

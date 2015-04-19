@@ -301,5 +301,22 @@
 	    :return-type-placeholder)
 	  "declare private unnamed_addr i32 @foo (...)")))
 
+(test thread-local
+  (is (equal '(:thread-local t) (cg-llvm-parse 'thread-local "thread_local")))
+  (is (equal '(:thread-local :initialexec) (cg-llvm-parse 'thread-local "thread_local(initialexec)")))
+  (signals error (cg-llvm-parse 'thread-local "thread_local(adsf)")))
 
+(test aliases
+  (macrolet ((frob (x y)
+	       `(is (equal ,x (cg-llvm-parse 'alias ,y)))))
+    (frob '(cg-llvm::alias @foo @bar (integer 8)) "@foo = alias i8 @bar")
+    (frob '(cg-llvm::alias @foo @bar (integer 16)
+	    (:linkage :private)
+	    (:visibility :default)
+	    (:dll-storage-class :dllimport)
+	    (:thread-local :localexec)
+	    (:unnamed-addr t))
+	  "@foo = private default dllimport thread_local(localexec) unnamed_addr alias i16 @bar")))
   
+
+
