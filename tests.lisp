@@ -317,6 +317,12 @@
 	    (:thread-local :localexec)
 	    (:unnamed-addr t))
 	  "@foo = private default dllimport thread_local(localexec) unnamed_addr alias i16 @bar")))
+
   
 
 
+(test comdat-toplevel
+  (macrolet ((frob (x y)
+	       `(is (equal ,x (cg-llvm-parse 'comdat-toplevel ,y)))))
+    (frob '(cg-llvm::comdat "foo" :any) "$foo = comdat any")
+    (frob '(cg-llvm::comdat "bar" :largest) "$bar = comdat  largest")))

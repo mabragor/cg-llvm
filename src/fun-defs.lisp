@@ -402,7 +402,7 @@
   (macrolet ((frob (x)
 	       `(? (progn whitespace ,x))))
     (let ((name llvm-identifier))
-      " ="
+      whitespace "="
       (let* ((linkage (frob (guard-kwd-expr '(:private :internal :linkoce :weak :linkonce-odr :weak-odr :external)
 					    linkage-type)))
 	     (visibility (frob visibility-style))
@@ -418,4 +418,15 @@
 		  ,!m(inject-kwd-if-nonnil dll-storage-class)
 		  ,!m(inject-if-nonnil thread-local)
 		  ,!m(inject-if-nonnil unnamed-addr)))))))
-		  
+
+;; Let's move to comdats
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defparameter known-selection-kinds '(any exactmatch largest noduplicates samesize)))
+(define-kwd-rule selection-kind)
+
+(define-cg-llvm-rule comdat-toplevel ()
+  (let ((name (progn "$" alphanumeric-word)))
+    whitespace "=" whitespace "comdat" whitespace
+    (let ((kind selection-kind))
+      `(comdat ,name ,kind))))
