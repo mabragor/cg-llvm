@@ -311,7 +311,7 @@
   (code-char (parse-number:parse-number (text (times hex-digit :exactly 2))
 					:radix 16)))
 
-(define-cg-llvm-rule escaped-identifier ()
+(define-cg-llvm-rule llvm-string ()
   (text (progm #\"
 	       (times (progn (! #\")
 			     (|| double-hex-escaped-char
@@ -321,7 +321,7 @@
 
 (define-cg-llvm-rule llvm-identifier ()
   (|| usual-identifier
-      escaped-identifier))
+      llvm-string))
 
 (defmacro inject-kwd-if-nonnil (name)
   ``,@(if ,name
@@ -419,7 +419,7 @@
 		  ,!m(inject-if-nonnil thread-local)
 		  ,!m(inject-if-nonnil unnamed-addr)))))))
 
-;; Let's move to comdats
+;;; Let's move to comdats
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter known-selection-kinds '(any exactmatch largest noduplicates samesize)))
@@ -430,3 +430,12 @@
     whitespace "=" whitespace "comdat" whitespace
     (let ((kind selection-kind))
       `(comdat ,name ,kind))))
+
+;;; Metadata is to scary to tackle right now ...
+
+
+;;; Inline assembly
+(define-cg-llvm-rule inline-assembly ()
+  "module" whitespace "asm" whitespace
+  (let ((it llvm-string))
+    `(asm ,it)))

@@ -326,3 +326,10 @@
 	       `(is (equal ,x (cg-llvm-parse 'comdat-toplevel ,y)))))
     (frob '(cg-llvm::comdat "foo" :any) "$foo = comdat any")
     (frob '(cg-llvm::comdat "bar" :largest) "$bar = comdat  largest")))
+
+(test inline-assembly
+  (macrolet ((frob (x y)
+	       `(is (equal ,x (cg-llvm-parse 'inline-assembly ,y)))))
+    (frob '(cg-llvm::asm "inline asm goes here") "module asm \"inline asm goes here\"")
+    (frob '(cg-llvm::asm "more can go here") "module asm \"more can go here\"")))
+  
