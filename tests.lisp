@@ -290,3 +290,16 @@
   (is (string= "foo" (string (cg-llvm-parse 'llvm-identifier "\"foo\""))))
   (is (string= (concatenate 'string (string (code-char 1)) "foo")
 	       (string (cg-llvm-parse 'llvm-identifier "\"\\01foo\"")))))
+
+(test function-declaration
+  (macrolet ((frob (x y)
+	       `(is (equal ,x (cg-llvm-parse 'function-declaration ,y)))))
+    (frob '(declare @foo "(...)" :return-type-placeholder) "declare i32 @foo (...)")
+    (frob '(declare @foo "(...)"
+	    (:linkage :private)
+	    (:unnamed-addr t)
+	    :return-type-placeholder)
+	  "declare private unnamed_addr i32 @foo (...)")))
+
+
+  

@@ -323,22 +323,53 @@
   (|| usual-identifier
       escaped-identifier))
 
-;; (define-cg-llvm-rule function-declaration ()
-;;   "define" whitespace
-;;   (macrolet ((frob (x)
-;; 	       `(? (prog1 ,x whitespace))))
-;;     (let* ((linkage (frob linkage-type))
-;; 	   (visibility (frob visibility-style))
-;; 	   (dll-class (frob dll-storage-class))
-;; 	   (cconv (frob cconv))
-;; 	   (unnamed-addr (frob unnamed-addr))
-;; 	   (return-type (prog1 llvm-type whitespace))
-;; 	   (return-attrs (frob parameter-attrs))
-;; 	   (setf fname alphanumeric-word) whitespace ; should be different
-;;   ;; TODO: arguments
-;;   "args" whitespace 
-;;   (setf alignment (? align)) whitespace
-;;   (setf gc (? gc-name)) whitespace
-;;   (setf prefix (? prefix)) whitespace
-;;   (setf prologue (? prologue)))
+(defmacro inject-kwd-if-nonnil (name)
+  ``,@(if ,name
+	  (list (list ,(intern (string name) "KEYWORD")
+		      ,name))))
+
+(defmacro splice-kwd-if-nonnil (name)
+  ``,@(if ,name
+	  (list ,(intern (string name) "KEYWORD")
+		,name)))
+
+(defmacro inject-if-nonnil (smth)
+  ``,@(if ,smth
+	  (list ,smth)))
+
+(defun return-type-lisp-form (type attrs)
+  (declare (ignore type attrs))
+  :return-type-placeholder)
+
+(define-cg-llvm-rule function-declaration ()
+  "declare"
+  (macrolet ((frob (x)
+	       `(? (progn whitespace ,x))))
+    (let* ((linkage (frob linkage-type))
+	   (visibility (frob visibility-style))
+	   (dll-storage-class (frob dll-storage-class))
+	   (cconv (frob cconv))
+	   (unnamed-addr (frob unnamed-addr))
+	   (return-type (progn whitespace llvm-type))
+	   (return-attrs (frob parameter-attrs))
+	   (fname (progn whitespace llvm-identifier))
+	   ;; TODO: arguments
+	   (args (progn whitespace "(...)"))
+	   (align (frob align))
+	   (gc (frob gc-name))
+	   (prefix (frob prefix))
+	   ;; TODO: something needs to be done with whitespace here ...
+	   (prologue (frob prologue)))
+      `(declare ,fname ,args
+		,!m(inject-kwd-if-nonnil linkage)
+		,!m(inject-kwd-if-nonnil visibility)
+		,!m(inject-kwd-if-nonnil dll-storage-class)
+		,!m(inject-kwd-if-nonnil cconv)
+		,!m(inject-if-nonnil unnamed-addr)
+		,(return-type-lisp-form return-type return-attrs)
+		,!m(inject-kwd-if-nonnil align)
+		,!m(inject-kwd-if-nonnil gc)
+		,!m(inject-kwd-if-nonnil prefix)
+		,!m(inject-kwd-if-nonnil prologue)))))
+		
   
