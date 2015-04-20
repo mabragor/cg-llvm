@@ -238,8 +238,13 @@
       null-ptr-constant
       global-ident-constant))
 
+(define-cg-llvm-rule ordinary-constant ()
+  (|| simple-constant
+      complex-constant))
+
 (define-cg-llvm-rule llvm-constant ()
-  (|| simple-constant complex-constant))
+  (|| ordinary-constant
+      metadata-node))
 
 (define-plural-rule llvm-constants llvm-constant (progn (? whitespace) #\, (? whitespace)))
 
@@ -298,9 +303,32 @@
     whitespace
     "zeroinitializer"
     `(,type :zero-initializer)))
-	 
+
+(define-cg-llvm-rule metadata-string ()
+  #\! `(:metadata ,llvm-string))
+
+(define-cg-llvm-rule named-metadata-identifier ()
+  ;; TODO : I don't know precisely what is allowed as a name for named metadata
+  #\! `(:metadata-ref ,alphanumeric-word))
+
+(define-cg-llvm-rule unnamed-metadata-identifier ()
+  ;; TODO : I don't know precisely what is allowed as a name for named metadata
+  #\! `(:metadata-ref ,pos-integer))
+
+(define-cg-llvm-rule metadata-structure ()
+  #\! #\{ (? whitespace) c!-1-metadata-nodes #\}
+  `(:metadata ,@c!-1))
+  
+(define-cg-llvm-rule specialized-metadata ()
+  (fail-parse "Specialized metadata not implemented yet"))
+
 (define-cg-llvm-rule metadata-node ()
-  (fail-parse "Metadata nodes are not implemented yet"))
+  (|| metadata-string
+      unnamed-metadata-identifier
+      named-metadata-identifier
+      ordinary-constant
+      metadata-structure
+      specialized-metadata))
 
 (define-plural-rule metadata-nodes metadata-node (progn (? whitespace) #\, (? whitespace)))
 
@@ -309,8 +337,7 @@
       array-constant
       string-constant ; just a special syntax for array of chars
       vector-constant
-      zero-init
-      metadata-node))
+      zero-init))
 
 
 (define-cg-llvm-rule usual-identifier ()

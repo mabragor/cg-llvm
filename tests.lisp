@@ -303,6 +303,20 @@
 	  "[2 x i32*] [ i32* @X, i32* @Y ]")
     ))
   
+(test metadata-constants
+  (macrolet ((frob (x y)
+	       `(is (equal ,x (cg-llvm-parse 'metadata-node ,y)))))
+    (frob '(:metadata-ref 24) "!24")
+    (frob '(:metadata (:metadata-ref 4) (:metadata-ref 3)) "!{!4, !3}")
+    (frob '(:metadata (:metadata #?"test\0") ((integer 32) 10)) "!{ !\"test\\00\", i32 10}")
+    (frob '(:metadata (:metadata-ref 0) (:metadata (:metadata-ref 2) (:metadata-ref 0)) (:metadata "test"))
+	  "!{!0, !{!2, !0}, !\"test\"}")
+    (frob '(:metadata (:metadata-ref 0) ((integer 32) 0) ((pointer (integer 8)) @global)
+	    ((pointer (function (integer 64) ((integer 64)) :vararg-p nil)) @function)
+	    (:metadata "str"))
+	  "!{!0, i32 0, i8* @global, i64 (i64)* @function, !\"str\"}")
+    ))
+	  
   
 
 (test llvm-identifier
