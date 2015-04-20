@@ -43,6 +43,24 @@
 ;;   representations of at least these function definitions and declarations, not to mention the whole LLVM
 ;; * as usual, the easiest thing is to start with ESRAP rules for parsing text representation.
 
+(defmacro wh (x)
+  `(progn whitespace ,x))
+
+(defmacro wh? (x)
+  `(progn (? whitespace) ,x))
+
+(defmacro ?wh (x)
+  `(? (progn whitespace ,x)))
+
+(defmacro ?wh? (x)
+  `(? (progn (? whitespace) ,x)))
+
+(defmacro fail-parse-if-not (cond expr)
+  `(let ((it ,expr))
+     (if (not ,cond)
+	 (fail-parse-format "Assertion is not satisfied: ~a" ',cond)
+	 it)))
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter known-linkage-types '(private internal available-externally
 				      linkonce weak common appending extern-weak
@@ -181,19 +199,30 @@
 
 ;; TODO : attribute groups ?
 
-(define-cg-llvm-rule boolean-constant ()
-  (let ((type llvm-type))
-    (if (not (llvm-typep '(integer 1) type))
-	(fail-parse "Boolean must really be integer of 1 bit."))
-    whitespace
-    (list type (text (|| "true" "false")))))
+(defmacro!! define-constant-rules (name typecheck errinfo &body value-rule-body) ()
+  (let ((type-rule-name (intern #?"$(name)-CONSTANT-TYPE"))
+	(value-rule-name (intern #?"$(name)-CONSTANT-VALUE"))
+	(rule-name (intern #?"$(name)-CONSTANT")))
+    `(progn (define-cg-llvm-rule ,type-rule-name ()
+	      (let ((type (emit-lisp-repr llvm-type)))
+		(if (not ,typecheck)
+		    (fail-parse-format ,@errinfo)
+		    type)))
+	    (define-cg-llvm-rule ,value-rule-name (&optional type)
+	      ,@value-rule-body)
+	    (define-cg-llvm-rule ,rule-name ()
+	      (let ((type ,type-rule-name))
+		(list type (wh (descend-with-rule ',value-rule-name type))))))))
+	    
 
-(define-cg-llvm-rule integer-constant ()
-  (let ((type (emit-lisp-repr llvm-type)))
-    (if (not (llvm-typep '(integer *) type))
-	(fail-parse-format "Integer constant must be of integer type but got ~a." type))
-    whitespace
-    (list type integer)))
+(define-constant-rules boolean
+    (llvm-typep '(integer 1) type) ((literal-string "Boolean must really be integer of 1 bit."))
+    (text (|| "true" "false")))
+
+(define-constant-rules integer
+    (llvm-typep '(integer *) type) ((literal-string "Integer constant must be of integer type but got ~a.")
+				    type)
+  integer)
 
 (define-cg-llvm-rule sign ()
   (|| "+" "-"))
@@ -210,26 +239,19 @@
   (|| decimal-float
       hexadecimal-float))
 
-(define-cg-llvm-rule float-constant ()
-  (let ((type (emit-lisp-repr llvm-type)))
-    (if (not (llvm-typep '(float *) type))
-	(fail-parse-format  "Float constant must be of float type but got ~a." type))
-    whitespace
-    (list type llvm-float)))
+(define-constant-rules float
+    (llvm-typep '(float *) type) ((literal-string "Float constant must be of float type but got ~a.") type)
+  llvm-float)
 
-(define-cg-llvm-rule null-ptr-constant ()
-  (let ((type (emit-lisp-repr llvm-type)))
-    (if (not (or (llvm-typep '(pointer *) type)
-		 (llvm-typep '(pointer * *) type)))
-	(fail-parse-format "Null ptr constant must be of pointer type but got ~a." type))
-    (list type (text "null"))))
+(define-constant-rules null-ptr
+    (llvm-typep '(pointer ***) type)
+    ((literal-string "Null ptr constant must be of pointer type but got ~a.") type)
+  (text "null"))
 
-(define-cg-llvm-rule global-ident-constant ()
-  (let ((type (emit-lisp-repr llvm-type)))
-    (if (not (or (llvm-typep '(pointer *) type)
-		 (llvm-typep '(pointer * *) type)))
-	(fail-parse-format "Global identifier must be of pointer type, but got ~a." type))
-    (list type llvm-identifier)))
+(define-constant-rules global-ident
+    (llvm-typep '(pointer ***) type)
+    ((literal-string "Global identifier must be of pointer type, but got ~a.") type)
+  llvm-identifier)
 
 (define-cg-llvm-rule simple-constant ()
   (|| boolean-constant
@@ -255,61 +277,56 @@
 
 (define-plural-rule llvm-constants llvm-constant (progn (? whitespace) #\, (? whitespace)))
 
-(defmacro define-complex-constant-rule (name lb rb type-test content-test errstr1 errstr2)
-  `(define-cg-llvm-rule ,name ()
-     (let ((type (emit-lisp-repr llvm-type)))
-       (if ,type-test
-	   (fail-parse-format ,(join "" errstr1 " constant must be of " errstr2 " type, but got ~a") type))
-       (? whitespace)
-       (let ((content (progm (progn (descend-with-rule 'string ,lb) (? whitespace))
-			     llvm-constants
-			     (progn (? whitespace) (descend-with-rule 'string ,rb)))))
-	 ,content-test
-	 (list type content)))))
+(defmacro define-complex-constant-rules (name lb rb typecheck errstr1 errstr2 contentcheck)
+  `(define-constant-rules ,name ,typecheck
+       (,(join "" errstr1 " constant must be of "
+	       errstr2 " type, but got ~a") type)
+     (let ((content (progm (progn (descend-with-rule 'string ,lb) (? whitespace))
+			   llvm-constants
+			   (progn (? whitespace) (descend-with-rule 'string ,rb)))))
+       (if type
+	   ,contentcheck)
+       content)))
 
-(define-complex-constant-rule structure-constant "{" "}"
-  (not (llvm-typep '(struct ***) type))
-  (if (not (equal (length (cadr type)) (length content)))
-      (fail-parse "Number of elements of type and content do not match.")
-      (iter (for theor-subtype in (cadr type))
-	    (for (expr-subtype nil) in content)
-	    (if (not (llvm-same-typep theor-subtype expr-subtype))
-		(fail-parse "Type of structure field does not match declared one."))))
-  "Structure" "structure" )
+(define-complex-constant-rules structure
+    "{" "}" (llvm-typep '(struct ***) type) "Structure" "structure"
+    (if (not (equal (length (cadr type)) (length content)))
+	(fail-parse "Number of elements of type and content do not match.")
+	(iter (for theor-subtype in (cadr type))
+	      (for (expr-subtype nil) in content)
+	      (if (not (llvm-same-typep theor-subtype expr-subtype))
+		  (fail-parse "Type of structure field does not match declared one.")))))
+  
 
-(define-complex-constant-rule array-constant "[" "]"
-  (not (llvm-typep '(array ***) type))
-  (if (not (equal (caddr type) (length content)))
-      (fail-parse "Number of elements of type and content do not match.")
-      (iter (for (expr-subtype nil) in content)
-	    (if (not (llvm-same-typep (cadr type) expr-subtype))
-		(fail-parse "Type of array element does not match declared one."))))
-  "Array" "array")
-
-(define-complex-constant-rule vector-constant "<" ">"
-  (not (llvm-typep '(vector ***) type))
-  (if (not (equal (caddr type) (length content)))
-      (fail-parse "Number of elements of type and content do not match.")
-      (iter (for (expr-subtype nil) in content)
-	    (if (not (llvm-same-typep (cadr type) expr-subtype))
-		(fail-parse "Type of vector element does not match declared one."))))
-  "Vector" "vector")
+(define-complex-constant-rules array
+    "[" "]" (llvm-typep '(array ***) type) "Array" "array"
+    (if (not (equal (caddr type) (length content)))
+	(fail-parse "Number of elements of type and content do not match.")
+	(iter (for (expr-subtype nil) in content)
+	      (if (not (llvm-same-typep (cadr type) expr-subtype))
+		  (fail-parse "Type of array element does not match declared one.")))))
 
 
-(define-cg-llvm-rule string-constant ()
-  (let ((type (emit-lisp-repr llvm-type)))
-    (if (not (llvm-typep '(array (integer 8) *) type))
-	(fail-parse-format "String constant must be of array-of-chars type, but got ~a" type))
-    whitespace #\c
-    (list type (mapcar (lambda (x)
-			 `((integer 8) ,(char-code x)))
-		       (coerce llvm-string 'list)))))
+(define-complex-constant-rules vector
+    "<" ">" (llvm-typep '(vector ***) type) "Vector" "vector"
+    (if (not (equal (caddr type) (length content)))
+	(fail-parse "Number of elements of type and content do not match.")
+	(iter (for (expr-subtype nil) in content)
+	      (if (not (llvm-same-typep (cadr type) expr-subtype))
+		  (fail-parse "Type of vector element does not match declared one.")))))
 
-(define-cg-llvm-rule zero-init ()
-  (let ((type (emit-lisp-repr llvm-type)))
-    whitespace
-    "zeroinitializer"
-    `(,type :zero-initializer)))
+
+(define-constant-rules string
+    (llvm-typep '(array (integer 8) *) type)
+    ((literal-string "String constant must be of array-of-chars type, but got ~a") type)
+  #\c
+  (mapcar (lambda (x)
+	    `((integer 8) ,(char-code x)))
+	  (coerce llvm-string 'list)))
+
+(define-constant-rules zero-init
+    t ("")
+  "zeroinitializer" :zero-initializer)
 
 (define-cg-llvm-rule metadata-string ()
   #\! `(:metadata ,llvm-string))
@@ -416,7 +433,7 @@
       array-constant
       string-constant ; just a special syntax for array of chars
       vector-constant
-      zero-init))
+      zero-init-constant))
 
 
 (define-cg-llvm-rule usual-identifier ()
@@ -649,23 +666,6 @@
   (|| conditional-branch
       unconditional-branch))
 
-(defmacro fail-parse-if-not (cond expr)
-  `(let ((it ,expr))
-     (if (not ,cond)
-	 (fail-parse-format "Assertion is not satisfied: ~a" ',cond)
-	 it)))
-
-(defmacro wh (x)
-  `(progn whitespace ,x))
-
-(defmacro wh? (x)
-  `(progn (? whitespace) ,x))
-
-(defmacro ?wh (x)
-  `(? (progn whitespace ,x)))
-
-(defmacro ?wh? (x)
-  `(? (progn (? whitespace) ,x)))
 
 (define-cg-llvm-rule invoke-instruction ()
   "invoke"
@@ -712,6 +712,34 @@
       srem-instruction
       frem-instruction))
 
+  ;; (let 
+  ;;   (setf nuw (?wh "nuw"))
+  ;;   (if nuw
+  ;; 	(setf nsw (?wh "nsw"))
+  ;; 	(progn (setf nsw (?wh "nsw"))
+  ;; 	       (setf nuw (?wh "nuw"))))
+
+
+;; Let's first write version which does not use macro, and then abstract-out the macro part...
+(define-cg-llvm-rule add-instruction ()
+  "add"
+  (destructuring-bind (nuw nsw) (unordered-simple-keywords nuw nsw)
+    (let ((type (emit-lisp-repr llvm-type)))
+      (if (not (or (llvm-typep '(integer *) type)
+		   (llvm-typep '(vector (integer *) *) type)))
+	  (fail-parse-format "ADD instruction expects <type> to be INTEGER or VECTOR-OF-INTEGERS, but got: ~a"
+			     type))
+      (let ((arg1 (|| (if (llvm-typep '(integer ***) type)
+			  integer-constant-value
+			  vector-constant-value)
+		      global-ident-value)))
+	(? whitespace) #\, (? whitespace)
+	(let ((arg2 (|| (if (llvm-typep '(integer ***) type)
+			    integer-constant-value
+			    vector-constant-value)
+			global-ident-value)))
+	  `(add ,type ,arg1 ,arg2))))))
+  
 (define-cg-llvm-rule bitwise-binary-instruction ()
   (|| shl-instruction
       lshr-instruction
