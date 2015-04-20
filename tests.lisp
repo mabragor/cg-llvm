@@ -333,3 +333,10 @@
     (frob '(cg-llvm::asm "inline asm goes here") "module asm \"inline asm goes here\"")
     (frob '(cg-llvm::asm "more can go here") "module asm \"more can go here\"")))
   
+(test target-triple
+  (macrolet ((frob (x y)
+	       `(is (equal ,x (cg-llvm-parse 'target-triple ,y)))))
+    (frob '(cg-llvm::target-triple "x86_64" "apple" "macosx10.7.0")
+	  "target triple = \"x86_64-apple-macosx10.7.0\"")))
+
+  

@@ -439,3 +439,39 @@
   "module" whitespace "asm" whitespace
   (let ((it llvm-string))
     `(asm ,it)))
+
+(define-cg-llvm-rule target-triple ()
+  "target" whitespace "triple" whitespace "=" whitespace
+  (let ((it llvm-string))
+    `(target-triple ,@(cl-ppcre:split (literal-string "-") it))))
+
+(define-cg-llvm-rule dl-big-endian ()
+  "E" :big-endian)
+(define-cg-llvm-rule dl-big-endian ()
+  "e" :little-endian)
+
+(define-cg-llvm-rule dl-stack-alignment ()
+  "S"
+  (let ((it pos-integer))
+    (assert (equal 0 (mod it 8)))
+    `(:stack-alignment ,it)))
+
+(define-cg-llvm-rule dl-pointer-size ()
+  "p"
+  (let ((n (? pos-integer))
+	(size (progn #\: pos-integer))
+	(abi (progn #\: pos-integer))
+	(pref (progn #\: pos-integer)))
+    `(:pointer-size ,@(if n `((:addrspace ,n)))
+		    (:size ,size) (:abi ,abi) (:pref ,pref))))
+    
+
+
+(define-cg-llvm-rule target-datalayout ()
+  "target" whitespace "datalayout" whitespace "=" whitespace
+  (let ((it (cl-ppcre:split (literal-string "-") llvm-string)))
+    `(target-datalayout ,@(mapcar (lambda (x)
+				    (cg-llvm-parse 'datalayout-spec x))
+				  it))))
+
+
