@@ -246,6 +246,13 @@
   (|| ordinary-constant
       metadata-node))
 
+(define-cg-llvm-rule llvm-variable ()
+  `(,(emit-lisp-repr llvm-type) ,(progn whitespace llvm-identifier)))
+
+(define-cg-llvm-rule instr-arg ()
+  (|| llvm-variable
+      llvm-constant))
+
 (define-plural-rule llvm-constants llvm-constant (progn (? whitespace) #\, (? whitespace)))
 
 (defmacro define-complex-constant-rule (name lb rb type-test content-test errstr1 errstr2)
@@ -613,6 +620,83 @@
       invoke-instruction
       resume-instruction
       unreacheable-instruction))
+
+(define-instruction-rule (valued-return ret) ((x (firstclass-type-p x))))
+
+(define-cg-llvm-rule nonvalued-return ()
+  "ret" whitespace "void"
+  '(ret :void))
+
+(define-cg-llvm-rule ret-instruction ()
+  (|| valued-return
+      nonvalued-return))
+
+(define-instruction-rule (conditional-branch br) ((x (llvm-typep 'label x))))
+
+(define-instruction-rule (unconditional-branch br) ((cond (llvm-typep '(integer 1) it))
+						    (iftrue (llvm-typep 'label it))
+						    (iffalse (llvm-typep 'label it))))
+
+(define-instruction-rule switch ((value (llvm-typep '(integer *) it))
+				 (defaultdest (llvm-typep 'label it)))
+  some-custom-magic-???)
+
+
+(define-instruction-rule indirectbr ((address (llvm-typep '(pointer ***) it)))
+  some-magic-similar-to-switch-???)
+
+(define-cg-llvm-rule br-instruction ()
+  (|| conditional-branch
+      unconditional-branch))
+
+(defmacro fail-parse-if-not (cond expr)
+  `(let ((it ,expr))
+     (if (not ,cond)
+	 (fail-parse-format "Assertion is not satisfied: ~a" ',cond)
+	 it)))
+
+(defmacro wh (x)
+  `(progn whitespace ,x))
+
+(defmacro wh? (x)
+  `(progn (? whitespace) ,x))
+
+(defmacro ?wh (x)
+  `(? (progn whitespace ,x)))
+
+(defmacro ?wh? (x)
+  `(? (progn (? whitespace) ,x)))
+
+(define-cg-llvm-rule invoke-instruction ()
+  "invoke"
+  (let* ((cconv (?wh cconv))
+	 (return-attrs (?wh (guard-kwd-expr '(:zeroext :signext :inreg)
+					    parameter-attrs)))
+	 (function-type (fail-parse-if-not (ptr-to-function-type-p it)
+					   (wh llvm-type))))
+    ;; TODO : this is not correct -- there are more possible things to be INVOKED
+    (let* ((function-val (wh llvm-variable))
+	   (args (wh? funcall-args))
+	   (fun-attrs (?wh (guard-kwd-expr '(:noreturn :nounwind :readonly :readnone)
+					   fun-attrs))))
+      (wh "to")
+      (let ((normal-label (fail-parse-if-not (llvm-typep 'label it)
+					     (wh llvm-variable))))
+	(wh "unwind")
+	(let ((exception-label (fail-parse-if-not (llvm-typep 'label it)
+						  (wh llvm-variable))))
+	  `(invoke (,(emit-lisp-repr function-type) ,function-val)
+		   ,normal-label ,exception-label
+		   (:args ,@args)
+		   ,m!(inject-kwd-if-nonnil cconv)
+		   ,m!(inject-kwd-if-nonnil return-attrs)
+		   ,m!(inject-kwd-if-nonnil fun-attrs)))))))
+		     
+;; The check for correct type of resume instruction is at semantic level -- the whole body
+;; of the function should be parsed for that
+(define-instruction-rule resume ((x t)))
+	
+(define-instruction-rule unreachable ())
 
 (define-cg-llvm-rule binary-instruction ()
   (|| add-instruction

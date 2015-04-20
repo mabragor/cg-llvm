@@ -419,7 +419,8 @@
       (cond ((equal x '*) t)
 	    ((equal x '***) (error 'wildcard))
 	    (t (equal x y)))
-      (and (handler-case (wildcard-equal (car x) (car y))
+      (and (not (atom y))
+	   (handler-case (wildcard-equal (car x) (car y))
 	     (wildcard () (return-from wildcard-equal t)))
 	   (wildcard-equal (cdr x) (cdr y)))))
 
