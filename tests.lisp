@@ -284,6 +284,26 @@
 ;;   (frob-context #?"%tmpsel1 = select i1 true, i32 17, i32 42\n"
 ;; 		(select 'true 17 42)))
 
+(test complex-constants
+  (is (equal '((array (integer 8) 3) (((integer 8) 1) ((integer 8) 2) ((integer 8) 3)))
+	     (cg-llvm-parse 'array-constant "[ 3 x i8 ] [ i8 1, i8 2, i8 3 ]")))
+  (is (equal '((array (integer 8) 3) :zero-initializer)
+	     (cg-llvm-parse 'zero-init "[ 3 x i8 ] zeroinitializer")))
+  (is (equal '((array (integer 8) 3) (((integer 8) 97) ((integer 8) 115) ((integer 8) 100) ((integer 8) 102)))
+	     (cg-llvm-parse 'string-constant "[ 3 x i8 ] c\"asdf\""))))
+  
+(test llvm-constants
+  (macrolet ((frob (x y)
+	       `(is (equal ,x (cg-llvm-parse 'llvm-constant ,y)))))
+    (frob '((integer 8) 1) "i8 1")
+    (frob '((integer 32) 42) "i32 42")
+    (frob '((array (pointer (integer 32)) 2)
+	    (((pointer (integer 32)) *@x)
+	     ((pointer (integer 32)) *@y)))
+	  "[2 x i32*] [ i32* @X, i32* @Y ]")
+    ))
+  
+  
 
 (test llvm-identifier
   (is (string= "@FOO" (string (cg-llvm-parse 'llvm-identifier "@foo"))))

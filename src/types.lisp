@@ -21,6 +21,21 @@
    (param-types :initarg :param-types)
    (vararg-p :initarg :vararg-p)))
 
+(defclass typed-value ()
+  ((type :initform (error "You should specify the LLVM type of the value")
+	 :initarg :type)
+   (value :initform (error "You should specify the value")
+	  :initarg :value)))
+
+(defun mk-typed-value (type value)
+  (make-instance 'typed-value
+		 :type (coerce-to-llvm-type type)
+		 :value value))
+  
+
+(defclass llvm-no-value (llvm-type)
+  ())
+
 (defmethod emit-lisp-repr ((obj llvm-void-type))
   'void)
 
@@ -411,6 +426,8 @@
 (defun lispy-llvm-type (smth)
   (cond ((typep smth 'typed-value) (emit-lisp-repr (slot-value smth 'type)))
 	((typep smth 'llvm-type) (emit-lisp-repr smth))
+	;; TODO : probably some check can be made here ...
+	((or (consp smth) (symbolp smth)) smth)
 	(t (error "Don't know how to calculate LLVM-TYPE of this: ~a" smth))))
 
 

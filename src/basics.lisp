@@ -38,20 +38,6 @@
 (defmethod emit-text-repr ((obj symbol))
   (stringify-symbol obj))
 
-(defclass typed-value ()
-  ((type :initform (error "You should specify the LLVM type of the value")
-	 :initarg :type)
-   (value :initform (error "You should specify the value")
-	  :initarg :value)))
-
-(defun mk-typed-value (type value)
-  (make-instance 'typed-value
-		 :type (coerce-to-llvm-type type)
-		 :value value))
-  
-
-(defclass llvm-no-value (llvm-type)
-  ())
 
 (defmethod emit-text-repr ((typed-value typed-value))
   (with-slots (type value) typed-value

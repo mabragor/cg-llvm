@@ -16,5 +16,6 @@
 	   #:alloca #:llvm-load #:store #:fence #:cmpxchg #:atomicrmw #:getelementptr
 	   #:trunc #:zext #:sext #:fptrunc #:fpext #:fptoui #:fptosi #:uitofp #:sitofp
 	   #:ptrtoint #:inttoptr #:bitcast #:addrspacecast
-	   #:icmp #:fcmp #:phi #:select #:call #:va-arg #:landingpad))
+	   #:icmp #:fcmp #:phi #:select #:call #:va-arg #:landingpad
+	   #:pointer))
 

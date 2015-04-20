@@ -115,7 +115,7 @@
   known-cons-parameter-attrs
   known-algol-parameter-attrs)
 
-(defmacro define-plural-rule (name single delim)
+(defmacro!! define-plural-rule (name single delim) ()
   `(define-cg-llvm-rule ,name ()
      (cons ,single
 	   (times (progn ,delim ,single)))))
@@ -221,14 +221,22 @@
   (let ((type (emit-lisp-repr llvm-type)))
     (if (not (or (llvm-typep '(pointer *) type)
 		 (llvm-typep '(pointer * *) type)))
-	(fail-parse-format """Null ptr constant must be of pointer type but got ~a.""" type))
+	(fail-parse-format "Null ptr constant must be of pointer type but got ~a." type))
     (list type (text "null"))))
+
+(define-cg-llvm-rule global-ident-constant ()
+  (let ((type (emit-lisp-repr llvm-type)))
+    (if (not (or (llvm-typep '(pointer *) type)
+		 (llvm-typep '(pointer * *) type)))
+	(fail-parse-format "Global identifier must be of pointer type, but got ~a." type))
+    (list type llvm-identifier)))
 
 (define-cg-llvm-rule simple-constant ()
   (|| boolean-constant
       integer-constant
       float-constant
-      null-ptr-constant))
+      null-ptr-constant
+      global-ident-constant))
 
 (define-cg-llvm-rule llvm-constant ()
   (|| simple-constant complex-constant))
@@ -240,6 +248,7 @@
      (let ((type (emit-lisp-repr llvm-type)))
        (if ,type-test
 	   (fail-parse-format ,(join "" errstr1 " constant must be of " errstr2 " type, but got ~a") type))
+       (? whitespace)
        (let ((content (progm (progn (descend-with-rule 'string ,lb) (? whitespace))
 			     llvm-constants
 			     (progn (? whitespace) (descend-with-rule 'string ,rb)))))
@@ -275,17 +284,25 @@
   "Vector" "vector")
 
 
-;; (define-cg-llvm-rule string-constant ()
-;;   (let ((type (emit-lisp-repr llvm-type)))
-;;     (if (not (llvm-typep '(array (integer 8) *) type))
-;; 	(fail-parse-format "String constant must be of array-of-chars type, but got ~a") type)
-;;     (let ((content (progm (progn (descend-with-rule 'string ,lb) (? whitespace))
-;; 			  llvm-constants
-;; 			  (progn (? whitespace) (descend-with-rule 'string ,rb)))))
-;;       ,content-test
-;;       (list type content))))
+(define-cg-llvm-rule string-constant ()
+  (let ((type (emit-lisp-repr llvm-type)))
+    (if (not (llvm-typep '(array (integer 8) *) type))
+	(fail-parse-format "String constant must be of array-of-chars type, but got ~a" type))
+    whitespace #\c
+    (list type (mapcar (lambda (x)
+			 `((integer 8) ,(char-code x)))
+		       (coerce llvm-string 'list)))))
 
+(define-cg-llvm-rule zero-init ()
+  (let ((type (emit-lisp-repr llvm-type)))
+    whitespace
+    "zeroinitializer"
+    `(,type :zero-initializer)))
+	 
+(define-cg-llvm-rule metadata-node ()
+  (fail-parse "Metadata nodes are not implemented yet"))
 
+(define-plural-rule metadata-nodes metadata-node (progn (? whitespace) #\, (? whitespace)))
 
 (define-cg-llvm-rule complex-constant ()
   (|| structure-constant
