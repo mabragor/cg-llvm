@@ -591,3 +591,92 @@
 				  it))))
 
 
+
+
+
+;;; Parsing of instructions
+
+(define-cg-llvm-rule llvm-instruction ()
+  (|| terminator-instruction
+      binary-instruction
+      bitwise-binary-instruction
+      aggregate-instruction
+      memory-instruction
+      conversion-instruction
+      other-instruction))
+
+(define-cg-llvm-rule terminator-instruction ()
+  (|| ret-instruction
+      br-instruction
+      switch-instruction
+      indirectbr-instruction
+      invoke-instruction
+      resume-instruction
+      unreacheable-instruction))
+
+(define-cg-llvm-rule binary-instruction ()
+  (|| add-instruction
+      fadd-instruction
+      sub-instruction
+      fsub-instruction
+      mul-instruction
+      fmul-instruction
+      udiv-instruction
+      sdiv-instruction
+      fdiv-instruction
+      urem-instruction
+      srem-instruction
+      frem-instruction))
+
+(define-cg-llvm-rule bitwise-binary-instruction ()
+  (|| shl-instruction
+      lshr-instruction
+      ashr-instruction
+      and-instruction
+      or-instruction
+      xor-instruction))
+      
+(define-cg-llvm-rule aggregate-instruction ()
+  (|| extractelement-instruction
+      insertelement-instruction
+      shufflevector-instruction
+      extractvalue-instruction
+      insertvalue-instruction))
+
+(define-cg-llvm-rule memory-instruction ()
+  (|| alloca-instruction
+      load-instruction
+      store-instruction
+      fence-instruction
+      cmpxchg-instruction
+      atomicrmw-instruction
+      getelementptr-instruction))
+
+(define-cg-llvm-rule conversion-instruction ()
+  (|| trunc-to-instruction
+      zext-to-instruction
+      sext-to-instruction
+      fptrunc-to-instruction
+      fpext-to-instruction
+      fptoui-to-instruction
+      fptosi-to-instruction
+      uitofp-to-instruction
+      sitofp-to-instruction
+      ptrtoint-to-instruction
+      inttoptr-to-instruction
+      bitcast-to-instruction
+      addrspacecast-to-instruction))
+
+(define-cg-llvm-rule other-instruction ()
+  (|| icmp-instruction
+      fcmp-instruction
+      phi-instruction
+      select-instruction
+      call-instruction
+      va-arg-instruction
+      landingpad-instruction))
+      
+					 
+      
+      
+      
