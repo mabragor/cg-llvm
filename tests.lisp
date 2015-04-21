@@ -406,4 +406,18 @@
 	  shl-instruction "shl <2 x i32> < i32 1, i32 1>, < i32 1, i32 2>")
     ))
   
-    
+(test vector-instructions
+  (macrolet ((frob (x y z)
+	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
+    (frob (extractelement ((vector (integer 32) 4) %vec) ((integer 32) 0))
+	  extractelement-instruction "extractelement <4 x i32> %vec, i32 0")
+    (frob (insertelement ((vector (integer 32) 4) %vec) ((integer 32) 1) ((integer 32) 0))
+	  insertelement-instruction "insertelement <4 x i32> %vec, i32 1, i32 0")
+    (frob (shufflevector ((vector (integer 32) 4) %v1)
+			 ((vector (integer 32) 4) %v2)
+			 ((vector (integer 32) 4)
+			  (((integer 32) 0) ((integer 32) 4) ((integer 32) 1) ((integer 32) 5))))
+	  shufflevector-instruction
+	  "shufflevector <4 x i32> %v1, <4 x i32> %v2,
+                         <4 x i32> <i32 0, i32 4, i32 1, i32 5>")))
+  
