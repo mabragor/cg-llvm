@@ -277,8 +277,12 @@
 (define-cg-llvm-rule llvm-variable ()
   `(,(emit-lisp-repr llvm-type) ,(progn whitespace llvm-identifier)))
 
+(define-cg-llvm-rule llvm-undef ()
+  `(,(emit-lisp-repr llvm-type) ,(progn whitespace "undef" :undef)))
+
 (define-cg-llvm-rule instr-arg ()
   (|| llvm-variable
+      llvm-undef
       llvm-constant))
 
 (define-plural-rule llvm-constants llvm-constant (progn (? whitespace) #\, (? whitespace)))
@@ -901,6 +905,24 @@
   (if (not (llvm-same-typep (cadar v1) (cadar v2)))
       (fail-parse "V1 and V2 must have same subtype"))
   `(shufflevector ,v1 ,v2 ,mask))
+
+(define-cg-llvm-rule indices ()
+  (cons (descend-with-rule 'integer-constant-value nil)
+	(times (progn white-comma (descend-with-rule 'integer-constant-value nil)))))
+
+(define-instruction-rule extractvalue ((val (or (llvm-typep '(struct ***) (car it))
+						(llvm-typep '(array ***) (car it)))))
+  white-comma
+  `(extractvalue ,val ,@indices))
+
+(define-instruction-rule insertvalue ((val (or (llvm-typep '(struct ***) (car it))
+					       (llvm-typep '(array ***) (car it))))
+				      elt)
+  white-comma
+  (let ((indices indices))
+    ;; TODO : check that elt has same type as elt of val
+    `(insertvalue ,val ,elt ,@indices)))
+
 
 (define-cg-llvm-rule memory-instruction ()
   (|| alloca-instruction

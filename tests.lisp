@@ -406,7 +406,7 @@
 	  shl-instruction "shl <2 x i32> < i32 1, i32 1>, < i32 1, i32 2>")
     ))
   
-(test vector-instructions
+(test aggregate-instructions
   (macrolet ((frob (x y z)
 	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
     (frob (extractelement ((vector (integer 32) 4) %vec) ((integer 32) 0))
@@ -419,5 +419,24 @@
 			  (((integer 32) 0) ((integer 32) 4) ((integer 32) 1) ((integer 32) 5))))
 	  shufflevector-instruction
 	  "shufflevector <4 x i32> %v1, <4 x i32> %v2,
-                         <4 x i32> <i32 0, i32 4, i32 1, i32 5>")))
+                         <4 x i32> <i32 0, i32 4, i32 1, i32 5>")
+    (frob (extractvalue ((cg-llvm::struct ((integer 32) (float 32 16)) :packed-p nil) %agg) 0)
+	  extractvalue-instruction
+	  "extractvalue {i32, float} %agg, 0")
+    (frob (insertvalue ((cg-llvm::struct ((integer 32) (float 32 16)) :packed-p nil) :undef)
+		       ((integer 32) 1) 0)
+	  insertvalue-instruction
+	  "insertvalue {i32, float} undef, i32 1, 0")
+    (frob (insertvalue ((cg-llvm::struct ((integer 32) (float 32 16)) :packed-p nil) %agg1)
+		       ((float 32 16) %val) 1)
+	  insertvalue-instruction
+	  "insertvalue {i32, float} %agg1, float %val, 1")
+    (frob (insertvalue ((cg-llvm::struct ((integer 32)
+					  (cg-llvm::struct ((float 32 16)) :packed-p nil))
+					 :packed-p nil)
+			:undef)
+		       ((float 32 16) %val) 1 0)
+	  insertvalue-instruction
+	  "insertvalue {i32, {float}} undef, float %val, 1, 0")
+    ))
   
