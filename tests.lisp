@@ -288,7 +288,7 @@
   (is (equal '((array (integer 8) 3) (((integer 8) 1) ((integer 8) 2) ((integer 8) 3)))
 	     (cg-llvm-parse 'array-constant "[ 3 x i8 ] [ i8 1, i8 2, i8 3 ]")))
   (is (equal '((array (integer 8) 3) :zero-initializer)
-	     (cg-llvm-parse 'zero-init "[ 3 x i8 ] zeroinitializer")))
+	     (cg-llvm-parse 'zero-init-constant "[ 3 x i8 ] zeroinitializer")))
   (is (equal '((array (integer 8) 3) (((integer 8) 97) ((integer 8) 115) ((integer 8) 100) ((integer 8) 102)))
 	     (cg-llvm-parse 'string-constant "[ 3 x i8 ] c\"asdf\""))))
   
@@ -373,4 +373,20 @@
     (frob '(cg-llvm::target-triple "x86_64" "apple" "macosx10.7.0")
 	  "target triple = \"x86_64-apple-macosx10.7.0\"")))
 
-  
+
+(test parsing-terminating-instructions
+  (macrolet ((frob (x y)
+	       `(is (equal ,x (cg-llvm-parse 'terminator-instruction ,y)))))
+    (frob '(cg-llvm::ret ((integer 32) 5)) "ret i32 5")
+    (frob '(cg-llvm::ret :void) "ret void")
+    (frob '(cg-llvm::ret ((cg-llvm::struct ((integer 32) (integer 8)) :packed-p nil)
+			  (((integer 32) 4) ((integer 8) 2))))
+	  "ret { i32, i8 } { i32 4, i8 2 }")
+    (frob '(cg-llvm::br ((integer 1) %cond) (cg-llvm::label +%-if-equal) (cg-llvm::label +%-if-unequal))
+	  "br i1 %cond, label %IfEqual, label %IfUnequal")
+    (frob '(cg-llvm::resume ((CG-LLVM::STRUCT ((POINTER (INTEGER 8)) (INTEGER 32)) :PACKED-P NIL)
+			     %EXN))
+	  "resume { i8*, i32 } %exn")
+    (frob '(cg-llvm::unreachable) "unreachable")
+    ))
+    

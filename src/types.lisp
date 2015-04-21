@@ -55,6 +55,13 @@
 
 (defclass llvm-first-class-type (llvm-type) ())
 
+(defun firstclass-type-p (x)
+  (cond ((typep x 'llvm-type) (typep x 'llvm-first-class-type))
+	((stringp x) (handler-case (firstclass-type-p (cg-llvm-parse 'llvm-type x))
+		       (error () nil)))
+	((or (symbolp x) (consp x)) (firstclass-type-p (parse-lisp-repr x)))
+	(t nil)))
+
 (defclass llvm-integer (llvm-first-class-type)
   ((nbits :initarg :nbits)))
 (defvar max-nbits (1- (expt 2 23)))
@@ -307,7 +314,7 @@
       0))
 
 (define-cg-llvm-rule elt-pointer ()
-  (? whitespace) c!-1-addr-space (? whitespace) "*" (? whitespace)
+  (? whitespace) c!-1-addr-space (? whitespace) "*"
   c!-1)
 
 ;; TODO: smart pointer parsing

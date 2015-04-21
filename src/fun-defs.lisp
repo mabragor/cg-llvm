@@ -208,7 +208,7 @@
 		(if (not ,typecheck)
 		    (fail-parse-format ,@errinfo)
 		    type)))
-	    (define-cg-llvm-rule ,value-rule-name (&optional type)
+	    (define-cg-llvm-rule ,value-rule-name (type)
 	      ,@value-rule-body)
 	    (define-cg-llvm-rule ,rule-name ()
 	      (let ((type ,type-rule-name))
@@ -253,6 +253,10 @@
     ((literal-string "Global identifier must be of pointer type, but got ~a.") type)
   llvm-identifier)
 
+(define-cg-llvm-rule global-ident-constant ()
+  (let ((type global-ident-constant-type))
+    (list type (wh (descend-with-rule 'global-ident-constant-value type)))))
+
 (define-cg-llvm-rule simple-constant ()
   (|| boolean-constant
       integer-constant
@@ -278,15 +282,15 @@
 (define-plural-rule llvm-constants llvm-constant (progn (? whitespace) #\, (? whitespace)))
 
 (defmacro define-complex-constant-rules (name lb rb typecheck errstr1 errstr2 contentcheck)
-  `(define-constant-rules ,name ,typecheck
-       (,(join "" errstr1 " constant must be of "
-	       errstr2 " type, but got ~a") type)
-     (let ((content (progm (progn (descend-with-rule 'string ,lb) (? whitespace))
-			   llvm-constants
-			   (progn (? whitespace) (descend-with-rule 'string ,rb)))))
-       (if type
-	   ,contentcheck)
-       content)))
+  (let ((errstr (join "" errstr1 " constant must be of "
+		      errstr2 " type, but got ~a")))
+    `(define-constant-rules ,name ,typecheck (,errstr type)
+       (let ((content (progm (progn (descend-with-rule 'string ,lb) (? whitespace))
+			     llvm-constants
+			     (progn (? whitespace) (descend-with-rule 'string ,rb)))))
+	 (if type
+	     ,contentcheck)
+	 content))))
 
 (define-complex-constant-rules structure
     "{" "}" (llvm-typep '(struct ***) type) "Structure" "structure"
@@ -636,9 +640,34 @@
       indirectbr-instruction
       invoke-instruction
       resume-instruction
-      unreacheable-instruction))
+      unreachable-instruction))
 
-(define-instruction-rule (valued-return ret) ((x (firstclass-type-p x))))
+(define-cg-llvm-rule white-comma ()
+  (progm (? whitespace) #\, (? whitespace)))
+
+(defmacro define-instruction-rule (name (&rest args) &body body)
+  (destructuring-bind (rule-name instr-name) (if (symbolp name)
+						 (list (intern #?"$((string name))-INSTRUCTION")
+						       name)
+						 (list (car name) (cadr name)))
+    `(define-cg-llvm-rule ,rule-name ()
+       (descend-with-rule 'string ,(stringify-symbol instr-name))
+       (,@(if args
+	      `(let* (,(if (symbolp (car args))
+			   `(,(car args) (wh instr-arg))
+			   `(,(caar args) (fail-parse-if-not ,(cadar args) (wh instr-arg))))
+		      ,@(mapcar (lambda (x)
+				  (if (symbolp x)
+				      `(,x (progn white-comma instr-arg))
+				      `(,(car x) (fail-parse-if-not ,(cadr x) (progn white-comma instr-arg)))))
+				(cdr args))))
+	      `(progn))
+	 ,@(or body
+	       `(`(,,instr-name ,,@(mapcar (lambda (x)
+					     ``(quasiquote-2.0:inject ,(if (symbolp x) x (car x))))
+					   args))))))))
+
+(define-instruction-rule (valued-return ret) ((x (firstclass-type-p (car it)))))
 
 (define-cg-llvm-rule nonvalued-return ()
   "ret" whitespace "void"
@@ -648,18 +677,18 @@
   (|| valued-return
       nonvalued-return))
 
-(define-instruction-rule (conditional-branch br) ((x (llvm-typep 'label x))))
+(define-instruction-rule (conditional-branch br) ((x (llvm-typep 'label (car it)))))
 
-(define-instruction-rule (unconditional-branch br) ((cond (llvm-typep '(integer 1) it))
-						    (iftrue (llvm-typep 'label it))
-						    (iffalse (llvm-typep 'label it))))
+(define-instruction-rule (unconditional-branch br) ((cond (llvm-typep '(integer 1) (car it)))
+						    (iftrue (llvm-typep 'label (car it)))
+						    (iffalse (llvm-typep 'label (car it)))))
 
-(define-instruction-rule switch ((value (llvm-typep '(integer *) it))
-				 (defaultdest (llvm-typep 'label it)))
+(define-instruction-rule switch ((value (llvm-typep '(integer *) (car it)))
+				 (defaultdest (llvm-typep 'label (car it))))
   some-custom-magic-???)
 
 
-(define-instruction-rule indirectbr ((address (llvm-typep '(pointer ***) it)))
+(define-instruction-rule indirectbr ((address (llvm-typep '(pointer ***) (car it))))
   some-magic-similar-to-switch-???)
 
 (define-cg-llvm-rule br-instruction ()
@@ -694,7 +723,7 @@
 		     
 ;; The check for correct type of resume instruction is at semantic level -- the whole body
 ;; of the function should be parsed for that
-(define-instruction-rule resume ((x t)))
+(define-instruction-rule resume (x))
 	
 (define-instruction-rule unreachable ())
 
