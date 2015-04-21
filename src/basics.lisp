@@ -248,8 +248,6 @@
 	       (error ,#?"~s is not a known $((string-downcase name)), see variable $((string known-var))" txt))
 	   txt))))
 
-(defparameter known-fast-math-flags '("nnan" "ninf" "nsz" "arcp" "fast"))
-
 (define-coercer fast-math-flag known-fast-math-flags)
 
 

@@ -234,6 +234,8 @@
 				   (? (list #\e sign (postimes ns-dec-digit))))))
 
 ;; TODO : hexadecimal float ???
+(define-cg-llvm-rule hexadecimal-float ()
+  (fail-parse "Hexadecimal float is not implemented yet."))
 
 (define-cg-llvm-rule llvm-float ()
   (|| decimal-float
@@ -645,11 +647,16 @@
 (define-cg-llvm-rule white-comma ()
   (progm (? whitespace) #\, (? whitespace)))
 
+(defmacro with-rule-names ((name-var) &body body)
+  `(destructuring-bind (rule-name instr-name) (if (symbolp ,name-var)
+						  (list (intern #?"$((string ,name-var))-INSTRUCTION")
+							,name-var)
+						  (list (car ,name-var) (cadr ,name-var)))
+     ,@body))
+  
+
 (defmacro define-instruction-rule (name (&rest args) &body body)
-  (destructuring-bind (rule-name instr-name) (if (symbolp name)
-						 (list (intern #?"$((string name))-INSTRUCTION")
-						       name)
-						 (list (car name) (cadr name)))
+  (with-rule-names (name)
     `(define-cg-llvm-rule ,rule-name ()
        (descend-with-rule 'string ,(stringify-symbol instr-name))
        (,@(if args
@@ -785,37 +792,77 @@
 ;; 		  ,!m(inject-if-nonnil nsw))
 ;; 	    ))))))
 
-(defmacro define-nsw-nuw-binop-rule (name &key (type 'integer))
-  (destructuring-bind (rule-name instr-name) (if (symbolp name)
-						 (list (intern #?"$((string name))-INSTRUCTION")
-						       name)
-						 name)
+
+(defmacro with-integer-overflow-prefix (&body body)
+  `(let ((prefix-kwds (destructuring-bind (nuw nsw) (unordered-simple-keywords nuw nsw)
+			`(,!m(inject-if-nonnil nuw) ,!m(inject-if-nonnil nsw)))))
+     ,@body))
+
+(defmacro with-exact-prefix (&body body)
+  `(let ((prefix-kwds (remove-if-not #'identity (unordered-simple-keywords exact))))
+     ,@body))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defparameter known-fast-math-flags '(nnan ninf nsz arcp fast)))
+
+(defmacro with-fast-math-flags-prefix (&body body)
+  `(let ((prefix-kwds (remove-if-not #'identity (unordered-simple-keywords ,@known-fast-math-flags))))
+     ,@body))
+
+(defun binop-instruction-body (name type)
+  `((let ((type (emit-lisp-repr (wh llvm-type))))
+      (if (not (or (llvm-typep '(,type ***) type)
+		   (llvm-typep '(vector (,type ***) *) type)))
+	  (fail-parse-format ,#?"$((string name)) instruction expects <type> to be $((string type)) \
+                                      or VECTOR OF $((string type))S, but got: ~a"
+			     type))
+      (macrolet ((parse-arg ()
+		   `(|| (if (llvm-typep '(,,type ***) type)
+			    (descend-with-rule ',,(intern #?"$((string type))-CONSTANT-VALUE") type)
+			    (descend-with-rule 'vector-constant-value type))
+			(descend-with-rule 'global-ident-constant-value type))))
+	(let ((arg1 (wh (parse-arg))))
+	  white-comma
+	  (let ((arg2 (parse-arg)))
+	    `(,,name ,type ,arg1 ,arg2 ,@prefix-kwds)
+	    ))))))
+
+(defmacro define-integer-binop-definer (name &optional prefix)
+  `(defmacro ,name (name)
+     (with-rule-names (name)
+       `(define-cg-llvm-rule ,rule-name ()
+	  (descend-with-rule 'string ,(stringify-symbol instr-name))
+	  (,,(if prefix
+		 (intern #?"WITH-$((string prefix))-PREFIX")
+		 'progn)
+	     ,@(binop-instruction-body instr-name 'integer))))))
+
+
+(define-integer-binop-definer define-integer-binop-rule integer-overflow)
+(define-integer-binop-definer define-exact-integer-binop-rule exact)
+(define-integer-binop-definer define-simple-integer-binop-rule)
+
+(defmacro define-float-binop-rule (name &key (type 'float))
+  (with-rule-names (name)
     `(define-cg-llvm-rule ,rule-name ()
        (descend-with-rule 'string ,(stringify-symbol instr-name))
-       (destructuring-bind (nuw nsw) (unordered-simple-keywords nuw nsw)
-	 (let ((type (emit-lisp-repr (wh llvm-type))))
-	   (if (not (or (llvm-typep '(,type *) type)
-			(llvm-typep '(vector (,type *) *) type)))
-	       (fail-parse-format ,#?"ADD instruction expects <type> to be $((string type)) \
-                                      or VECTOR OF $((string type))S, but got: ~a"
-				  type))
-	   (macrolet ((parse-arg ()
-			`(|| (if (llvm-typep '(,,type ***) type)
-				 (descend-with-rule ',,(intern #?"$((string type))-CONSTANT-VALUE") type)
-				 (descend-with-rule 'vector-constant-value type))
-			     (descend-with-rule 'global-ident-constant-value type))))
-	     (let ((arg1 (wh (parse-arg))))
-	       white-comma
-	       (let ((arg2 (parse-arg)))
-		 `(,,instr-name ,type ,arg1 ,arg2
-			       ,!m(inject-if-nonnil nuw)
-			       ,!m(inject-if-nonnil nsw))
-		 ))))))))
+       (with-fast-math-flags-prefix
+	 ,@(binop-instruction-body instr-name type)))))
 
+(define-integer-binop-rule add)
+(define-integer-binop-rule sub)
+(define-integer-binop-rule mul)
 
-(define-nsw-nuw-binop-rule add)
+(define-float-binop-rule fadd)
+(define-float-binop-rule fsub)
+(define-float-binop-rule fmul)
+(define-float-binop-rule frem)
 
-  
+(define-exact-integer-binop-rule udiv)
+(define-exact-integer-binop-rule sdiv)
+
+(define-simple-integer-binop-rule urem)
+(define-simple-integer-binop-rule srem)
 
 (define-cg-llvm-rule bitwise-binary-instruction ()
   (|| shl-instruction
@@ -824,7 +871,14 @@
       and-instruction
       or-instruction
       xor-instruction))
-      
+
+(define-integer-binop-rule shl)
+(define-exact-integer-binop-rule lshr)
+(define-exact-integer-binop-rule ashr)
+(define-simple-integer-binop-rule and)
+(define-simple-integer-binop-rule or)
+(define-simple-integer-binop-rule xor)
+
 (define-cg-llvm-rule aggregate-instruction ()
   (|| extractelement-instruction
       insertelement-instruction

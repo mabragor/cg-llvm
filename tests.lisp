@@ -395,6 +395,15 @@
 	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
     (frob (add (integer 32) 4 %var (:nuw t) (:nsw t)) add-instruction "add nuw nsw i32 4, %var")
     (frob (add (integer 32) 4 %var (:nuw t) (:nsw t)) add-instruction "add nsw nuw i32 4, %var")
-    (frob (add (integer 32) 4 %var) add-instruction "add i32 4, %var")))
+    (frob (add (integer 32) 4 %var) add-instruction "add i32 4, %var")
+    (frob (sub (integer 32) 4 %var) sub-instruction "sub i32 4, %var")
+    (frob (sub (integer 32) 0 %val) sub-instruction "sub i32 0, %val")
+    (frob (mul (integer 32) 4 %var) mul-instruction "mul i32 4, %var")
+    (frob (fadd (float 32 16) 4.0 %var) fadd-instruction "fadd float 4.0, %var")
+    (frob (fadd (float 32 16) 4.0 %var (:ninf t) (:arcp t))
+	  fadd-instruction "fadd arcp ninf float 4.0, %var")
+    (frob (shl (vector (integer 32) 2) (((integer 32) 1) ((integer 32) 1)) (((integer 32) 1) ((integer 32) 2)))
+	  shl-instruction "shl <2 x i32> < i32 1, i32 1>, < i32 1, i32 2>")
+    ))
   
     
