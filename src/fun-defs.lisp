@@ -749,26 +749,74 @@
   ;; 	       (setf nuw (?wh "nuw"))))
 
 
+(defmacro unordered-simple-keywords (&rest kwds)
+  `(let ((kwds (times (wh (|| ,@(mapcar (lambda (x)
+					  `(progn (descend-with-rule 'string ,(stringify-symbol x))
+						  ,(intern (string x) "KEYWORD")))
+					kwds)))
+		      :upto ,(length kwds))))
+     ;; (format t "kwds are: ~a~%" kwds)
+     (mapcar (lambda (x)
+	       (if (find x kwds :test #'eq)
+		   `(,x t)))
+	     (list ,@(mapcar (lambda (x)
+			       (intern (string x) "KEYWORD"))
+			     kwds)))))
+
 ;; Let's first write version which does not use macro, and then abstract-out the macro part...
-(define-cg-llvm-rule add-instruction ()
-  "add"
-  (destructuring-bind (nuw nsw) (unordered-simple-keywords nuw nsw)
-    (let ((type (emit-lisp-repr llvm-type)))
-      (if (not (or (llvm-typep '(integer *) type)
-		   (llvm-typep '(vector (integer *) *) type)))
-	  (fail-parse-format "ADD instruction expects <type> to be INTEGER or VECTOR-OF-INTEGERS, but got: ~a"
-			     type))
-      (let ((arg1 (|| (if (llvm-typep '(integer ***) type)
-			  integer-constant-value
-			  vector-constant-value)
-		      global-ident-value)))
-	(? whitespace) #\, (? whitespace)
-	(let ((arg2 (|| (if (llvm-typep '(integer ***) type)
-			    integer-constant-value
-			    vector-constant-value)
-			global-ident-value)))
-	  `(add ,type ,arg1 ,arg2))))))
+;; (define-cg-llvm-rule add-instruction ()
+;;   "add"
+;;   (destructuring-bind (nuw nsw) (unordered-simple-keywords nuw nsw)
+;;     (let ((type (emit-lisp-repr (wh llvm-type))))
+;;       (if (not (or (llvm-typep '(integer *) type)
+;; 		   (llvm-typep '(vector (integer *) *) type)))
+;; 	  (fail-parse-format "ADD instruction expects <type> to be INTEGER or VECTOR-OF-INTEGERS, but got: ~a"
+;; 			     type))
+;;       (macrolet ((parse-arg ()
+;; 		   `(|| (if (llvm-typep '(integer ***) type)
+;; 			    (descend-with-rule 'integer-constant-value type)
+;; 			    (descend-with-rule 'vector-constant-value type))
+;; 			(descend-with-rule 'global-ident-constant-value type))))
+;; 	(let ((arg1 (wh (parse-arg))))
+;; 	  white-comma
+;; 	  (let ((arg2 (parse-arg)))
+;; 	    `(add ,type ,arg1 ,arg2
+;; 		  ,!m(inject-if-nonnil nuw)
+;; 		  ,!m(inject-if-nonnil nsw))
+;; 	    ))))))
+
+(defmacro define-nsw-nuw-binop-rule (name &key (type 'integer))
+  (destructuring-bind (rule-name instr-name) (if (symbolp name)
+						 (list (intern #?"$((string name))-INSTRUCTION")
+						       name)
+						 name)
+    `(define-cg-llvm-rule ,rule-name ()
+       (descend-with-rule 'string ,(stringify-symbol instr-name))
+       (destructuring-bind (nuw nsw) (unordered-simple-keywords nuw nsw)
+	 (let ((type (emit-lisp-repr (wh llvm-type))))
+	   (if (not (or (llvm-typep '(,type *) type)
+			(llvm-typep '(vector (,type *) *) type)))
+	       (fail-parse-format ,#?"ADD instruction expects <type> to be $((string type)) \
+                                      or VECTOR OF $((string type))S, but got: ~a"
+				  type))
+	   (macrolet ((parse-arg ()
+			`(|| (if (llvm-typep '(,,type ***) type)
+				 (descend-with-rule ',,(intern #?"$((string type))-CONSTANT-VALUE") type)
+				 (descend-with-rule 'vector-constant-value type))
+			     (descend-with-rule 'global-ident-constant-value type))))
+	     (let ((arg1 (wh (parse-arg))))
+	       white-comma
+	       (let ((arg2 (parse-arg)))
+		 `(,,instr-name ,type ,arg1 ,arg2
+			       ,!m(inject-if-nonnil nuw)
+			       ,!m(inject-if-nonnil nsw))
+		 ))))))))
+
+
+(define-nsw-nuw-binop-rule add)
+
   
+
 (define-cg-llvm-rule bitwise-binary-instruction ()
   (|| shl-instruction
       lshr-instruction

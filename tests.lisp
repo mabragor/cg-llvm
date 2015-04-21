@@ -389,4 +389,12 @@
 	  "resume { i8*, i32 } %exn")
     (frob '(cg-llvm::unreachable) "unreachable")
     ))
+
+(test parsing-binop-instructions
+  (macrolet ((frob (x y z)
+	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
+    (frob (add (integer 32) 4 %var (:nuw t) (:nsw t)) add-instruction "add nuw nsw i32 4, %var")
+    (frob (add (integer 32) 4 %var (:nuw t) (:nsw t)) add-instruction "add nsw nuw i32 4, %var")
+    (frob (add (integer 32) 4 %var) add-instruction "add i32 4, %var")))
+  
     
