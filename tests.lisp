@@ -440,3 +440,17 @@
 	  "insertvalue {i32, {float}} undef, float %val, 1, 0")
     ))
   
+(test conversion-instructions
+  (macrolet ((frob (x y)
+	       `(is (equal ',x (cg-llvm-parse 'conversion-instruction ,y)))))
+    (frob (trunc 257 (integer 32) (integer 8)) "trunc i32 257 to i8")
+    (frob (trunc 123 (integer 32) (integer 1)) "trunc i32 123 to i1")
+    (frob (trunc 122 (integer 32) (integer 1)) "trunc i32 122 to i1")
+    (frob (trunc (((integer 16) 8) ((integer 16) 7))
+		 (vector (integer 16) 2)
+		 (vector (integer 8) 2))
+	  "trunc <2 x i16> <i16 8, i16 7> to <2 x i8>")
+    ))
+  
+
+    

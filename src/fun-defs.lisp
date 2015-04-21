@@ -266,24 +266,55 @@
       null-ptr-constant
       global-ident-constant))
 
+(define-cg-llvm-rule simple-constant-value ()
+  (|| boolean-constant-value
+      integer-constant-value
+      float-constant-value
+      null-ptr-constant-value
+      global-ident-constant-value))
+
+
 (define-cg-llvm-rule ordinary-constant ()
   (|| simple-constant
       complex-constant))
+
+(define-cg-llvm-rule ordinary-constant-value ()
+  (|| simple-constant-value
+      complex-constant-value))
 
 (define-cg-llvm-rule llvm-constant ()
   (|| ordinary-constant
       metadata-node))
 
-(define-cg-llvm-rule llvm-variable ()
-  `(,(emit-lisp-repr llvm-type) ,(progn whitespace llvm-identifier)))
+(define-cg-llvm-rule metadata-node-value ()
+  (fail-parse "METADATA-NODE-VALUE is not implemented yet"))
 
+(define-cg-llvm-rule llvm-constant-value ()
+  (|| ordignary-constant-value
+      metadata-node-value))
+
+(define-cg-llvm-rule llvm-variable-value ()
+  llvm-identifier)
+
+(define-cg-llvm-rule llvm-variable ()
+  `(,(emit-lisp-repr llvm-type) ,(wh llvm-variable-value)))
+
+(define-cg-llvm-rule llvm-undef-value ()
+  "undef" :undef)
+  
 (define-cg-llvm-rule llvm-undef ()
-  `(,(emit-lisp-repr llvm-type) ,(progn whitespace "undef" :undef)))
+  `(,(emit-lisp-repr llvm-type) ,(wh llvm-undef-value)))
 
 (define-cg-llvm-rule instr-arg ()
   (|| llvm-variable
       llvm-undef
       llvm-constant))
+
+(define-cg-llvm-rule instr-arg-value ()
+  (|| llvm-variable-value
+      llvm-undef-value
+      llvm-constant-value))
+
 
 (define-plural-rule llvm-constants llvm-constant (progn (? whitespace) #\, (? whitespace)))
 
@@ -444,6 +475,13 @@
       string-constant ; just a special syntax for array of chars
       vector-constant
       zero-init-constant))
+
+(define-cg-llvm-rule complex-constant-value ()
+  (|| structure-constant-value
+      array-constant-value
+      string-constant-value ; just a special syntax for array of chars
+      vector-constant-value
+      zero-init-constant-value))
 
 
 (define-cg-llvm-rule usual-identifier ()
@@ -813,23 +851,24 @@
   `(let ((prefix-kwds (remove-if-not #'identity (unordered-simple-keywords ,@known-fast-math-flags))))
      ,@body))
 
-(defun binop-instruction-body (name type)
-  `((let ((type (emit-lisp-repr (wh llvm-type))))
-      (if (not (or (llvm-typep '(,type ***) type)
-		   (llvm-typep '(vector (,type ***) *) type)))
-	  (fail-parse-format ,#?"$((string name)) instruction expects <type> to be $((string type)) \
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun binop-instruction-body (name type)
+    `((let ((type (emit-lisp-repr (wh llvm-type))))
+	(if (not (or (llvm-typep '(,type ***) type)
+		     (llvm-typep '(vector (,type ***) *) type)))
+	    (fail-parse-format ,#?"$((string name)) instruction expects <type> to be $((string type)) \
                                       or VECTOR OF $((string type))S, but got: ~a"
-			     type))
-      (macrolet ((parse-arg ()
-		   `(|| (if (llvm-typep '(,,type ***) type)
-			    (descend-with-rule ',,(intern #?"$((string type))-CONSTANT-VALUE") type)
-			    (descend-with-rule 'vector-constant-value type))
-			(descend-with-rule 'global-ident-constant-value type))))
-	(let ((arg1 (wh (parse-arg))))
-	  white-comma
-	  (let ((arg2 (parse-arg)))
-	    `(,,name ,type ,arg1 ,arg2 ,@prefix-kwds)
-	    ))))))
+			       type))
+	(macrolet ((parse-arg ()
+		     `(|| (if (llvm-typep '(,,type ***) type)
+			      (descend-with-rule ',,(intern #?"$((string type))-CONSTANT-VALUE") type)
+			      (descend-with-rule 'vector-constant-value type))
+			  (descend-with-rule 'global-ident-constant-value type))))
+	  (let ((arg1 (wh (parse-arg))))
+	    white-comma
+	    (let ((arg2 (parse-arg)))
+	      `(,,name ,type ,arg1 ,arg2 ,@prefix-kwds)
+	      )))))))
 
 (defmacro define-integer-binop-definer (name &optional prefix)
   `(defmacro ,name (name)
@@ -947,6 +986,81 @@
       inttoptr-to-instruction
       bitcast-to-instruction
       addrspacecast-to-instruction))
+
+(defun both-integers (type1 type2)
+  (and (llvm-typep '(integer ***) type1) (llvm-typep '(integer ***) type2)))
+
+(defun first-bitsize-larger (type1 type2)
+  (> (cadr type1) (cadr type2)))
+
+(defun first-bitsize-smaller (type1 type2)
+  (< (cadr type1) (cadr type2)))
+
+(defun both-vector-integers (type1 type2)
+  (and (llvm-typep '(vector (integer ***) *) type1) (llvm-typep '(vector (integer ***) *) type2)))
+
+(defun have-same-size (type1 type2)
+  (equal (caddr type1) (caddr type2)))
+
+(defun have-different-addrspaces (type1 type2)
+  (not (equal (if (equal 3 (length type1))
+		  (caddr type1)
+		  0)
+	      (if (equal 3 (length type2))
+		  (caddr type2)
+		  0))))
+
+(defmacro define-cast-instruction (name &body constraints)
+  (let ((rule-name (intern #?"$((string name))-TO-INSTRUCTION")))
+  `(define-cg-llvm-rule ,rule-name ()
+     (descend-with-rule 'string ,(stringify-symbol name))
+     whitespace
+     (destructuring-bind (type1 value) instr-arg
+       whitespace "to" whitespace
+       (let ((type2 (emit-lisp-repr llvm-type)))
+	 ,@constraints
+	 `(,,name ,value ,type1 ,type2))))))
+	
+
+(defmacro define-simple-based (type1 type2)
+  `(defmacro ,(intern #?"$((string type1))->$((string type2))-BASED") (&optional condition)
+     `(or (and (llvm-typep '(,,type1 ***) type1) (llvm-typep '(,,type2 ***) type1)
+	       ,@(if condition `((,condition type1 type2))))
+	  (and (llvm-typep '(vector (,,type1 ***) *) type1) (llvm-typep '(vector (,,type2 *) *) type2)
+	       (have-same-size type1 type2)
+	       ,@(if condition `((,condition (cadr type1) (cadr type2))))))))
+
+
+(define-simple-based integer integer)
+(define-simple-based float float)
+
+(define-cast-instruction trunc (integer->integer-based first-bitsize-larger))
+(define-cast-instruction zext (integer->integer-based first-bitsize-smaller))
+(define-cast-instruction sext (integer->integer-based first-bitsize-smaller))
+
+(define-cast-instruction fptrunc (float->float-based first-bitsize-larger))
+(define-cast-instruction fpext (float->float-based first-bitsize-smaller))
+
+(define-simple-based float integer)
+(define-simple-based integer float)
+(define-simple-based pointer integer)
+(define-simple-based integer pointer)
+
+(define-cast-instruction fptoui (float->integer-based))
+(define-cast-instruction fptosi (float->integer-based))
+(define-cast-instruction uitofp (integer->float-based))
+(define-cast-instruction sitofp (integer->float-based))
+(define-cast-instruction ptrtoint (pointer->integer-based))
+(define-cast-instruction inttoptr (integer->pointer-based))
+
+;; (define-cast-instruction bitcast
+;;     some-really-dark-magic?)
+(define-cg-llvm-rule bitcast-to-instruction ()
+  (fail-parse "BITCAST not implemented yet"))
+
+(define-simple-based pointer pointer)
+
+(define-cast-instruction addrspacecast (pointer->pointer-based have-different-addrspaces))
 
 (define-cg-llvm-rule other-instruction ()
   (|| icmp-instruction
