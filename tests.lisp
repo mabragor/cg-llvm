@@ -454,3 +454,10 @@
   
 
     
+(test misc-instructions
+  (macrolet ((frob (x y z)
+	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
+    (frob (phi (integer 32) (0 +%-loop-header)) phi-instruction "phi i32 [ 0, %LoopHeader ]")
+    (frob (phi (integer 32) (0 +%-loop-header) (%nextindvar +%-loop))
+	  phi-instruction "phi i32 [ 0, %LoopHeader ], [ %nextindvar, %Loop ]")
+    ))

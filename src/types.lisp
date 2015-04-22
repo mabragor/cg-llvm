@@ -438,6 +438,11 @@
 	((or (consp smth) (symbolp smth)) smth)
 	(t (error "Don't know how to calculate LLVM-TYPE of this: ~a" smth))))
 
+(defmethod emit-lisp-repr ((smth cons))
+  smth)
+(defmethod emit-lisp-repr ((smth symbol))
+  smth)
+
 
 (defun llvm-typep (type smth)
   (wildcard-equal type (lispy-llvm-type smth)))

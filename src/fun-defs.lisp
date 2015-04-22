@@ -215,11 +215,17 @@
 		(list type (wh (descend-with-rule ',value-rule-name type))))))))
 	    
 
-(define-constant-rules boolean
+(defmacro!! define-typeguarding-constant-rules (name typecheck errinfo &body value-rule-body) ()
+  `(define-constant-rules ,name ,typecheck ,errinfo
+     (if (and type (not ,typecheck))
+	 (fail-parse-format ,@errinfo))
+     ,@value-rule-body))
+
+(define-typeguarding-constant-rules boolean
     (llvm-typep '(integer 1) type) ((literal-string "Boolean must really be integer of 1 bit."))
     (text (|| "true" "false")))
 
-(define-constant-rules integer
+(define-typeguarding-constant-rules integer
     (llvm-typep '(integer *) type) ((literal-string "Integer constant must be of integer type but got ~a.")
 				    type)
   integer)
@@ -241,16 +247,16 @@
   (|| decimal-float
       hexadecimal-float))
 
-(define-constant-rules float
-    (llvm-typep '(float *) type) ((literal-string "Float constant must be of float type but got ~a.") type)
+(define-typeguarding-constant-rules float
+    (llvm-typep '(float ***) type) ((literal-string "Float constant must be of float type but got ~a.") type)
   llvm-float)
 
-(define-constant-rules null-ptr
+(define-typeguarding-constant-rules null-ptr
     (llvm-typep '(pointer ***) type)
     ((literal-string "Null ptr constant must be of pointer type but got ~a.") type)
   (text "null"))
 
-(define-constant-rules global-ident
+(define-typeguarding-constant-rules global-ident
     (llvm-typep '(pointer ***) type)
     ((literal-string "Global identifier must be of pointer type, but got ~a.") type)
   llvm-identifier)
@@ -266,32 +272,35 @@
       null-ptr-constant
       global-ident-constant))
 
-(define-cg-llvm-rule simple-constant-value ()
-  (|| boolean-constant-value
-      integer-constant-value
-      float-constant-value
-      null-ptr-constant-value
-      global-ident-constant-value))
+(define-cg-llvm-rule simple-constant-value (type)
+  (let ((ltype (emit-lisp-repr type)))
+    (|| (descend-with-rule 'boolean-constant-value ltype)
+	(descend-with-rule 'integer-constant-value ltype)
+	(descend-with-rule 'float-constant-value ltype)
+	(descend-with-rule 'null-ptr-constant-value ltype)
+	(descend-with-rule 'global-ident-constant-value ltype))))
 
 
 (define-cg-llvm-rule ordinary-constant ()
   (|| simple-constant
       complex-constant))
 
-(define-cg-llvm-rule ordinary-constant-value ()
-  (|| simple-constant-value
-      complex-constant-value))
+(define-cg-llvm-rule ordinary-constant-value (type)
+  (|| (descend-with-rule 'simple-constant-value type)
+      (descend-with-rule 'complex-constant-value type)))
 
 (define-cg-llvm-rule llvm-constant ()
   (|| ordinary-constant
       metadata-node))
 
-(define-cg-llvm-rule metadata-node-value ()
+(define-cg-llvm-rule metadata-node-value (type)
+  (if (and type (not (llvm-typep 'metadata type)))
+      (fail-parse "METADATA value should have METADATA type"))
   (fail-parse "METADATA-NODE-VALUE is not implemented yet"))
 
-(define-cg-llvm-rule llvm-constant-value ()
-  (|| ordignary-constant-value
-      metadata-node-value))
+(define-cg-llvm-rule llvm-constant-value (type)
+  (|| (descend-with-rule 'ordinary-constant-value type)
+      (descend-with-rule 'metadata-node-value type)))
 
 (define-cg-llvm-rule llvm-variable-value ()
   llvm-identifier)
@@ -476,12 +485,12 @@
       vector-constant
       zero-init-constant))
 
-(define-cg-llvm-rule complex-constant-value ()
-  (|| structure-constant-value
-      array-constant-value
-      string-constant-value ; just a special syntax for array of chars
-      vector-constant-value
-      zero-init-constant-value))
+(define-cg-llvm-rule complex-constant-value (type)
+  (|| (descend-with-rule 'structure-constant-value type)
+      (descend-with-rule 'array-constant-value type)
+      (descend-with-rule 'string-constant-value type) ; just a special syntax for array of chars
+      (descend-with-rule 'vector-constant-value type)
+      (descend-with-rule 'zero-init-constant-value type)))
 
 
 (define-cg-llvm-rule usual-identifier ()
@@ -863,7 +872,7 @@
 		     `(|| (if (llvm-typep '(,,type ***) type)
 			      (descend-with-rule ',,(intern #?"$((string type))-CONSTANT-VALUE") type)
 			      (descend-with-rule 'vector-constant-value type))
-			  (descend-with-rule 'global-ident-constant-value type))))
+			  llvm-identifier)))
 	  (let ((arg1 (wh (parse-arg))))
 	    white-comma
 	    (let ((arg2 (parse-arg)))
@@ -1070,8 +1079,22 @@
       call-instruction
       va-arg-instruction
       landingpad-instruction))
-      
-					 
-      
-      
-      
+
+(define-cg-llvm-rule phi-arg (type)
+  (let (c!-1)
+    #\[ whitespace
+    (setf c!-1 (|| (descend-with-rule 'llvm-constant-value type)
+		   llvm-identifier))
+    white-comma c!-2-llvm-identifier whitespace #\]
+    `(,c!-1 ,c!-2)))
+
+(define-cg-llvm-rule phi-instruction ()
+  "phi"
+  (let ((type (emit-lisp-repr (wh llvm-type))))
+    (if (not (firstclass-type-p type))
+	(fail-parse-format "Type of phi instruction must be first-class, but got ~a" type))
+    whitespace
+    (let ((first-arg (descend-with-rule 'phi-arg type)))
+      (let ((rest-args (times (progn white-comma (descend-with-rule 'phi-arg type)))))
+	`(phi ,type ,first-arg ,@rest-args)))))
+    
