@@ -460,4 +460,6 @@
     (frob (phi (integer 32) (0 +%-loop-header)) phi-instruction "phi i32 [ 0, %LoopHeader ]")
     (frob (phi (integer 32) (0 +%-loop-header) (%nextindvar +%-loop))
 	  phi-instruction "phi i32 [ 0, %LoopHeader ], [ %nextindvar, %Loop ]")
+    (frob (select ((integer 1) "true") ((integer 8) 17) ((integer 8) 42))
+	  select-instruction "select i1 true, i8 17, i8 42")
     ))

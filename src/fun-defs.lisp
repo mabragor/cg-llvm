@@ -1098,3 +1098,24 @@
       (let ((rest-args (times (progn white-comma (descend-with-rule 'phi-arg type)))))
 	`(phi ,type ,first-arg ,@rest-args)))))
     
+
+(define-instruction-rule select ((cond (or (llvm-typep '(integer 1) (car it))
+					   (llvm-typep '(vector (integer 1) *) (car it))))
+				 (val1 (firstclass-type-p (car it)))
+				 (val2 (firstclass-type-p (car it))))
+  (if (llvm-typep '(integer *) (car cond))
+      (if (not (llvm-same-typep (car val1) (car val2)))
+	  (fail-parse-format "Different values of SELECT should be same type, but are: ~a ~a"
+			     (car val1) (car val2)))
+      (let ((nelts (caddar cond)))
+	(if (not (and (llvm-typep '(vector ***) (car val1))
+		      (llvm-typep '(vector ***) (car val2))
+		      (llvm-same-typep (cadar val1) (cadar val2))
+		      (equal nelts (caddar val1))
+		      (equal nelts (caddar val2))))
+	    (fail-parse-format "Different values of SELECT should be same type, but are: ~a ~a"
+			       (car val1) (car val2)))))
+  `(select ,cond ,val1 ,val2))
+
+  
+
