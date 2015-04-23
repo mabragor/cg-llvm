@@ -462,4 +462,6 @@
 	  phi-instruction "phi i32 [ 0, %LoopHeader ], [ %nextindvar, %Loop ]")
     (frob (select ((integer 1) "true") ((integer 8) 17) ((integer 8) 42))
 	  select-instruction "select i1 true, i8 17, i8 42")
+    (frob (va-arg ((pointer (integer 8)) %ap2) (integer 32))
+	  va-arg-instruction "va_arg i8* %ap2, i32")
     ))

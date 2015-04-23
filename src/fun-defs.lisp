@@ -1117,5 +1117,12 @@
 			       (car val1) (car val2)))))
   `(select ,cond ,val1 ,val2))
 
+(define-instruction-rule va-arg ((va-list (llvm-typep '(pointer ***) (car it))))
+  white-comma
+  (let ((type (emit-lisp-repr llvm-type)))
+    `(va-arg ,va-list ,type)))
+
+  
+
   
 
