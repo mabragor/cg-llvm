@@ -569,11 +569,8 @@
 
 ;;; Miscellaneous operations
 
-(defparameter known-icmp-ops '("eq" "ne" "ugt" "uge" "ult" "ule" "sgt" "sge" "slt" "sle"))
 (define-coercer icmp-op known-icmp-ops)
 
-(defparameter known-fcmp-ops '("false" "oeq" "ogt" "oge" "olt" "ole" "one" "ord"
-			       "ueq" "ugt" "uge" "ult" "ule" "une" "uno" "true"))
 (define-coercer fcmp-op known-fcmp-ops)
 
 (defun icmp (cmp-op val1 val2)

@@ -1122,6 +1122,13 @@
   (let ((type (emit-lisp-repr llvm-type)))
     `(va-arg ,va-list ,type)))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defparameter known-icmp-ops '(eq ne ugt uge ult ule sgt sge slt sle))
+  (defparameter known-fcmp-ops '(false oeq ogt oge olt ole one ord
+				 ueq ugt uge ult ule une uno true)))
+
+
+
   
 
   
