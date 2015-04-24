@@ -464,4 +464,7 @@
 	  select-instruction "select i1 true, i8 17, i8 42")
     (frob (va-arg ((pointer (integer 8)) %ap2) (integer 32))
 	  va-arg-instruction "va_arg i8* %ap2, i32")
+    (frob (icmp :eq (integer 32) 4 5) icmp-instruction "icmp eq i32 4, 5")
+    (frob (icmp :ne (pointer (float 32 16)) *%x *%x) icmp-instruction "icmp ne float* %X, %X")
+    (frob (fcmp :oeq (float 32 16) 4.0 5.0) fcmp-instruction "fcmp oeq float 4.0, 5.0")
     ))

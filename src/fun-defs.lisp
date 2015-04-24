@@ -1127,9 +1127,43 @@
   (defparameter known-fcmp-ops '(false oeq ogt oge olt ole one ord
 				 ueq ugt uge ult ule une uno true)))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun any-of-kwds (kwd-var)
+    `(|| ,@(mapcar (lambda (x)
+		     `(progn (descend-with-rule 'string ,(stringify-symbol x))
+			     ,(intern (string x) "KEYWORD")))
+		   kwd-var))))
 
+(defmacro icmp-kwds ()
+  (any-of-kwds known-icmp-ops))
 
-  
+(defmacro fcmp-kwds ()
+  (any-of-kwds known-fcmp-ops))
 
-  
+(defmacro define-cmp-rule (name typecheck errinfo)
+  (let ((rule-name (intern #?"$((string name))-INSTRUCTION"))
+	(macro-name (intern #?"$((string name))-KWDS")))
+    `(define-cg-llvm-rule ,rule-name ()
+       (descend-with-rule 'string ,(stringify-symbol name))
+       (let ((cond (wh (,macro-name)))
+	     (type (emit-lisp-repr (wh llvm-type))))
+	 (if (not ,typecheck)
+	     (fail-parse-format ,@errinfo))
+	 (let ((val1 (wh (descend-with-rule 'llvm-constant-value type))))
+	   white-comma
+	   (let ((val2 (descend-with-rule 'llvm-constant-value type)))
+	     `(,,name ,cond ,type ,val1 ,val2)))))))
+	
+(define-cmp-rule icmp
+    (or (llvm-typep '(integer ***) type)
+	(llvm-typep '(vector (integer ***) *) type)
+	(llvm-typep '(pointer ***) type)
+	(llvm-typep '(vector (pointer ***) *) type))
+  ("Type of arguments of ICMP instruction should be INTEGER or POINTER or~
+    VECTOR of INTEGERS or VECTOR of POINTERS"))
 
+(define-cmp-rule fcmp
+    (or (llvm-typep '(float ***) type)
+	(llvm-typep '(vector (float ***) *) type))
+  ("Type of arguments of FCMP instruction should be FLOAT~
+    or VECTOR of FLOATS"))
