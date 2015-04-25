@@ -1167,3 +1167,30 @@
 	(llvm-typep '(vector (float ***) *) type))
   ("Type of arguments of FCMP instruction should be FLOAT~
     or VECTOR of FLOATS"))
+
+(define-cg-llvm-rule cleanup-kwd ()
+  "cleanup" '(:cleanup t))
+
+(define-cg-llvm-rule catch-landingpad-clause ()
+  "catch"
+  (list :catch (wh llvm-constant)))
+
+(define-cg-llvm-rule filter-landingpad-clause ()
+  "filter"
+  (list :filter (fail-parse-if-not (llvm-typep '(array ***) (car it))
+				   (wh llvm-constant))))
+
+(define-cg-llvm-rule landingpad-clause ()
+  (|| catch-landingpad-clause
+      filter-landingpad-clause))
+
+(define-cg-llvm-rule landingpad-instruction ()
+  "landingpad"
+  (let ((type (emit-lisp-repr (wh llvm-type))))
+    (wh "personality")
+    (let ((pers (wh llvm-constant)))
+      ;; check
+      (let ((clauses (|| (cons (wh cleanup-kwd) (times (wh landingpad-clause)))
+			 (postimes (wh landingpad-clause)))))
+	`(landingpad ,type ,pers ,@clauses)))))
+
