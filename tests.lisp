@@ -450,6 +450,13 @@
 		 (vector (integer 16) 2)
 		 (vector (integer 8) 2))
 	  "trunc <2 x i16> <i16 8, i16 7> to <2 x i8>")
+    (frob (bitcast 255 (integer 8) (integer 8)) "bitcast i8 255 to i8")
+    (frob (bitcast %x (pointer (integer 32)) (pointer (integer 32)))
+	  "bitcast i32* %x to i32*")
+    (frob (bitcast *%v (vector (integer 32) 2) (integer 64))
+	  "bitcast <2 x i32> %V to i64")
+    (frob (bitcast *%v (vector (pointer (integer 32)) 2) (vector (pointer (integer 64)) 2))
+	  "bitcast <2 x i32*> %V to <2 x i64*>")
     ))
   
 

@@ -1062,10 +1062,42 @@
 (define-cast-instruction ptrtoint (pointer->integer-based))
 (define-cast-instruction inttoptr (integer->pointer-based))
 
-;; (define-cast-instruction bitcast
-;;     some-really-dark-magic?)
-(define-cg-llvm-rule bitcast-to-instruction ()
-  (fail-parse "BITCAST not implemented yet"))
+(defun pointer-pointer-check (type1 type2)
+  (if (not (llvm-typep '(pointer ***) type2))
+      (fail-parse-format "Second type should also be pointer, but got ~a" type2)
+      (if (have-different-addrspaces type1 type2)
+	  (fail-parse-format "Both pointer types should have same addrspace"))))
+
+(defun vector-check (type1 type2)
+  (if (not (llvm-typep '(vector ***) type2))
+      (fail-parse-format "Second type should also be a vector, but got ~a" type2)
+      (if (not (equal (caddr type1) (caddr type2)))
+	  (fail-parse-format "Lengths of vectors should match, but got ~a and ~a" (caddr type1) (caddr type2)))))
+
+(defun rough-check-bitcast-type (label type)
+  (let ((llvm-type (parse-lisp-repr type)))
+    (if (or (not (and (firstclass-type-p llvm-type)
+		  (not (aggregate-type-p llvm-type))))
+	    (typep llvm-type 'llvm-label)
+	    (typep llvm-type 'llvm-metadata))
+	(fail-parse-format "~a type must be first-class, non-aggregate type, but got: ~a"
+			   label
+			   type))))
+
+(define-cast-instruction bitcast
+  (rough-check-bitcast-type "First" type1)
+  (rough-check-bitcast-type "Second" type2)
+  (if (not (and (firstclass-type-p type2) (not (aggregate-type-p type2))))
+      (fail-parse-format "Second type must be first-class non-aggregate type, but got: ~a" type2))
+  (cond ((llvm-typep '(pointer ***) type1)
+	 (pointer-pointer-check type1 type2))
+	((llvm-typep '(vector (pointer ***) ***) type1)
+	 (vector-check type1 type2)
+	 (pointer-pointer-check (cadr type1) (cadr type2)))
+	(t (if (not (equal (bit-length type1) (bit-length type2)))
+	       (fail-parse "Types of BITCAST should have identical bit sizes")))))
+	
+	
 
 (define-simple-based pointer pointer)
 

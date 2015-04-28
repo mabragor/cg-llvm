@@ -62,6 +62,14 @@
 	((or (symbolp x) (consp x)) (firstclass-type-p (parse-lisp-repr x)))
 	(t nil)))
 
+(defun aggregate-type-p (x)
+  (cond ((typep x 'llvm-type) (typep x 'llvm-aggregate-type))
+	((stringp x) (handler-case (aggregate-type-p (cg-llvm-parse 'llvm-type x))
+		       (error () nil)))
+	((or (symbolp x) (consp x)) (aggregate-type-p (parse-lisp-repr x)))
+	(t nil)))
+
+
 (defclass llvm-integer (llvm-first-class-type)
   ((nbits :initarg :nbits)))
 (defvar max-nbits (1- (expt 2 23)))
@@ -450,3 +458,23 @@
 (defun llvm-same-typep (smth1 smth2)
   (wildcard-equal (lispy-llvm-type smth1)
 		  (lispy-llvm-type smth2)))
+
+(defgeneric bit-length (x))
+
+(defmethod bit-length ((x llvm-integer))
+  (slot-value x 'nbits))
+(defmethod bit-length ((x llvm-float))
+  (slot-value x 'nbits))
+(defmethod bit-length ((x llvm-x86-mmx))
+  ;; the value from wiki page about MMX registers
+  64)
+(defmethod bit-length ((x llvm-vector))
+  (with-slots (num-elts elt-type) x
+    (* num-elts (bit-length elt-type))))
+
+(defmethod bit-length ((x cons))
+  (bit-length (parse-lisp-repr x)))
+
+(defmethod bit-length ((x symbol))
+  (bit-length (parse-lisp-repr x)))
+
