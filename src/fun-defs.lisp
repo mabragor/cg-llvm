@@ -525,6 +525,11 @@
 	  (list (list ,(intern (string name) "KEYWORD")
 		      ,name))))
 
+(defmacro inject-kwds-if-nonnil (&rest names)
+  ``,@`(,,@(mapcar (lambda (x)
+		     ``,!m(inject-kwd-if-nonnil ,x))
+		   names)))
+
 (defmacro splice-kwd-if-nonnil (name)
   ``,@(if ,name
 	  (list ,(intern (string name) "KEYWORD")
@@ -589,10 +594,15 @@
       (progn "thread_local"
 	     '(:thread-local t))))
 
-(defun guard-kwd-expr (allowed-kwds expr)
+(defun whitelist-kwd-expr (allowed-kwds expr)
   (if (find expr allowed-kwds :test #'eq)
       expr
       (fail-parse-format "Keyword ~a is not among allowed keywords." expr)))
+
+(defun blacklist-kwd-expr (disallowed-kwds expr)
+  (if (find expr disallowed-kwds :test #'eq)
+      (fail-parse-format "Keyword ~a is among disallowed keywords." expr)
+      expr))
 
 
 (define-cg-llvm-rule alias ()
@@ -600,7 +610,7 @@
 	       `(? (progn whitespace ,x))))
     (let ((name llvm-identifier))
       whitespace "="
-      (let* ((linkage (frob (guard-kwd-expr '(:private :internal :linkoce :weak :linkonce-odr :weak-odr :external)
+      (let* ((linkage (frob (whitelist-kwd-expr '(:private :internal :linkoce :weak :linkonce-odr :weak-odr :external)
 					    linkage-type)))
 	     (visibility (frob visibility-style))
 	     (dll-storage-class (frob dll-storage-class))
@@ -757,14 +767,14 @@
 (define-cg-llvm-rule invoke-instruction ()
   "invoke"
   (let* ((cconv (?wh cconv))
-	 (return-attrs (?wh (guard-kwd-expr '(:zeroext :signext :inreg)
+	 (return-attrs (?wh (whitelist-kwd-expr '(:zeroext :signext :inreg)
 					    parameter-attrs)))
 	 (function-type (fail-parse-if-not (ptr-to-function-type-p it)
 					   (wh llvm-type))))
     ;; TODO : this is not correct -- there are more possible things to be INVOKED
     (let* ((function-val (wh llvm-variable))
 	   (args (wh? funcall-args))
-	   (fun-attrs (?wh (guard-kwd-expr '(:noreturn :nounwind :readonly :readnone)
+	   (fun-attrs (?wh (whitelist-kwd-expr '(:noreturn :nounwind :readonly :readnone)
 					   fun-attrs))))
       (wh "to")
       (let ((normal-label (fail-parse-if-not (llvm-typep 'label it)
@@ -991,7 +1001,40 @@
 	     ,!m(inject-kwd-if-nonnil nelts)
 	     ,!m(inject-kwd-if-nonnil align)
 	     ,!m(inject-kwd-if-nonnil inalloca))))
-    
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defparameter known-orderings '(unordered monotonic acquire release acq-rel seq-cst)))
+
+(define-kwd-rule ordering)
+
+(define-cg-llvm-rule atomic-load-instruction ()
+  "load" whitespace "atomic"
+  (let ((volatile (? (wh (progn "volatile" t))))
+	(ptr (wh (fail-parse-if-not (llvm-typep '(pointer ***) (car it))
+				    llvm-constant)))
+	(singlethread (? (wh (progn "singlethread" t))))
+	(ordering (wh (blacklist-kwd-expr '(:release :acq-rel) ordering)))
+	(align (progn white-comma "align" whitespace integer)))
+    `(load (:atomic t)
+	   ,ptr
+	   ,!m(inject-kwds-if-nonnil ordering
+				     align
+				     volatile
+				     singlethread))))
+
+(define-cg-llvm-rule non-atomic-load-instruction ()
+  "load"
+  (let ((volatile (? (wh (progn "volatile" t))))
+	(type (emit-lisp-repr (wh llvm-type)))
+	(ptr (progn white-comma (fail-parse-if-not (llvm-typep '(pointer ***) (car it))
+						   llvm-constant)))
+	(align (? (progn white-comma "align" whitespace integer))))
+    `(load ,type ,ptr
+	   ,!m(inject-kwds-if-nonnil align volatile))))
+	
+(define-cg-llvm-rule load-instruction ()
+  (|| atomic-load-instruction
+      non-atomic-load-instruction))
 
 (define-cg-llvm-rule conversion-instruction ()
   (|| trunc-to-instruction

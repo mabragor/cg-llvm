@@ -479,8 +479,6 @@
 (defun store ()
   nil)
 
-(defparameter known-orderings '("unordered" "monotonic" "acquire" "release" "acq_rel" "seq_cst"))
-
 (define-coercer ordering known-orderings)
 
 (defun fence (ordering &key singlethread)
