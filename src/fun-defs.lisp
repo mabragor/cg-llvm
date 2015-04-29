@@ -981,6 +981,18 @@
       atomicrmw-instruction
       getelementptr-instruction))
 
+(define-cg-llvm-rule alloca-instruction ()
+  "alloca"
+  (let ((inalloca (? (wh (progn "inalloca" t))))
+	(type (emit-lisp-repr (wh llvm-type)))
+	(nelts (? (progn white-comma integer-constant)))
+	(align (? (progn white-comma "align" whitespace integer))))
+    `(alloca ,type
+	     ,!m(inject-kwd-if-nonnil nelts)
+	     ,!m(inject-kwd-if-nonnil align)
+	     ,!m(inject-kwd-if-nonnil inalloca))))
+    
+
 (define-cg-llvm-rule conversion-instruction ()
   (|| trunc-to-instruction
       zext-to-instruction

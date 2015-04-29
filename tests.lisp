@@ -439,6 +439,18 @@
 	  insertvalue-instruction
 	  "insertvalue {i32, {float}} undef, float %val, 1, 0")
     ))
+
+(test memory-instructions
+  (macrolet ((frob (x y z)
+	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
+    (frob (alloca (integer 32)) alloca-instruction "alloca i32")
+    (frob (alloca (integer 32) (:nelts ((integer 32) 4)))
+	  alloca-instruction "alloca i32, i32 4")
+    (frob (alloca (integer 32) (:nelts ((integer 32) 4)) (:align 1024))
+	  alloca-instruction "alloca i32, i32 4, align 1024")
+    (frob (alloca (integer 32) (:align 1024))
+	  alloca-instruction "alloca i32, align 1024")
+    ))
   
 (test conversion-instructions
   (macrolet ((frob (x y)
