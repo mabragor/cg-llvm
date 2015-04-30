@@ -511,3 +511,10 @@
     (frob (icmp :ne (pointer (float 32 16)) *%x *%x) icmp-instruction "icmp ne float* %X, %X")
     (frob (fcmp :oeq (float 32 16) 4.0 5.0) fcmp-instruction "fcmp oeq float 4.0, 5.0")
     ))
+
+
+(test basic-blocks
+  (macrolet ((frob (x y)
+	       `(is (equal ',x (cg-llvm-parse 'basic-block ,y)))))
+    (frob (block (cg-llvm::ret ((integer 32) 3))) "ret i32 3")
+    (frob (block (:label "end") (cg-llvm::ret ((integer 32) 3))) "end: ret i32 3")))

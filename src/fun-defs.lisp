@@ -492,14 +492,24 @@
       (descend-with-rule 'vector-constant-value type)
       (descend-with-rule 'zero-init-constant-value type)))
 
+(define-cg-llvm-rule usual-identifier-body ()
+  (text (list (|| alpha-char #\- #\$ #\. #\_)
+	      (times (|| alphanumeric-char #\- #\$ #\. #\_)))))
+
+(define-cg-llvm-rule global-usual-identifier ()
+  (text (list #\@ usual-identifier-body)))
+(define-cg-llvm-rule local-usual-identifier ()
+  (text (list #\% usual-identifier-body)))
+
+(defun try-destringify-symbol (str)
+  (handler-case (destringify-symbol str)
+    (error () str)))
+  
 
 (define-cg-llvm-rule usual-identifier ()
-  (let ((raw-text (text (list (|| #\@ #\%)
-			      (|| alpha-char #\- #\$ #\. #\_)
-			      (times (|| alphanumeric-char #\- #\$ #\. #\_))))))
-    (handler-case (destringify-symbol raw-text)
-      (error () raw-text))))
-
+  (try-destringify-symbol (|| global-usual-identifier
+			      local-usual-identifier)))
+    
 (define-cg-llvm-rule hex-digit ()
   (character-ranges (#\0 #\9) (#\a #\f) (#\A #\F)))
 
@@ -696,14 +706,27 @@
       conversion-instruction
       other-instruction))
 
-(define-cg-llvm-rule terminator-instruction ()
+
+(defmacro assignment-statement (instr-name)
+  `(let ((name (try-destringify-symbol local-usual-identifier)))
+     whitespace (descend-with-rule 'character #\=) whitespace
+     (let ((instr ,instr-name))
+       `(= ,name ,instr))))
+
+(define-cg-llvm-rule lvalue-terminator-instruction ()
+  invoke-instruction)
+
+(define-cg-llvm-rule nolvalue-terminator-instruction ()
   (|| ret-instruction
       br-instruction
       switch-instruction
       indirectbr-instruction
-      invoke-instruction
       resume-instruction
       unreachable-instruction))
+
+(define-cg-llvm-rule terminator-instruction ()
+  (|| lvalue-terminator-instruction
+      nolvalue-terminator-instruction))
 
 (define-cg-llvm-rule white-comma ()
   (progm (? whitespace) #\, (? whitespace)))
@@ -795,7 +818,7 @@
 	
 (define-instruction-rule unreachable ())
 
-(define-cg-llvm-rule binary-instruction ()
+(define-cg-llvm-rule lvalue-binary-instruction ()
   (|| add-instruction
       fadd-instruction
       sub-instruction
@@ -809,12 +832,11 @@
       srem-instruction
       frem-instruction))
 
-  ;; (let 
-  ;;   (setf nuw (?wh "nuw"))
-  ;;   (if nuw
-  ;; 	(setf nsw (?wh "nsw"))
-  ;; 	(progn (setf nsw (?wh "nsw"))
-  ;; 	       (setf nuw (?wh "nuw"))))
+(define-cg-llvm-rule nolvalue-binary-instruction ()
+  (fail-parse "There are no such instructions"))
+
+(define-cg-llvm-rule binary-instruction ()
+  lvalue-binary-instruction)
 
 
 (defmacro unordered-simple-keywords (&rest kwds)
@@ -830,28 +852,6 @@
 	     (list ,@(mapcar (lambda (x)
 			       (intern (string x) "KEYWORD"))
 			     kwds)))))
-
-;; Let's first write version which does not use macro, and then abstract-out the macro part...
-;; (define-cg-llvm-rule add-instruction ()
-;;   "add"
-;;   (destructuring-bind (nuw nsw) (unordered-simple-keywords nuw nsw)
-;;     (let ((type (emit-lisp-repr (wh llvm-type))))
-;;       (if (not (or (llvm-typep '(integer *) type)
-;; 		   (llvm-typep '(vector (integer *) *) type)))
-;; 	  (fail-parse-format "ADD instruction expects <type> to be INTEGER or VECTOR-OF-INTEGERS, but got: ~a"
-;; 			     type))
-;;       (macrolet ((parse-arg ()
-;; 		   `(|| (if (llvm-typep '(integer ***) type)
-;; 			    (descend-with-rule 'integer-constant-value type)
-;; 			    (descend-with-rule 'vector-constant-value type))
-;; 			(descend-with-rule 'global-ident-constant-value type))))
-;; 	(let ((arg1 (wh (parse-arg))))
-;; 	  white-comma
-;; 	  (let ((arg2 (parse-arg)))
-;; 	    `(add ,type ,arg1 ,arg2
-;; 		  ,!m(inject-if-nonnil nuw)
-;; 		  ,!m(inject-if-nonnil nsw))
-;; 	    ))))))
 
 
 (defmacro with-integer-overflow-prefix (&body body)
@@ -926,13 +926,19 @@
 (define-simple-integer-binop-rule urem)
 (define-simple-integer-binop-rule srem)
 
-(define-cg-llvm-rule bitwise-binary-instruction ()
+(define-cg-llvm-rule lvalue-bitwise-binary-instruction ()
   (|| shl-instruction
       lshr-instruction
       ashr-instruction
       and-instruction
       or-instruction
       xor-instruction))
+
+(define-cg-llvm-rule nolvalue-bitwise-binary-instruction ()
+  (fail-parse "There are no such instructions"))
+
+(define-cg-llvm-rule bitwise-binary-instruction ()
+  lvalue-bitwise-binary-instruction)
 
 (define-integer-binop-rule shl)
 (define-exact-integer-binop-rule lshr)
@@ -941,12 +947,18 @@
 (define-simple-integer-binop-rule or)
 (define-simple-integer-binop-rule xor)
 
-(define-cg-llvm-rule aggregate-instruction ()
+(define-cg-llvm-rule lvalue-aggregate-instruction ()
   (|| extractelement-instruction
       insertelement-instruction
       shufflevector-instruction
       extractvalue-instruction
       insertvalue-instruction))
+
+(define-cg-llvm-rule nolvalue-aggregate-instruction ()
+  (fail-parse "There are no such instructions"))
+
+(define-cg-llvm-rule aggregate-instruction ()
+  lvalue-aggregate-instruction)
 
 (define-instruction-rule extractelement ((val (llvm-typep '(vector ***) (car it)))
 					 (idx (llvm-typep '(integer ***) (car it)))))
@@ -982,14 +994,20 @@
     `(insertvalue ,val ,elt ,@indices)))
 
 
-(define-cg-llvm-rule memory-instruction ()
+(define-cg-llvm-rule lvalue-memory-instruction ()
   (|| alloca-instruction
       load-instruction
-      store-instruction
-      fence-instruction
       cmpxchg-instruction
       atomicrmw-instruction
       getelementptr-instruction))
+
+(define-cg-llvm-rule nolvalue-memory-instruction ()
+  (|| store-instruction
+      fence-instruction))
+
+(define-cg-llvm-rule memory-instruction ()
+  (|| lvalue-memory-instruction
+      nolvalue-memory-instruction))
 
 (define-cg-llvm-rule alloca-instruction ()
   "alloca"
@@ -1080,7 +1098,7 @@
 					weak volatile singlethread))))
 	
 
-(define-cg-llvm-rule conversion-instruction ()
+(define-cg-llvm-rule lvalue-conversion-instruction ()
   (|| trunc-to-instruction
       zext-to-instruction
       sext-to-instruction
@@ -1094,6 +1112,12 @@
       inttoptr-to-instruction
       bitcast-to-instruction
       addrspacecast-to-instruction))
+
+(define-cg-llvm-rule nolvalue-conversion-instruction ()
+  (fail-parse "There are no such instructions"))
+
+(define-cg-llvm-rule conversion-instruction ()
+  lvalue-conversion-instruction)
 
 (defun both-integers (type1 type2)
   (and (llvm-typep '(integer ***) type1) (llvm-typep '(integer ***) type2)))
@@ -1202,7 +1226,7 @@
 
 (define-cast-instruction addrspacecast (pointer->pointer-based have-different-addrspaces))
 
-(define-cg-llvm-rule other-instruction ()
+(define-cg-llvm-rule lvalue-other-instruction ()
   (|| icmp-instruction
       fcmp-instruction
       phi-instruction
@@ -1210,6 +1234,12 @@
       call-instruction
       va-arg-instruction
       landingpad-instruction))
+
+(define-cg-llvm-rule nolvalue-other-instruction ()
+  (fail-parse "There are no such instructions"))
+
+(define-cg-llvm-rule other-instruction ()
+  lvalue-other-instruction)
 
 (define-cg-llvm-rule phi-arg (type)
   (let (c!-1)
@@ -1325,3 +1355,47 @@
 			 (postimes (wh landingpad-clause)))))
 	`(landingpad ,type ,pers ,@clauses)))))
 
+;;; Let's write something that is able to parse whole basic block of instructions
+
+(define-cg-llvm-rule lvalue-nonterminator-instruction ()
+  (|| lvalue-other-instruction
+      lvalue-conversion-instruction
+      lvalue-memory-instruction
+      lvalue-aggregate-instruction
+      lvalue-bitwise-binary-instruction
+      lvalue-binary-instruction))
+
+(define-cg-llvm-rule nolvalue-nonterminator-instruction ()
+  (|| nolvalue-other-instruction
+      nolvalue-conversion-instruction
+      nolvalue-memory-instruction
+      nolvalue-aggregate-instruction
+      nolvalue-bitwise-binary-instruction
+      nolvalue-binary-instruction))
+      
+
+(define-cg-llvm-rule block-label ()
+  (prog1 usual-identifier-body #\:))
+
+(define-cg-llvm-rule nonfinal-statement ()
+  (|| nolvalue-nonterminator-instruction
+      `(= ,local-usual-identifier (progn whitespace #\= whitespace ,lvalue-nonterminator-instruction))))
+
+(define-plural-rule nonfinal-statements nonfinal-statement whitespace)
+
+(define-cg-llvm-rule final-statement ()
+  (|| nolvalue-terminator-instruction
+      `(= ,local-usual-identifier (progn whitespace #\= whitespace ,lvalue-nonterminator-instruction))))
+
+(define-cg-llvm-rule basic-block-body ()
+  (let ((nonfinal-statements (? nonfinal-statements)))
+    (if nonfinal-statements whitespace)
+    ;; this way we first know that everything parsed well before we construct the list
+    (let ((final-statement final-statement))
+      `(,@nonfinal-statements ,final-statement))))
+
+(define-cg-llvm-rule basic-block ()
+  (let ((label (? (prog1 block-label whitespace))))
+    (let ((basic-block-body basic-block-body))
+      `(block ,!m(inject-kwd-if-nonnil label)
+	       ,@basic-block-body))))
