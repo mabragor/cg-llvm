@@ -456,6 +456,10 @@
 	  load-instruction "load i32, i32* %ptr")
     (frob (store ((integer 32) 3) ((pointer (integer 32)) %ptr))
     	  store-instruction "store i32 3, i32* %ptr")
+    (frob (fence (:ordering :acquire))
+	  fence-instruction "fence acquire")
+    (frob (fence (:singlethread t) (:ordering :seq-cst))
+	  fence-instruction "fence singlethread seq_cst")
     ))
   
 (test conversion-instructions

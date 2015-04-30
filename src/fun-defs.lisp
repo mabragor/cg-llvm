@@ -1054,6 +1054,12 @@
   (|| atomic-store-instruction
       non-atomic-store-instruction))
 
+(define-cg-llvm-rule fence-instruction ()
+  "fence"
+  (let ((singlethread (? (wh (progn "singlethread" t))))
+	(ordering (wh (whitelist-kwd-expr '(:acquire :release :acq-rel :seq-cst) ordering))))
+    `(fence ,!m(inject-kwds-if-nonnil singlethread ordering))))
+
 (define-cg-llvm-rule conversion-instruction ()
   (|| trunc-to-instruction
       zext-to-instruction
