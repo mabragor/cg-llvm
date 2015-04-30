@@ -58,7 +58,7 @@
 (defmacro fail-parse-if-not (cond expr)
   `(let ((it ,expr))
      (if (not ,cond)
-	 (fail-parse-format "Assertion is not satisfied: ~a" ',cond)
+	 (fail-parse-format "Assertion ~a is not satisfied by: ~a" ',cond it)
 	 it)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -1059,6 +1059,26 @@
   (let ((singlethread (? (wh (progn "singlethread" t))))
 	(ordering (wh (whitelist-kwd-expr '(:acquire :release :acq-rel :seq-cst) ordering))))
     `(fence ,!m(inject-kwds-if-nonnil singlethread ordering))))
+
+(define-cg-llvm-rule cmpxchg-instruction ()
+  "cmpxchg"
+  (let* ((weak (? (wh (progn "weak" t))))
+	 (volatile (? (wh (progn "volatile" t))))
+	 (ptr (wh (fail-parse-if-not (and (llvm-typep '(pointer (integer ***) ***) (car it))
+					  (>= (bit-length (cadar it)) 8))
+				     instr-arg)))
+    	 (cmp (progn white-comma (fail-parse-if-not (llvm-same-typep (car it) (cadar ptr))
+    						    instr-arg)))
+	 (new (progn white-comma (fail-parse-if-not (llvm-same-typep (car it) (car cmp))
+						    instr-arg)))
+	 (singlethread (? (wh (progn "singlethread" t))))
+	 (success-ord (wh ordering))
+	 (failure-ord (wh ordering)))
+    ;; TODO : constraints on orderings
+    `(cmpxchg ,ptr ,cmp ,new 
+	      ,!m(inject-kwds-if-nonnil success-ord failure-ord
+					weak volatile singlethread))))
+	
 
 (define-cg-llvm-rule conversion-instruction ()
   (|| trunc-to-instruction

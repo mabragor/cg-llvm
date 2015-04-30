@@ -105,7 +105,16 @@
     (frob "i32 (i8*, ...)") (frob "{i32, i32} (i32)")
     ))
 
-
+(test wildcard-equal
+  (macrolet ((frob (x y z)
+	       `(is (equal ,x (wildcard-equal ',y ',z)))))
+    (frob t a a)
+    (frob nil a b)
+    (frob t *** a)
+    (frob t *** nil)
+    (frob t (pointer (integer 32) ***) (pointer (integer 32)))
+    (frob t (pointer (integer 32) ***) (pointer (integer 32) 2))))
+    
 
 ;; ;; terminating instructions
 
@@ -460,6 +469,11 @@
 	  fence-instruction "fence acquire")
     (frob (fence (:singlethread t) (:ordering :seq-cst))
 	  fence-instruction "fence singlethread seq_cst")
+    (frob (cmpxchg ((pointer (integer 32)) %ptr)
+		   ((integer 32) %cmp)
+		   ((integer 32) %squared)
+		   (:success-ord :acq-rel) (:failure-ord :monotonic))
+    	  cmpxchg-instruction "cmpxchg i32* %ptr, i32 %cmp, i32 %squared acq_rel monotonic")
     ))
   
 (test conversion-instructions

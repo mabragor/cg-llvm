@@ -429,15 +429,19 @@
 
 (define-condition wildcard () ())
 
+(defun %wildcard-equal (x y)
+  (cond ((atom x) (cond ((equal x '*) t)
+			((equal x '***) (error 'wildcard))
+			(t (equal x y))))
+	((null y) (equal x '***) t)
+	(t (and (not (atom y))
+		(handler-case (%wildcard-equal (car x) (car y))
+		  (wildcard () (return-from %wildcard-equal t)))
+		(%wildcard-equal (cdr x) (cdr y))))))
+
 (defun wildcard-equal (x y)
-  (if (atom x)
-      (cond ((equal x '*) t)
-	    ((equal x '***) (error 'wildcard))
-	    (t (equal x y)))
-      (and (not (atom y))
-	   (handler-case (wildcard-equal (car x) (car y))
-	     (wildcard () (return-from wildcard-equal t)))
-	   (wildcard-equal (cdr x) (cdr y)))))
+  (handler-case (%wildcard-equal x y)
+    (wildcard () t)))
 
 (defun lispy-llvm-type (smth)
   (cond ((typep smth 'typed-value) (emit-lisp-repr (slot-value smth 'type)))
