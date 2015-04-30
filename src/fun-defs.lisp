@@ -1007,34 +1007,52 @@
 
 (define-kwd-rule ordering)
 
-(define-cg-llvm-rule atomic-load-instruction ()
-  "load" whitespace "atomic"
-  (let ((volatile (? (wh (progn "volatile" t))))
-	(ptr (wh (fail-parse-if-not (llvm-typep '(pointer ***) (car it))
-				    llvm-constant)))
-	(singlethread (? (wh (progn "singlethread" t))))
-	(ordering (wh (blacklist-kwd-expr '(:release :acq-rel) ordering)))
-	(align (progn white-comma "align" whitespace integer)))
-    `(load (:atomic t)
-	   ,ptr
-	   ,!m(inject-kwds-if-nonnil ordering
-				     align
-				     volatile
-				     singlethread))))
+(defmacro!! define-load-store-instruction (name pre-body type-getter &body body) ()
+  (let ((rule-name (intern #?"$((string name))-INSTRUCTION")))
+    `(define-cg-llvm-rule ,rule-name ()
+       ,@pre-body
+       (let ((volatile (? (wh (progn "volatile" t))))
+	     (type ,type-getter)
+	     (ptr (progn white-comma (fail-parse-if-not (llvm-typep '(pointer ***) (car it))
+							llvm-constant))))
+	 ,@body))))
 
-(define-cg-llvm-rule non-atomic-load-instruction ()
-  "load"
-  (let ((volatile (? (wh (progn "volatile" t))))
-	(type (emit-lisp-repr (wh llvm-type)))
-	(ptr (progn white-comma (fail-parse-if-not (llvm-typep '(pointer ***) (car it))
-						   llvm-constant)))
-	(align (? (progn white-comma "align" whitespace integer))))
-    `(load ,type ,ptr
-	   ,!m(inject-kwds-if-nonnil align volatile))))
+(defmacro!! define-atomic-load-store-instruction (name type-getter) ()
+  (let ((rule-name (intern #?"ATOMIC-$((string name))")))
+    `(define-load-store-instruction ,rule-name
+	 ((descend-with-rule 'string ,(stringify-symbol name)) whitespace "atomic")
+       ,type-getter
+       (let ((singlethread (? (wh (progn "singlethread" t))))
+	     (ordering (wh (blacklist-kwd-expr '(:release :acq-rel) ordering)))
+	     (align (progn white-comma "align" whitespace integer)))
+	 `(,,name (:atomic t) ,type ,ptr
+		  ,!m(inject-kwds-if-nonnil ordering
+					    align
+					    volatile
+					    singlethread))))))
+
+
+(defmacro!! define-non-atomic-load-store-instruction (name type-getter) ()
+  (let ((rule-name (intern #?"NON-ATOMIC-$((string name))")))
+    `(define-load-store-instruction ,rule-name ((descend-with-rule 'string ,(stringify-symbol name)))
+	 ,type-getter
+       (let ((align (? (progn white-comma "align" whitespace integer))))
+	 `(,,name ,type ,ptr
+		  ,!m(inject-kwds-if-nonnil align volatile))))))
+
+
+(define-atomic-load-store-instruction load (emit-lisp-repr (wh llvm-type)))
+(define-non-atomic-load-store-instruction load (emit-lisp-repr (wh llvm-type)))
+(define-atomic-load-store-instruction store (wh llvm-constant))
+(define-non-atomic-load-store-instruction store (wh llvm-constant))
 	
 (define-cg-llvm-rule load-instruction ()
   (|| atomic-load-instruction
       non-atomic-load-instruction))
+
+(define-cg-llvm-rule store-instruction ()
+  (|| atomic-store-instruction
+      non-atomic-store-instruction))
 
 (define-cg-llvm-rule conversion-instruction ()
   (|| trunc-to-instruction

@@ -450,10 +450,12 @@
 	  alloca-instruction "alloca i32, i32 4, align 1024")
     (frob (alloca (integer 32) (:align 1024))
 	  alloca-instruction "alloca i32, align 1024")
-    (frob (load (:atomic t) ((pointer (integer 32)) %x) (:ordering :unordered) (:align 256))
-	  load-instruction "load atomic i32* %x unordered, align 256")
+    (frob (load (:atomic t) (integer 32) ((pointer (integer 32)) %x) (:ordering :unordered) (:align 256))
+	  load-instruction "load atomic i32, i32* %x unordered, align 256")
     (frob (load (integer 32) ((pointer (integer 32)) %ptr))
 	  load-instruction "load i32, i32* %ptr")
+    (frob (store ((integer 32) 3) ((pointer (integer 32)) %ptr))
+    	  store-instruction "store i32 3, i32* %ptr")
     ))
   
 (test conversion-instructions
