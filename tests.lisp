@@ -517,4 +517,29 @@
   (macrolet ((frob (x y)
 	       `(is (equal ',x (cg-llvm-parse 'basic-block ,y)))))
     (frob (block (cg-llvm::ret ((integer 32) 3))) "ret i32 3")
-    (frob (block (:label "end") (cg-llvm::ret ((integer 32) 3))) "end: ret i32 3")))
+    (frob (block (:label "end") (cg-llvm::ret ((integer 32) 3))) "end: ret i32 3")
+    (frob nil
+	  #?"entry:\n
+  %addtmp = fadd double 4.000000e+00, 5.000000e+00
+  ret double %addtmp")
+    (frob nil
+	  #?"entry:
+  %multmp = fmul double %a, %a
+  %multmp1 = fmul double 2.000000e+00, %a
+  %multmp2 = fmul double %multmp1, %b
+  %addtmp = fadd double %multmp, %multmp2
+  %multmp3 = fmul double %b, %b
+  %addtmp4 = fadd double %addtmp, %multmp3
+  ret double %addtmp4")
+    (frob nil
+	  #?"entry:
+  %calltmp = call double @foo(double %a, double 4.000000e+00)
+  %calltmp1 = call double @bar(double 3.133700e+04)
+  %addtmp = fadd double %calltmp, %calltmp1
+  ret double %addtmp")
+    (frob nil
+	  #?"entry:
+  %calltmp = call double @cos(double 1.234000e+00)
+  ret double %calltmp")
+    ))
+
