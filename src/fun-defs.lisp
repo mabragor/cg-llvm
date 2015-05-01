@@ -87,7 +87,7 @@
 (define-kwd-rule dll-storage-class known-dll-storage-classes)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter known-cconvs '(ccc fastccc coldcc webkit-jscc anyregcc preserve-mostcc preserve-allcc))
+  (defparameter known-cconvs '(ccc fastcc coldcc webkit-jscc anyregcc preserve-mostcc preserve-allcc))
   (defparameter known-cons-cconvs '((cc pos-integer))))
 
 (defmacro define-consy-kwd-rule (name known-var known-cons-var)
@@ -554,8 +554,6 @@
   :return-type-placeholder)
 
 (define-cg-llvm-rule defun-args ()
-  "(...)")
-(define-cg-llvm-rule funcall-args ()
   "(...)")
 
 (define-cg-llvm-rule function-declaration ()
@@ -1368,18 +1366,23 @@
 	  (return-attrs (?wh (mapcar (lambda (x)
 				       (whitelist-kwd-expr '(:zeroext :signext :inreg) x))
 				     parameter-attrs)))
-	  (type (emit-lisp-repr llvm-type))
+	  (type (emit-lisp-repr (wh llvm-type)))
 	  (ftype (?wh (fail-parse-if-not (llvm-typep '(pointer (function ***) ***) it)
 					 (emit-lisp-repr llvm-type))))
-	  (fnptrval llvm-identifier)
-	  (args (wh funcall-args))
+	  (fnptrval (wh llvm-identifier))
+	  (args (wh? (progm #\( (? funcall-args) #\))))
 	  (fun-attrs (?wh (mapcar (lambda (x)
 				    (whitelist-kwd-expr '(:noreturn :nounwind :readonly :readnone) x))
 				  fun-attrs))))
       `(call ,type ,fnptrval ,args
 	     ,!m(inject-kwds-if-nonnil cconv return-attrs ftype fun-attrs tail)))))
-	  
-		  
+
+(define-cg-llvm-rule funcall-arg ()
+  (let ((instr-arg instr-arg)
+	(attrs (?wh parameter-attrs)))
+    `(,@instr-arg ,@(if attrs `((:attrs ,@attrs))))))
+
+(define-plural-rule funcall-args funcall-arg white-comma)
 
 ;;; Let's write something that is able to parse whole basic block of instructions
 
