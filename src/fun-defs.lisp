@@ -1100,6 +1100,26 @@
 	      ,!m(inject-kwds-if-nonnil success-ord failure-ord
 					weak volatile singlethread))))
 	
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defparameter known-atomicrmw-ops '(xchg add sub and nand or xor max min umax umin)))
+
+(defmacro atomicrmw-kwds ()
+  (any-of-kwds known-atomicrmw-ops))
+
+(define-cg-llvm-rule atomicrmw-instruction ()
+  "atomicrmw"
+  (let* ((volatile (?wh (progn "volatile" t)))
+	 (op (wh (atomicrmw-kwds)))
+	 (ptr (wh (fail-parse-if-not (and (llvm-typep '(pointer (integer ***) ***) (car it))
+					  (<= 8 (bit-length (cadar it))))
+				     instr-arg)))
+	 (val (progn white-comma (fail-parse-if-not (llvm-same-typep (cadar ptr) (car it))
+						    instr-arg)))
+	 (singlethread (?wh (progn "singlethread" t)))
+	 (ordering (wh ordering)))
+    `(atomicrmw ,op ,ptr ,val ,!m(inject-kwds-if-nonnil ordering volatile singlethread))))
+	  
+	
 
 (define-cg-llvm-rule lvalue-conversion-instruction ()
   (|| trunc-to-instruction

@@ -474,6 +474,8 @@
 		   ((integer 32) %squared)
 		   (:success-ord :acq-rel) (:failure-ord :monotonic))
     	  cmpxchg-instruction "cmpxchg i32* %ptr, i32 %cmp, i32 %squared acq_rel monotonic")
+    (frob (atomicrmw :add ((pointer (integer 32)) %ptr) ((integer 32) 1) (:ordering :acquire))
+    	  atomicrmw-instruction "atomicrmw add i32* %ptr, i32 1 acquire")
     ))
   
 (test conversion-instructions
@@ -512,18 +514,22 @@
     (frob (fcmp :oeq (float 32 16) 4.0 5.0) fcmp-instruction "fcmp oeq float 4.0, 5.0")
     (frob (call (integer 32) @test (((integer 32) %argc)))
 	  call-instruction "call i32 @test(i32 %argc)")
-    (frob nil ; function signature parsing needs be changed
+    (frob (call (pointer (function (integer 32)
+				   ((pointer (integer 8)))
+				   :vararg-p t))
+		@printf
+		(((pointer (integer 8)) %msg) ((integer 32) 12) ((integer 8) 42)))
 	  call-instruction "call i32 (i8*, ...)* @printf(i8* %msg, i32 12, i8 42)")
     (frob (call (integer 32) @foo nil (:tail :tail))
 	  call-instruction "tail call i32 @foo()")
     (frob (call (integer 32) @foo nil (:cconv :fastcc) (:tail :tail))
 	  call-instruction "tail call fastcc i32 @foo()")
-    (frob (call void %foo (((integer 8) 97 (:attrs :signext))))
+    (frob (call cg-llvm::void %foo (((integer 8) 97 (:attrs :signext))))
 	  call-instruction "call void %foo(i8 97 signext)")
     ;; (frob nil ; types can be specified through local variables, that makes parsing
     ;; 	  ; context-sensitive
     ;; 	  call-instruction "call %struct.A @foo()")
-    (frob (call void @foo nil (:fun-attrs (:noreturn)))
+    (frob (call cg-llvm::void @foo nil (:fun-attrs (:noreturn)))
 	  call-instruction "call void @foo() noreturn")
     (frob (call (integer 32) @bar nil (:return-attrs (:zeroext)))
 	  call-instruction "call zeroext i32 @bar()")
