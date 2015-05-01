@@ -171,7 +171,7 @@
 
 (define-cg-llvm-rule section ()
   "section" whitespace #\" c!-1-alphanumeric-word #\"
-  `(:section ,c!-1))
+  c!-1)
 
 (defmacro!! define-python-rule (name subrule)
     ()
@@ -1400,3 +1400,37 @@
     (let ((basic-block-body basic-block-body))
       `(block ,!m(inject-kwd-if-nonnil label)
 	       ,@basic-block-body))))
+
+(define-plural-rule basic-blocks basic-block whitespace)
+
+(define-cg-llvm-rule function-body ()
+  (progm (progn #\{ (? whitespace))
+	 (? basic-blocks)
+	 (progn (? whitespace) #\})))
+
+(define-instruction-rule (function-definition define)
+  (let* ((linkage (?wh linkage-type))
+	 (visibility (?wh visibility-style))
+	 (dll-storage-class (?wh dll-storage-class))
+	 (cconv (?wh cconv))
+	 (unnamed-addr (?wh (progn "unnamed_addr" t)))
+	 (type (wh (emit-lisp-repr llvm-type)))
+	 (return-attrs (?wh parameter-attrs))
+	 (fname (wh llvm-identifier))
+	 (args (wh? defun-args))
+	 (fun-attrs (?wh fun-attrs))
+	 (section (?wh section))
+	 (align (?wh align))
+	 (comdat (?wh comdat))
+	 (gc (?wh gc-name))
+	 (prefix (?wh prefix))
+	 (prologue (?wh prologue))
+	 (body (wh? function-body)))
+    `(,type ,fname ,args
+	    ,!m(inject-kwds-if-nonnil linkage visibility dll-storage-class
+				      cconv unnamed-addr return-attrs
+				      fun-attrs section align comdat gc
+				      prefix prologue body))))
+	    
+	    
+	 
