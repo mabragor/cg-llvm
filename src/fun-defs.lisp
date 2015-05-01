@@ -1090,7 +1090,28 @@
 	 (singlethread (?wh (progn "singlethread" t)))
 	 (ordering (wh ordering)))
     `(,op ,ptr ,val ,!m(inject-kwds-if-nonnil ordering volatile singlethread))))
-	
+
+(define-cg-llvm-rule vector-getelementptr-body ()
+  (let* ((ptrval (fail-parse-if-not (llvm-typep '(vector ***) (car it))
+				    instr-arg))
+	 (idx (progn white-comma (fail-parse-if-not (llvm-typep '(vector ***) (car it))
+						    instr-arg))))
+    (if (not (equal (caddar ptrval) (caddar idx)))
+	(fail-parse "Sizes of vectors should be equal"))
+    `(,ptrval ,idx)))
+
+(define-cg-llvm-rule scalar-getelementptr-body ()
+  (let* ((ptrval (fail-parse-if-not (llvm-typep '(pointer ***) (car it))
+				    instr-arg))
+	 (indices caboom!))
+    `(,ptrval ,@indices)))
+
+(define-instruction-rule getelementptr
+  (let* ((inbounds (?wh (progn "inbounds" t)))
+	 (type (wh (prog1 llvm-type white-comma)))
+	 (body (|| vector-getelementptr-body
+		   scalar-getelementptr-body)))
+    `(,type ,@body ,!m(inject-kwd-if-nonnil inbounds))))
 
 (define-instruction-alternative lvalue-conversion
   trunc-to zext-to sext-to fptrunc-to fpext-to fptoui-to fptosi-to
