@@ -741,48 +741,55 @@
 						  (list (car ,name-var) (cadr ,name-var)))
      ,@body))
   
-
-(defmacro define-instruction-rule (name (&rest args) &body body)
+(defmacro!! define-instruction-rule (name &body body) ()
   (with-rule-names (name)
-    `(define-cg-llvm-rule ,rule-name ()
-       (descend-with-rule 'string ,(stringify-symbol instr-name))
-       (,@(if args
-	      `(let* (,(if (symbolp (car args))
-			   `(,(car args) (wh instr-arg))
-			   `(,(caar args) (fail-parse-if-not ,(cadar args) (wh instr-arg))))
-		      ,@(mapcar (lambda (x)
-				  (if (symbolp x)
-				      `(,x (progn white-comma instr-arg))
-				      `(,(car x) (fail-parse-if-not ,(cadr x) (progn white-comma instr-arg)))))
-				(cdr args))))
-	      `(progn))
-	 ,@(or body
-	       `(`(,,instr-name ,,@(mapcar (lambda (x)
-					     ``(quasiquote-2.0:inject ,(if (symbolp x) x (car x))))
-					   args))))))))
+    (let ((body-rule-name (if (symbolp name)
+			      (intern #?"$((string name))-INSTRUCTION-BODY")
+			      (intern #?"$((string (car name)))-BODY"))))
+      `(progn (define-cg-llvm-rule ,body-rule-name ()
+		,@body)
+	      (define-cg-llvm-rule ,rule-name ()
+		(descend-with-rule 'string ,(stringify-symbol instr-name))
+		(cons ',instr-name ,body-rule-name))))))
 
-(define-instruction-rule (valued-return ret) ((x (firstclass-type-p (car it)))))
+(defmacro define-simple-instruction-rule (name (&rest args) &body body)
+  `(define-instruction-rule ,name
+     (,@(if args
+	    `(let* (,(if (symbolp (car args))
+			 `(,(car args) (wh instr-arg))
+			 `(,(caar args) (fail-parse-if-not ,(cadar args) (wh instr-arg))))
+		    ,@(mapcar (lambda (x)
+				(if (symbolp x)
+				    `(,x (progn white-comma instr-arg))
+				    `(,(car x) (fail-parse-if-not ,(cadr x) (progn white-comma instr-arg)))))
+			      (cdr args))))
+	    `(progn))
+	,@(or body
+	      `(`(,,@(mapcar (lambda (x)
+			       ``(quasiquote-2.0:inject ,(if (symbolp x) x (car x))))
+			     args)))))))
 
-(define-cg-llvm-rule nonvalued-return ()
-  "ret" whitespace "void"
-  '(ret :void))
+(define-simple-instruction-rule (valued-return ret) ((x (firstclass-type-p (car it)))))
+
+(define-instruction-rule (nonvalued-return ret)
+  (wh "void") (list :void))
 
 (define-cg-llvm-rule ret-instruction ()
   (|| valued-return
       nonvalued-return))
 
-(define-instruction-rule (conditional-branch br) ((x (llvm-typep 'label (car it)))))
+(define-simple-instruction-rule (conditional-branch br) ((x (llvm-typep 'label (car it)))))
 
-(define-instruction-rule (unconditional-branch br) ((cond (llvm-typep '(integer 1) (car it)))
+(define-simple-instruction-rule (unconditional-branch br) ((cond (llvm-typep '(integer 1) (car it)))
 						    (iftrue (llvm-typep 'label (car it)))
 						    (iffalse (llvm-typep 'label (car it)))))
 
-(define-instruction-rule switch ((value (llvm-typep '(integer *) (car it)))
+(define-simple-instruction-rule switch ((value (llvm-typep '(integer *) (car it)))
 				 (defaultdest (llvm-typep 'label (car it))))
   some-custom-magic-???)
 
 
-(define-instruction-rule indirectbr ((address (llvm-typep '(pointer ***) (car it))))
+(define-simple-instruction-rule indirectbr ((address (llvm-typep '(pointer ***) (car it))))
   some-magic-similar-to-switch-???)
 
 (define-cg-llvm-rule br-instruction ()
@@ -790,8 +797,7 @@
       unconditional-branch))
 
 
-(define-cg-llvm-rule invoke-instruction ()
-  "invoke"
+(define-instruction-rule invoke
   (let* ((cconv (?wh cconv))
 	 (return-attrs (?wh (whitelist-kwd-expr '(:zeroext :signext :inreg)
 					    parameter-attrs)))
@@ -808,18 +814,18 @@
 	(wh "unwind")
 	(let ((exception-label (fail-parse-if-not (llvm-typep 'label it)
 						  (wh llvm-variable))))
-	  `(invoke (,(emit-lisp-repr function-type) ,function-val)
-		   ,normal-label ,exception-label
-		   (:args ,@args)
-		   ,m!(inject-kwd-if-nonnil cconv)
-		   ,m!(inject-kwd-if-nonnil return-attrs)
-		   ,m!(inject-kwd-if-nonnil fun-attrs)))))))
+	  `((,(emit-lisp-repr function-type) ,function-val)
+	    ,normal-label ,exception-label
+	    (:args ,@args)
+	    ,m!(inject-kwd-if-nonnil cconv)
+	    ,m!(inject-kwd-if-nonnil return-attrs)
+	    ,m!(inject-kwd-if-nonnil fun-attrs)))))))
 		     
 ;; The check for correct type of resume instruction is at semantic level -- the whole body
 ;; of the function should be parsed for that
-(define-instruction-rule resume (x))
+(define-simple-instruction-rule resume (x))
 	
-(define-instruction-rule unreachable ())
+(define-simple-instruction-rule unreachable ())
 
 (define-cg-llvm-rule lvalue-binary-instruction ()
   (|| add-instruction
@@ -889,14 +895,13 @@
 	  (let ((arg1 (wh (parse-arg))))
 	    white-comma
 	    (let ((arg2 (parse-arg)))
-	      `(,,name ,type ,arg1 ,arg2 ,@prefix-kwds)
+	      `(,type ,arg1 ,arg2 ,@prefix-kwds)
 	      )))))))
 
 (defmacro define-integer-binop-definer (name &optional prefix)
   `(defmacro ,name (name)
      (with-rule-names (name)
-       `(define-cg-llvm-rule ,rule-name ()
-	  (descend-with-rule 'string ,(stringify-symbol instr-name))
+       `(define-instruction-rule ,name
 	  (,,(if prefix
 		 (intern #?"WITH-$((string prefix))-PREFIX")
 		 'progn)
@@ -909,8 +914,7 @@
 
 (defmacro define-float-binop-rule (name &key (type 'float))
   (with-rule-names (name)
-    `(define-cg-llvm-rule ,rule-name ()
-       (descend-with-rule 'string ,(stringify-symbol instr-name))
+    `(define-instruction-rule ,name
        (with-fast-math-flags-prefix
 	 ,@(binop-instruction-body instr-name type)))))
 
@@ -963,38 +967,38 @@
 (define-cg-llvm-rule aggregate-instruction ()
   lvalue-aggregate-instruction)
 
-(define-instruction-rule extractelement ((val (llvm-typep '(vector ***) (car it)))
+(define-simple-instruction-rule extractelement ((val (llvm-typep '(vector ***) (car it)))
 					 (idx (llvm-typep '(integer ***) (car it)))))
-(define-instruction-rule insertelement ((val (llvm-typep '(vector ***) (car it)))
+(define-simple-instruction-rule insertelement ((val (llvm-typep '(vector ***) (car it)))
 					elt
 					(idx (llvm-typep '(integer ***) (car it))))
   (if (not (llvm-same-typep (car elt) (cadar val)))
       (fail-parse "ELT must be same type as subtype of VAL"))
-  `(insertelement ,val ,elt ,idx))
+  `(,val ,elt ,idx))
 
-(define-instruction-rule shufflevector ((v1 (llvm-typep '(vector ***) (car it)))
+(define-simple-instruction-rule shufflevector ((v1 (llvm-typep '(vector ***) (car it)))
 					(v2 (llvm-typep '(vector ***) (car it)))
 					(mask (llvm-typep '(vector (integer 32) *) (car it))))
   (if (not (llvm-same-typep (cadar v1) (cadar v2)))
       (fail-parse "V1 and V2 must have same subtype"))
-  `(shufflevector ,v1 ,v2 ,mask))
+  `(,v1 ,v2 ,mask))
 
 (define-cg-llvm-rule indices ()
   (cons (descend-with-rule 'integer-constant-value nil)
 	(times (progn white-comma (descend-with-rule 'integer-constant-value nil)))))
 
-(define-instruction-rule extractvalue ((val (or (llvm-typep '(struct ***) (car it))
+(define-simple-instruction-rule extractvalue ((val (or (llvm-typep '(struct ***) (car it))
 						(llvm-typep '(array ***) (car it)))))
   white-comma
-  `(extractvalue ,val ,@indices))
+  `(,val ,@indices))
 
-(define-instruction-rule insertvalue ((val (or (llvm-typep '(struct ***) (car it))
+(define-simple-instruction-rule insertvalue ((val (or (llvm-typep '(struct ***) (car it))
 					       (llvm-typep '(array ***) (car it))))
 				      elt)
   white-comma
   (let ((indices indices))
     ;; TODO : check that elt has same type as elt of val
-    `(insertvalue ,val ,elt ,@indices)))
+    `(,val ,elt ,@indices)))
 
 
 (define-cg-llvm-rule lvalue-memory-instruction ()
@@ -1012,16 +1016,15 @@
   (|| lvalue-memory-instruction
       nolvalue-memory-instruction))
 
-(define-cg-llvm-rule alloca-instruction ()
-  "alloca"
+(define-instruction-rule alloca
   (let ((inalloca (? (wh (progn "inalloca" t))))
 	(type (emit-lisp-repr (wh llvm-type)))
 	(nelts (? (progn white-comma integer-constant)))
 	(align (? (progn white-comma "align" whitespace integer))))
-    `(alloca ,type
-	     ,!m(inject-kwd-if-nonnil nelts)
-	     ,!m(inject-kwd-if-nonnil align)
-	     ,!m(inject-kwd-if-nonnil inalloca))))
+    `(,type
+      ,!m(inject-kwd-if-nonnil nelts)
+      ,!m(inject-kwd-if-nonnil align)
+      ,!m(inject-kwd-if-nonnil inalloca))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter known-orderings '(unordered monotonic acquire release acq-rel seq-cst)))
@@ -1029,37 +1032,35 @@
 (define-kwd-rule ordering)
 
 (defmacro!! define-load-store-instruction (name pre-body type-getter &body body) ()
-  (let ((rule-name (intern #?"$((string name))-INSTRUCTION")))
-    `(define-cg-llvm-rule ,rule-name ()
-       ,@pre-body
-       (let ((volatile (? (wh (progn "volatile" t))))
-	     (type ,type-getter)
-	     (ptr (progn white-comma (fail-parse-if-not (llvm-typep '(pointer ***) (car it))
-							llvm-constant))))
-	 ,@body))))
+  `(define-instruction-rule ,name
+     ,@pre-body
+     (let ((volatile (? (wh (progn "volatile" t))))
+	   (type ,type-getter)
+	   (ptr (progn white-comma (fail-parse-if-not (llvm-typep '(pointer ***) (car it))
+						      llvm-constant))))
+       ,@body)))
 
 (defmacro!! define-atomic-load-store-instruction (name type-getter) ()
-  (let ((rule-name (intern #?"ATOMIC-$((string name))")))
-    `(define-load-store-instruction ,rule-name
-	 ((descend-with-rule 'string ,(stringify-symbol name)) whitespace "atomic")
+  (let ((rule-name (intern #?"ATOMIC-$((string name))-INSTRUCTION")))
+    `(define-load-store-instruction (,rule-name ,name) ((wh "atomic"))
        ,type-getter
        (let ((singlethread (? (wh (progn "singlethread" t))))
 	     (ordering (wh (blacklist-kwd-expr '(:release :acq-rel) ordering)))
 	     (align (progn white-comma "align" whitespace integer)))
-	 `(,,name (:atomic t) ,type ,ptr
-		  ,!m(inject-kwds-if-nonnil ordering
-					    align
-					    volatile
-					    singlethread))))))
+	 `((:atomic t) ,type ,ptr
+	   ,!m(inject-kwds-if-nonnil ordering
+				     align
+				     volatile
+				     singlethread))))))
 
 
 (defmacro!! define-non-atomic-load-store-instruction (name type-getter) ()
-  (let ((rule-name (intern #?"NON-ATOMIC-$((string name))")))
-    `(define-load-store-instruction ,rule-name ((descend-with-rule 'string ,(stringify-symbol name)))
+  (let ((rule-name (intern #?"NON-ATOMIC-$((string name))-INSTRUCTION")))
+    `(define-load-store-instruction (,rule-name ,name) ()
 	 ,type-getter
        (let ((align (? (progn white-comma "align" whitespace integer))))
-	 `(,,name ,type ,ptr
-		  ,!m(inject-kwds-if-nonnil align volatile))))))
+	 `(,type ,ptr
+		 ,!m(inject-kwds-if-nonnil align volatile))))))
 
 
 (define-atomic-load-store-instruction load (emit-lisp-repr (wh llvm-type)))
@@ -1075,14 +1076,12 @@
   (|| atomic-store-instruction
       non-atomic-store-instruction))
 
-(define-cg-llvm-rule fence-instruction ()
-  "fence"
+(define-instruction-rule fence
   (let ((singlethread (? (wh (progn "singlethread" t))))
 	(ordering (wh (whitelist-kwd-expr '(:acquire :release :acq-rel :seq-cst) ordering))))
-    `(fence ,!m(inject-kwds-if-nonnil singlethread ordering))))
+    `(,!m(inject-kwds-if-nonnil singlethread ordering))))
 
-(define-cg-llvm-rule cmpxchg-instruction ()
-  "cmpxchg"
+(define-instruction-rule cmpxchg
   (let* ((weak (? (wh (progn "weak" t))))
 	 (volatile (? (wh (progn "volatile" t))))
 	 (ptr (wh (fail-parse-if-not (and (llvm-typep '(pointer (integer ***) ***) (car it))
@@ -1096,9 +1095,8 @@
 	 (success-ord (wh ordering))
 	 (failure-ord (wh ordering)))
     ;; TODO : constraints on orderings
-    `(cmpxchg ,ptr ,cmp ,new 
-	      ,!m(inject-kwds-if-nonnil success-ord failure-ord
-					weak volatile singlethread))))
+    `(,ptr ,cmp ,new ,!m(inject-kwds-if-nonnil success-ord failure-ord
+					       weak volatile singlethread))))
 	
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter known-atomicrmw-ops '(xchg add sub and nand or xor max min umax umin)))
@@ -1106,8 +1104,7 @@
 (defmacro atomicrmw-kwds ()
   (any-of-kwds known-atomicrmw-ops))
 
-(define-cg-llvm-rule atomicrmw-instruction ()
-  "atomicrmw"
+(define-instruction-rule atomicrmw
   (let* ((volatile (?wh (progn "volatile" t)))
 	 (op (wh (atomicrmw-kwds)))
 	 (ptr (wh (fail-parse-if-not (and (llvm-typep '(pointer (integer ***) ***) (car it))
@@ -1117,8 +1114,7 @@
 						    instr-arg)))
 	 (singlethread (?wh (progn "singlethread" t)))
 	 (ordering (wh ordering)))
-    `(atomicrmw ,op ,ptr ,val ,!m(inject-kwds-if-nonnil ordering volatile singlethread))))
-	  
+    `(,op ,ptr ,val ,!m(inject-kwds-if-nonnil ordering volatile singlethread))))
 	
 
 (define-cg-llvm-rule lvalue-conversion-instruction ()
@@ -1167,15 +1163,13 @@
 
 (defmacro define-cast-instruction (name &body constraints)
   (let ((rule-name (intern #?"$((string name))-TO-INSTRUCTION")))
-  `(define-cg-llvm-rule ,rule-name ()
-     (descend-with-rule 'string ,(stringify-symbol name))
-     whitespace
-     (destructuring-bind (type1 value) instr-arg
-       whitespace "to" whitespace
-       (let ((type2 (emit-lisp-repr llvm-type)))
-	 ,@constraints
-	 `(,,name ,value ,type1 ,type2))))))
-	
+    `(define-instruction-rule (,rule-name ,name)
+       (destructuring-bind (type1 value) (wh instr-arg)
+	 whitespace "to" whitespace
+	 (let ((type2 (emit-lisp-repr llvm-type)))
+	   ,@constraints
+	   `(,value ,type1 ,type2))))))
+
 
 (defmacro define-simple-based (type1 type2)
   `(defmacro ,(intern #?"$((string type1))->$((string type2))-BASED") (&optional condition)
@@ -1272,18 +1266,17 @@
     white-comma c!-2-llvm-identifier whitespace #\]
     `(,c!-1 ,c!-2)))
 
-(define-cg-llvm-rule phi-instruction ()
-  "phi"
+(define-instruction-rule phi
   (let ((type (emit-lisp-repr (wh llvm-type))))
     (if (not (firstclass-type-p type))
 	(fail-parse-format "Type of phi instruction must be first-class, but got ~a" type))
     whitespace
     (let ((first-arg (descend-with-rule 'phi-arg type)))
       (let ((rest-args (times (progn white-comma (descend-with-rule 'phi-arg type)))))
-	`(phi ,type ,first-arg ,@rest-args)))))
+	`(,type ,first-arg ,@rest-args)))))
     
 
-(define-instruction-rule select ((cond (or (llvm-typep '(integer 1) (car it))
+(define-simple-instruction-rule select ((cond (or (llvm-typep '(integer 1) (car it))
 					   (llvm-typep '(vector (integer 1) *) (car it))))
 				 (val1 (firstclass-type-p (car it)))
 				 (val2 (firstclass-type-p (car it))))
@@ -1299,12 +1292,12 @@
 		      (equal nelts (caddar val2))))
 	    (fail-parse-format "Different values of SELECT should be same type, but are: ~a ~a"
 			       (car val1) (car val2)))))
-  `(select ,cond ,val1 ,val2))
+  `(,cond ,val1 ,val2))
 
-(define-instruction-rule va-arg ((va-list (llvm-typep '(pointer ***) (car it))))
+(define-simple-instruction-rule va-arg ((va-list (llvm-typep '(pointer ***) (car it))))
   white-comma
   (let ((type (emit-lisp-repr llvm-type)))
-    `(va-arg ,va-list ,type)))
+    `(,va-list ,type)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter known-icmp-ops '(eq ne ugt uge ult ule sgt sge slt sle))
@@ -1325,10 +1318,8 @@
   (any-of-kwds known-fcmp-ops))
 
 (defmacro define-cmp-rule (name typecheck errinfo)
-  (let ((rule-name (intern #?"$((string name))-INSTRUCTION"))
-	(macro-name (intern #?"$((string name))-KWDS")))
-    `(define-cg-llvm-rule ,rule-name ()
-       (descend-with-rule 'string ,(stringify-symbol name))
+  (let ((macro-name (intern #?"$((string name))-KWDS")))
+    `(define-instruction-rule ,name
        (let ((cond (wh (,macro-name)))
 	     (type (emit-lisp-repr (wh llvm-type))))
 	 (if (not ,typecheck)
@@ -1336,7 +1327,7 @@
 	 (let ((val1 (wh (descend-with-rule 'llvm-constant-value type))))
 	   white-comma
 	   (let ((val2 (descend-with-rule 'llvm-constant-value type)))
-	     `(,,name ,cond ,type ,val1 ,val2)))))))
+	     `(,cond ,type ,val1 ,val2)))))))
 	
 (define-cmp-rule icmp
     (or (llvm-typep '(integer ***) type)
@@ -1368,15 +1359,14 @@
   (|| catch-landingpad-clause
       filter-landingpad-clause))
 
-(define-cg-llvm-rule landingpad-instruction ()
-  "landingpad"
+(define-instruction-rule landingpad
   (let ((type (emit-lisp-repr (wh llvm-type))))
     (wh "personality")
     (let ((pers (wh llvm-constant)))
       ;; check
       (let ((clauses (|| (cons (wh cleanup-kwd) (times (wh landingpad-clause)))
 			 (postimes (wh landingpad-clause)))))
-	`(landingpad ,type ,pers ,@clauses)))))
+	`(,type ,pers ,@clauses)))))
 
 (define-cg-llvm-rule call-instruction ()
   (let ((tail (? (|| (progn (prog1 "tail" whitespace) :tail)

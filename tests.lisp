@@ -9,6 +9,7 @@
 
 (cl-interpol:enable-interpol-syntax)
 (enable-read-macro-tokens)
+(quasiquote-2.0:enable-quasiquote-2.0)
 
 (def-suite cg-llvm)
 (in-suite cg-llvm)
@@ -449,33 +450,52 @@
 	  "insertvalue {i32, {float}} undef, float %val, 1, 0")
     ))
 
+(defmacro with-frob1 (name &body body)
+  `(macrolet ((frob1 (x y)
+		`(frob (,,name ,@x)
+		       ,,(intern #?"$((string name))-INSTRUCTION")
+		       ,(concatenate 'string ,(cg-llvm::stringify-symbol name) " " y))))
+     ,@body))
+
+
 (test memory-instructions
   (macrolet ((frob (x y z)
 	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
-    (frob (alloca (integer 32)) alloca-instruction "alloca i32")
-    (frob (alloca (integer 32) (:nelts ((integer 32) 4)))
-	  alloca-instruction "alloca i32, i32 4")
-    (frob (alloca (integer 32) (:nelts ((integer 32) 4)) (:align 1024))
-	  alloca-instruction "alloca i32, i32 4, align 1024")
-    (frob (alloca (integer 32) (:align 1024))
-	  alloca-instruction "alloca i32, align 1024")
-    (frob (load (:atomic t) (integer 32) ((pointer (integer 32)) %x) (:ordering :unordered) (:align 256))
-	  load-instruction "load atomic i32, i32* %x unordered, align 256")
-    (frob (load (integer 32) ((pointer (integer 32)) %ptr))
-	  load-instruction "load i32, i32* %ptr")
-    (frob (store ((integer 32) 3) ((pointer (integer 32)) %ptr))
-    	  store-instruction "store i32 3, i32* %ptr")
-    (frob (fence (:ordering :acquire))
-	  fence-instruction "fence acquire")
-    (frob (fence (:singlethread t) (:ordering :seq-cst))
-	  fence-instruction "fence singlethread seq_cst")
-    (frob (cmpxchg ((pointer (integer 32)) %ptr)
-		   ((integer 32) %cmp)
-		   ((integer 32) %squared)
-		   (:success-ord :acq-rel) (:failure-ord :monotonic))
-    	  cmpxchg-instruction "cmpxchg i32* %ptr, i32 %cmp, i32 %squared acq_rel monotonic")
-    (frob (atomicrmw :add ((pointer (integer 32)) %ptr) ((integer 32) 1) (:ordering :acquire))
-    	  atomicrmw-instruction "atomicrmw add i32* %ptr, i32 1 acquire")
+    (with-frob1 alloca
+      (frob1 ((integer 32)) "i32")
+      (frob1 ((integer 32) (:nelts ((integer 32) 4))) "i32, i32 4")
+      (frob1 ((integer 32) (:nelts ((integer 32) 4)) (:align 1024)) "i32, i32 4, align 1024")
+      (frob1 ((integer 32) (:align 1024)) "i32, align 1024"))
+    (with-frob1 load
+      (frob1 ((:atomic t) (integer 32) ((pointer (integer 32)) %x) (:ordering :unordered) (:align 256))
+	     "atomic i32, i32* %x unordered, align 256")
+      (frob1 ((integer 32) ((pointer (integer 32)) %ptr)) "i32, i32* %ptr"))
+    (with-frob1 store
+      (frob1 (((integer 32) 3) ((pointer (integer 32)) %ptr)) "i32 3, i32* %ptr"))
+    (with-frob1 fence
+      (frob1 ((:ordering :acquire)) "acquire")
+      (frob1 ((:singlethread t) (:ordering :seq-cst)) "singlethread seq_cst"))
+    (with-frob1 cmpxchg
+      (frob1 (((pointer (integer 32)) %ptr)
+	      ((integer 32) %cmp)
+	      ((integer 32) %squared)
+	      (:success-ord :acq-rel) (:failure-ord :monotonic))
+	     "i32* %ptr, i32 %cmp, i32 %squared acq_rel monotonic"))
+    (with-frob1 atomicrmw
+      (frob1 (:add ((pointer (integer 32)) %ptr) ((integer 32) 1) (:ordering :acquire))
+	     "add i32* %ptr, i32 1 acquire"))
+    (with-frob1 getelementptr
+      (frob1 nil "inbounds %struct.ST, %struct.ST* %s, i64 1, i32 2, i32 1, i64 5, i64 13")
+      (frob1 nil "%struct.ST, %struct.ST* %s, i32 1")
+      (frob1 nil "%struct.ST, %struct.ST* %t1, i32 0, i32 2")
+      (frob1 nil "%struct.RT, %struct.RT* %t2, i32 0, i32 1")
+      (frob1 nil "[10 x [20 x i32]], [10 x [20 x i32]]* %t3, i32 0, i32 5")
+      (frob1 nil "[20 x i32], [20 x i32]* %t4, i32 0, i32 13")
+      (frob1 nil "{i32, [12 x i8]}, {i32, [12 x i8]}* %saptr, i64 0, i32 1")
+      (frob1 nil "{i32, <2 x i8>}, {i32, <2 x i8>}* %svptr, i64 0, i32 1, i32 1")
+      (frob1 nil "[12 x i8], [12 x i8]* %aptr, i64 0, i32 1")
+      (frob1 nil "[10 x i32], [10 x i32]* @arr, i16 0, i16 0")
+      (frob1 nil "i8, <4 x i8*> %ptrs, <4 x i64> %offsets"))
     ))
   
 (test conversion-instructions
