@@ -553,6 +553,11 @@
   (declare (ignore type attrs))
   :return-type-placeholder)
 
+(define-cg-llvm-rule defun-args ()
+  "(...)")
+(define-cg-llvm-rule funcall-args ()
+  "(...)")
+
 (define-cg-llvm-rule function-declaration ()
   "declare"
   (macrolet ((frob (x)
@@ -566,7 +571,7 @@
 	   (return-attrs (frob parameter-attrs))
 	   (fname (progn whitespace llvm-identifier))
 	   ;; TODO: arguments
-	   (args (progn whitespace "(...)"))
+	   (args (wh defun-args))
 	   (align (frob align))
 	   (gc (frob gc-name))
 	   (prefix (frob prefix))
@@ -1354,6 +1359,27 @@
       (let ((clauses (|| (cons (wh cleanup-kwd) (times (wh landingpad-clause)))
 			 (postimes (wh landingpad-clause)))))
 	`(landingpad ,type ,pers ,@clauses)))))
+
+(define-cg-llvm-rule call-instruction ()
+  (let ((tail (? (|| (progn (prog1 "tail" whitespace) :tail)
+		     (progn (prog1 "musttail" whitespace) :must-tail)))))
+    "call"
+    (let ((cconv (?wh cconv))
+	  (return-attrs (?wh (mapcar (lambda (x)
+				       (whitelist-kwd-expr '(:zeroext :signext :inreg) x))
+				     parameter-attrs)))
+	  (type (emit-lisp-repr llvm-type))
+	  (ftype (?wh (fail-parse-if-not (llvm-typep '(pointer (function ***) ***) it)
+					 (emit-lisp-repr llvm-type))))
+	  (fnptrval llvm-identifier)
+	  (args (wh funcall-args))
+	  (fun-attrs (?wh (mapcar (lambda (x)
+				    (whitelist-kwd-expr '(:noreturn :nounwind :readonly :readnone) x))
+				  fun-attrs))))
+      `(call ,type ,fnptrval ,args
+	     ,!m(inject-kwds-if-nonnil cconv return-attrs ftype fun-attrs tail)))))
+	  
+		  
 
 ;;; Let's write something that is able to parse whole basic block of instructions
 
