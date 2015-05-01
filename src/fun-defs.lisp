@@ -700,37 +700,6 @@
 
 ;;; Parsing of instructions
 
-(define-cg-llvm-rule llvm-instruction ()
-  (|| terminator-instruction
-      binary-instruction
-      bitwise-binary-instruction
-      aggregate-instruction
-      memory-instruction
-      conversion-instruction
-      other-instruction))
-
-
-(defmacro assignment-statement (instr-name)
-  `(let ((name (try-destringify-symbol local-usual-identifier)))
-     whitespace (descend-with-rule 'character #\=) whitespace
-     (let ((instr ,instr-name))
-       `(= ,name ,instr))))
-
-(define-cg-llvm-rule lvalue-terminator-instruction ()
-  invoke-instruction)
-
-(define-cg-llvm-rule nolvalue-terminator-instruction ()
-  (|| ret-instruction
-      br-instruction
-      switch-instruction
-      indirectbr-instruction
-      resume-instruction
-      unreachable-instruction))
-
-(define-cg-llvm-rule terminator-instruction ()
-  (|| lvalue-terminator-instruction
-      nolvalue-terminator-instruction))
-
 (define-cg-llvm-rule white-comma ()
   (progm (? whitespace) #\, (? whitespace)))
 
@@ -768,6 +737,42 @@
 	      `(`(,,@(mapcar (lambda (x)
 			       ``(quasiquote-2.0:inject ,(if (symbolp x) x (car x))))
 			     args)))))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun mash-sym-names (&rest syms)
+    (intern (joinl "-" (mapcar #'string syms))))
+  (defun append-instruction-to-sym (sym)
+    (mash-sym-names sym 'instruction)))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun any-of-kwds (kwd-var)
+    `(|| ,@(mapcar (lambda (x)
+		     `(progn (descend-with-rule 'string ,(stringify-symbol x))
+			     ,(intern (string x) "KEYWORD")))
+		   kwd-var))))
+
+(defmacro define-instruction-alternative (name &body alternatives)
+  (let ((rule-name (append-instruction-to-sym name))
+	(alt-names (mapcar #'append-instruction-to-sym alternatives)))
+    `(define-cg-llvm-rule ,rule-name () (|| ,@alt-names))))
+
+(defmacro define-lvalue-instruction-alternative (name)
+  `(define-instruction-alternative ,name ,(mash-sym-names 'lvalue name) ,(mash-sym-names 'nolvalue name)))
+
+
+(define-instruction-alternative llvm
+  terminator binary bitwise-binary aggregate
+  memory conversion other)
+
+
+(define-instruction-alternative lvalue-terminator invoke)
+
+(define-instruction-alternative nolvalue-terminator
+  ret br switch
+  indirectbr resume
+  unreachable)
+
+(define-lvalue-instruction-alternative terminator)
 
 (define-simple-instruction-rule (valued-return ret) ((x (firstclass-type-p (car it)))))
 
@@ -827,26 +832,15 @@
 	
 (define-simple-instruction-rule unreachable ())
 
-(define-cg-llvm-rule lvalue-binary-instruction ()
-  (|| add-instruction
-      fadd-instruction
-      sub-instruction
-      fsub-instruction
-      mul-instruction
-      fmul-instruction
-      udiv-instruction
-      sdiv-instruction
-      fdiv-instruction
-      urem-instruction
-      srem-instruction
-      frem-instruction))
+(define-instruction-alternative lvalue-binary
+  add fadd sub fsub mul fmul
+  udiv sdiv fdiv
+  urem srem frem)
 
 (define-cg-llvm-rule nolvalue-binary-instruction ()
   (fail-parse "There are no such instructions"))
 
-(define-cg-llvm-rule binary-instruction ()
-  lvalue-binary-instruction)
-
+(define-lvalue-instruction-alternative binary)
 
 (defmacro unordered-simple-keywords (&rest kwds)
   `(let ((kwds (times (wh (|| ,@(mapcar (lambda (x)
@@ -933,19 +927,13 @@
 (define-simple-integer-binop-rule urem)
 (define-simple-integer-binop-rule srem)
 
-(define-cg-llvm-rule lvalue-bitwise-binary-instruction ()
-  (|| shl-instruction
-      lshr-instruction
-      ashr-instruction
-      and-instruction
-      or-instruction
-      xor-instruction))
+(define-instruction-alternative lvalue-bitwise-binary
+  shl lshr ashr and or xor)
 
 (define-cg-llvm-rule nolvalue-bitwise-binary-instruction ()
   (fail-parse "There are no such instructions"))
 
-(define-cg-llvm-rule bitwise-binary-instruction ()
-  lvalue-bitwise-binary-instruction)
+(define-lvalue-instruction-alternative bitwise-binary)
 
 (define-integer-binop-rule shl)
 (define-exact-integer-binop-rule lshr)
@@ -954,18 +942,14 @@
 (define-simple-integer-binop-rule or)
 (define-simple-integer-binop-rule xor)
 
-(define-cg-llvm-rule lvalue-aggregate-instruction ()
-  (|| extractelement-instruction
-      insertelement-instruction
-      shufflevector-instruction
-      extractvalue-instruction
-      insertvalue-instruction))
+(define-instruction-alternative lvalue-aggregate
+  extractelement insertelement shufflevector
+  extractvalue insertvalue)
 
 (define-cg-llvm-rule nolvalue-aggregate-instruction ()
   (fail-parse "There are no such instructions"))
 
-(define-cg-llvm-rule aggregate-instruction ()
-  lvalue-aggregate-instruction)
+(define-lvalue-instruction-alternative aggregate)
 
 (define-simple-instruction-rule extractelement ((val (llvm-typep '(vector ***) (car it)))
 					 (idx (llvm-typep '(integer ***) (car it)))))
@@ -1001,20 +985,13 @@
     `(,val ,elt ,@indices)))
 
 
-(define-cg-llvm-rule lvalue-memory-instruction ()
-  (|| alloca-instruction
-      load-instruction
-      cmpxchg-instruction
-      atomicrmw-instruction
-      getelementptr-instruction))
+(define-instruction-alternative lvalue-memory
+  alloca load cmpxchg atomicrmw getelementptr)
 
-(define-cg-llvm-rule nolvalue-memory-instruction ()
-  (|| store-instruction
-      fence-instruction))
+(define-instruction-alternative nolvalue-memory
+  store fence)
 
-(define-cg-llvm-rule memory-instruction ()
-  (|| lvalue-memory-instruction
-      nolvalue-memory-instruction))
+(define-lvalue-instruction-alternative memory)
 
 (define-instruction-rule alloca
   (let ((inalloca (? (wh (progn "inalloca" t))))
@@ -1068,13 +1045,11 @@
 (define-atomic-load-store-instruction store (wh llvm-constant))
 (define-non-atomic-load-store-instruction store (wh llvm-constant))
 	
-(define-cg-llvm-rule load-instruction ()
-  (|| atomic-load-instruction
-      non-atomic-load-instruction))
+(define-instruction-alternative load
+  atomic-load non-atomic-load)
 
-(define-cg-llvm-rule store-instruction ()
-  (|| atomic-store-instruction
-      non-atomic-store-instruction))
+(define-instruction-alternative store
+  atomic-store non-atomic-store)
 
 (define-instruction-rule fence
   (let ((singlethread (? (wh (progn "singlethread" t))))
@@ -1117,26 +1092,14 @@
     `(,op ,ptr ,val ,!m(inject-kwds-if-nonnil ordering volatile singlethread))))
 	
 
-(define-cg-llvm-rule lvalue-conversion-instruction ()
-  (|| trunc-to-instruction
-      zext-to-instruction
-      sext-to-instruction
-      fptrunc-to-instruction
-      fpext-to-instruction
-      fptoui-to-instruction
-      fptosi-to-instruction
-      uitofp-to-instruction
-      sitofp-to-instruction
-      ptrtoint-to-instruction
-      inttoptr-to-instruction
-      bitcast-to-instruction
-      addrspacecast-to-instruction))
+(define-instruction-alternative lvalue-conversion
+  trunc-to zext-to sext-to fptrunc-to fpext-to fptoui-to fptosi-to
+  uitofp-to sitofp-to ptrtoint-to inttoptr-to bitcast-to addrspacecast-to)
 
 (define-cg-llvm-rule nolvalue-conversion-instruction ()
   (fail-parse "There are no such instructions"))
 
-(define-cg-llvm-rule conversion-instruction ()
-  lvalue-conversion-instruction)
+(define-lvalue-instruction-alternative conversion)
 
 (defun both-integers (type1 type2)
   (and (llvm-typep '(integer ***) type1) (llvm-typep '(integer ***) type2)))
@@ -1243,20 +1206,13 @@
 
 (define-cast-instruction addrspacecast (pointer->pointer-based have-different-addrspaces))
 
-(define-cg-llvm-rule lvalue-other-instruction ()
-  (|| icmp-instruction
-      fcmp-instruction
-      phi-instruction
-      select-instruction
-      call-instruction
-      va-arg-instruction
-      landingpad-instruction))
+(define-instruction-alternative lvalue-other
+  icmp fcmp phi select call va-arg landingpad)
 
 (define-cg-llvm-rule nolvalue-other-instruction ()
   (fail-parse "There are no such instructions"))
 
-(define-cg-llvm-rule other-instruction ()
-  lvalue-other-instruction)
+(define-lvalue-instruction-alternative other)
 
 (define-cg-llvm-rule phi-arg (type)
   (let (c!-1)
@@ -1303,13 +1259,6 @@
   (defparameter known-icmp-ops '(eq ne ugt uge ult ule sgt sge slt sle))
   (defparameter known-fcmp-ops '(false oeq ogt oge olt ole one ord
 				 ueq ugt uge ult ule une uno true)))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun any-of-kwds (kwd-var)
-    `(|| ,@(mapcar (lambda (x)
-		     `(progn (descend-with-rule 'string ,(stringify-symbol x))
-			     ,(intern (string x) "KEYWORD")))
-		   kwd-var))))
 
 (defmacro icmp-kwds ()
   (any-of-kwds known-icmp-ops))
@@ -1396,21 +1345,13 @@
 
 ;;; Let's write something that is able to parse whole basic block of instructions
 
-(define-cg-llvm-rule lvalue-nonterminator-instruction ()
-  (|| lvalue-other-instruction
-      lvalue-conversion-instruction
-      lvalue-memory-instruction
-      lvalue-aggregate-instruction
-      lvalue-bitwise-binary-instruction
-      lvalue-binary-instruction))
+(define-instruction-alternative lvalue-nonterminator
+  lvalue-other lvalue-conversion lvalue-memory lvalue-aggregate
+  lvalue-bitwise-binary lvalue-binary)
 
-(define-cg-llvm-rule nolvalue-nonterminator-instruction ()
-  (|| nolvalue-other-instruction
-      nolvalue-conversion-instruction
-      nolvalue-memory-instruction
-      nolvalue-aggregate-instruction
-      nolvalue-bitwise-binary-instruction
-      nolvalue-binary-instruction))
+(define-instruction-alternative nolvalue-nonterminator
+  nolvalue-other nolvalue-conversion nolvalue-memory
+  nolvalue-aggregate nolvalue-bitwise-binary nolvalue-binary)
       
 
 (define-cg-llvm-rule block-label ()
