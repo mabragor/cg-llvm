@@ -496,20 +496,10 @@
   (text (list (|| alpha-char #\- #\$ #\. #\_)
 	      (times (|| alphanumeric-char #\- #\$ #\. #\_)))))
 
-(define-cg-llvm-rule global-usual-identifier ()
-  (text (list #\@ usual-identifier-body)))
-(define-cg-llvm-rule local-usual-identifier ()
-  (text (list #\% usual-identifier-body)))
-
 (defun try-destringify-symbol (str)
   (handler-case (destringify-symbol str)
     (error () str)))
   
-
-(define-cg-llvm-rule usual-identifier ()
-  (try-destringify-symbol (|| global-usual-identifier
-			      local-usual-identifier)))
-    
 (define-cg-llvm-rule hex-digit ()
   (character-ranges (#\0 #\9) (#\a #\f) (#\A #\F)))
 
@@ -525,10 +515,18 @@
 				 (descend-with-rule 'character nil))))
 	       #\")))
   
+(define-cg-llvm-rule identifier-body ()
+  (|| usual-identifier-body
+      llvm-string))
+
+(define-cg-llvm-rule local-identifier ()
+  (try-destringify-symbol (text (list #\% identifier-body))))
+(define-cg-llvm-rule global-identifier ()
+  (try-destringify-symbol (text (list #\@ identifier-body))))
 
 (define-cg-llvm-rule llvm-identifier ()
-  (|| usual-identifier
-      llvm-string))
+  (|| local-identifier
+      global-identifier))
 
 (defmacro inject-kwd-if-nonnil (name)
   ``,@(if ,name
@@ -552,9 +550,6 @@
 (defun return-type-lisp-form (type attrs)
   (declare (ignore type attrs))
   :return-type-placeholder)
-
-(define-cg-llvm-rule defun-args ()
-  "(...)")
 
 (define-cg-llvm-rule function-declaration ()
   "declare"
@@ -1365,6 +1360,11 @@
 
 (define-plural-rule funcall-args funcall-arg white-comma)
 
+(define-cg-llvm-rule defun-arg ()
+  (fail-parse "Not implemented yet"))
+
+(define-plural-rule defun-args defun-arg white-comma)
+
 ;;; Let's write something that is able to parse whole basic block of instructions
 
 (define-instruction-alternative lvalue-nonterminator
@@ -1377,17 +1377,17 @@
       
 
 (define-cg-llvm-rule block-label ()
-  (prog1 usual-identifier-body #\:))
+  (destringify-symbol (text (list (literal-char #\%) (prog1 identifier-body #\:)))))
 
 (define-cg-llvm-rule nonfinal-statement ()
   (|| nolvalue-nonterminator-instruction
-      `(= ,local-usual-identifier ,(progn whitespace #\= whitespace lvalue-nonterminator-instruction))))
+      `(= ,local-identifier ,(progn whitespace #\= whitespace lvalue-nonterminator-instruction))))
 
 (define-plural-rule nonfinal-statements nonfinal-statement whitespace)
 
 (define-cg-llvm-rule final-statement ()
   (|| nolvalue-terminator-instruction
-      `(= ,local-usual-identifier (progn whitespace #\= whitespace ,lvalue-nonterminator-instruction))))
+      `(= ,local-identifier (progn whitespace #\= whitespace ,lvalue-nonterminator-instruction))))
 
 (define-cg-llvm-rule basic-block-body ()
   (let ((nonfinal-statements (? nonfinal-statements)))
@@ -1418,7 +1418,7 @@
 	 (type (wh (emit-lisp-repr llvm-type)))
 	 (return-attrs (?wh parameter-attrs))
 	 (fname (wh llvm-identifier))
-	 (args (wh? defun-args))
+	 (args (wh? (progm #\( (? defun-args) #\))))
 	 (fun-attrs (?wh fun-attrs))
 	 (section (?wh section))
 	 (align (?wh align))

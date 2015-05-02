@@ -330,10 +330,10 @@
   
 
 (test llvm-identifier
-  (is (string= "@FOO" (string (cg-llvm-parse 'llvm-identifier "@foo"))))
-  (is (string= "foo" (string (cg-llvm-parse 'llvm-identifier "\"foo\""))))
-  (is (string= (concatenate 'string (string (code-char 1)) "foo")
-	       (string (cg-llvm-parse 'llvm-identifier "\"\\01foo\"")))))
+  (is (equal '@foo (cg-llvm-parse 'llvm-identifier "@foo")))
+  (is (equal '@foo (cg-llvm-parse 'llvm-identifier "@\"foo\"")))
+  (is (equal (concatenate 'string "%" (string (code-char 1)) "foo")
+	     (string (cg-llvm-parse 'llvm-identifier "%\"\\01foo\"")))))
 
 (test function-declaration
   (macrolet ((frob (x y)
@@ -555,25 +555,28 @@
 	  call-instruction "call zeroext i32 @bar()")
     ))
 
+(test block-labels
+  (is (equal '%entry (cg-llvm-parse 'block-label "entry:")))
+  (is (equal '%entry (cg-llvm-parse 'block-label "\"entry\":"))))
 
 (test basic-blocks
   (macrolet ((frob (x y)
 	       `(is (equal ',x (cg-llvm-parse 'basic-block ,y)))))
     (frob (block (cg-llvm::ret ((integer 32) 3))) "ret i32 3")
-    (frob (block (:label "end") (cg-llvm::ret ((integer 32) 3))) "end: ret i32 3")
-    (frob (block (:label "entry")
-	    (= "%addtmp" (fadd (float 64 32) 4.0 5.0))
+    (frob (block (:label %end) (cg-llvm::ret ((integer 32) 3))) "end: ret i32 3")
+    (frob (block (:label %entry)
+	    (= %addtmp (fadd (float 64 32) 4.0 5.0))
 	    (cg-llvm::ret ((float 64 32) %addtmp)))
 	  #?"entry:
   %addtmp = fadd double 4.000000e+00, 5.000000e+00
   ret double %addtmp")
-    (frob (block (:label "entry")
-	    (= "%multmp" (cg-llvm::fmul (float 64 32) %a %a))
-	    (= "%multmp1" (cg-llvm::fmul (float 64 32) 2.0 %a))
-	    (= "%multmp2" (cg-llvm::fmul (float 64 32) %multmp1 %b))
-	    (= "%addtmp" (fadd (float 64 32) %multmp %multmp2))
-	    (= "%multmp3" (cg-llvm::fmul (float 64 32) %b %b))
-	    (= "%addtmp4" (fadd (float 64 32) %addtmp %multmp3))
+    (frob (block (:label %entry)
+	    (= %multmp (cg-llvm::fmul (float 64 32) %a %a))
+	    (= %multmp1 (cg-llvm::fmul (float 64 32) 2.0 %a))
+	    (= %multmp2 (cg-llvm::fmul (float 64 32) %multmp1 %b))
+	    (= %addtmp (fadd (float 64 32) %multmp %multmp2))
+	    (= %multmp3 (cg-llvm::fmul (float 64 32) %b %b))
+	    (= %addtmp4 (fadd (float 64 32) %addtmp %multmp3))
 	    (cg-llvm::ret ((float 64 32) %addtmp4)))
 	  #?"entry:
   %multmp = fmul double %a, %a
@@ -583,21 +586,34 @@
   %multmp3 = fmul double %b, %b
   %addtmp4 = fadd double %addtmp, %multmp3
   ret double %addtmp4")
-    (frob (block (:label "entry")
-	    (= "%calltmp" (call (float 64 32) @foo (((float 64 32) %a) ((float 64 32) 4.0))))
-	    (= "%calltmp1" (call (float 64 32) @bar (((float 64 32) 31337.0))))
-	    (= "%addtmp" (fadd (float 64 32) %calltmp %calltmp1))
+    (frob (block (:label %entry)
+	    (= %calltmp (call (float 64 32) @foo (((float 64 32) %a) ((float 64 32) 4.0))))
+	    (= %calltmp1 (call (float 64 32) @bar (((float 64 32) 31337.0))))
+	    (= %addtmp (fadd (float 64 32) %calltmp %calltmp1))
 	    (cg-llvm::ret ((float 64 32) %addtmp)))
 	  #?"entry:
   %calltmp = call double @foo(double %a, double 4.000000e+00)
   %calltmp1 = call double @bar(double 3.133700e+04)
   %addtmp = fadd double %calltmp, %calltmp1
   ret double %addtmp")
-    (frob (block (:label "entry")
-	    (= "%calltmp" (call (float 64 32) @cos (((float 64 32) 1.234))))
+    (frob (block (:label %entry)
+	    (= %calltmp (call (float 64 32) @cos (((float 64 32) 1.234))))
 	    (cg-llvm::ret ((float 64 32) %calltmp)))
 	  #?"entry:
   %calltmp = call double @cos(double 1.234000e+00)
   ret double %calltmp")
     ))
 
+(test function-definitions
+  (macrolet ((frob (x y)
+	       `(is (equal ',x (cg-llvm-parse 'function-definition ,y)))))
+    (frob (cg-llvm::define (float 64 32) @ nil
+	    (:body ((block (:label %entry)
+		      (= %addtmp (fadd (float 64 32) 4.0 5.0))
+		      (cg-llvm::ret ((float 64 32) %addtmp))))))
+	  "define double @\"\"() {
+entry:
+        %addtmp = fadd double 4.000000e+00, 5.000000e+00
+        ret double %addtmp
+}")
+    ))
