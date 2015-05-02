@@ -920,6 +920,7 @@
 (define-float-binop-rule fsub)
 (define-float-binop-rule fmul)
 (define-float-binop-rule frem)
+(define-float-binop-rule fdiv)
 
 (define-exact-integer-binop-rule udiv)
 (define-exact-integer-binop-rule sdiv)
@@ -1380,7 +1381,7 @@
 
 (define-cg-llvm-rule nonfinal-statement ()
   (|| nolvalue-nonterminator-instruction
-      `(= ,local-usual-identifier (progn whitespace #\= whitespace ,lvalue-nonterminator-instruction))))
+      `(= ,local-usual-identifier ,(progn whitespace #\= whitespace lvalue-nonterminator-instruction))))
 
 (define-plural-rule nonfinal-statements nonfinal-statement whitespace)
 

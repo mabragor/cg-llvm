@@ -561,11 +561,20 @@
 	       `(is (equal ',x (cg-llvm-parse 'basic-block ,y)))))
     (frob (block (cg-llvm::ret ((integer 32) 3))) "ret i32 3")
     (frob (block (:label "end") (cg-llvm::ret ((integer 32) 3))) "end: ret i32 3")
-    (frob nil
-	  #?"entry:\n
+    (frob (block (:label "entry")
+	    (= "%addtmp" (fadd (float 64 32) 4.0 5.0))
+	    (cg-llvm::ret ((float 64 32) %addtmp)))
+	  #?"entry:
   %addtmp = fadd double 4.000000e+00, 5.000000e+00
   ret double %addtmp")
-    (frob nil
+    (frob (block (:label "entry")
+	    (= "%multmp" (cg-llvm::fmul (float 64 32) %a %a))
+	    (= "%multmp1" (cg-llvm::fmul (float 64 32) 2.0 %a))
+	    (= "%multmp2" (cg-llvm::fmul (float 64 32) %multmp1 %b))
+	    (= "%addtmp" (fadd (float 64 32) %multmp %multmp2))
+	    (= "%multmp3" (cg-llvm::fmul (float 64 32) %b %b))
+	    (= "%addtmp4" (fadd (float 64 32) %addtmp %multmp3))
+	    (cg-llvm::ret ((float 64 32) %addtmp4)))
 	  #?"entry:
   %multmp = fmul double %a, %a
   %multmp1 = fmul double 2.000000e+00, %a
@@ -574,13 +583,19 @@
   %multmp3 = fmul double %b, %b
   %addtmp4 = fadd double %addtmp, %multmp3
   ret double %addtmp4")
-    (frob nil
+    (frob (block (:label "entry")
+	    (= "%calltmp" (call (float 64 32) @foo (((float 64 32) %a) ((float 64 32) 4.0))))
+	    (= "%calltmp1" (call (float 64 32) @bar (((float 64 32) 31337.0))))
+	    (= "%addtmp" (fadd (float 64 32) %calltmp %calltmp1))
+	    (cg-llvm::ret ((float 64 32) %addtmp)))
 	  #?"entry:
   %calltmp = call double @foo(double %a, double 4.000000e+00)
   %calltmp1 = call double @bar(double 3.133700e+04)
   %addtmp = fadd double %calltmp, %calltmp1
   ret double %addtmp")
-    (frob nil
+    (frob (block (:label "entry")
+	    (= "%calltmp" (call (float 64 32) @cos (((float 64 32) 1.234))))
+	    (cg-llvm::ret ((float 64 32) %calltmp)))
 	  #?"entry:
   %calltmp = call double @cos(double 1.234000e+00)
   ret double %calltmp")
