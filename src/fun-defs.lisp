@@ -658,7 +658,10 @@
 (define-cg-llvm-rule target-triple ()
   "target" whitespace "triple" whitespace "=" whitespace
   (let ((it llvm-string))
-    `(target-triple ,@(cl-ppcre:split (literal-string "-") it))))
+    `(target-triple ,@(mapcar (lambda (x y)
+				(list x y))
+			      '(:arch :vendor :system :env)
+			      (cl-ppcre:split (literal-string "-") it)))))
 
 (define-cg-llvm-rule dl-big-endian ()
   "E" :big-endian)
@@ -680,16 +683,73 @@
     `(:pointer-size ,@(if n `((:addrspace ,n)))
 		    (:size ,size) (:abi ,abi) (:pref ,pref))))
     
+(define-cg-llvm-rule stack-layout ()
+  (let ((it pos-integer))
+    (if (not (equal 0 (mod it 8)))
+	(fail-parse-format "Stack alignment should be multiple of 8, but got ~a" it))
+    `(:stack ,it)))
 
+(define-cg-llvm-rule pointer-layout ()
+  (let ((n (? pos-integer)))
+    (if (and n (not (and (< 0 n)
+			 (> (expt 2 23) n))))
+	(fail-parse-format "Pointer address space not in range: ~a" n))
+    (let ((size (progm #\: pos-integer #\:))
+	  (abi-pref abi-layout))
+      `(:pointer ,size ,abi-pref ,@(if n `((:addrspace ,n)))))))
+
+(define-cg-llvm-rule integer-layout ()
+  (let ((size (prog1 pos-integer #\:))
+	(abi-pref abi-layout))
+    `(:integer ,size ,abi-pref)))
+(define-cg-llvm-rule vector-layout ()
+  (let ((size (prog1 pos-integer #\:))
+	(abi-pref abi-layout))
+    `(:vector ,size ,abi-pref)))
+(define-cg-llvm-rule float-layout ()
+  (let ((size (prog1 pos-integer #\:))
+	(abi-pref abi-layout))
+    `(:float ,size ,abi-pref)))
+(define-cg-llvm-rule aggregate-layout ()
+  `(:aggregate ,abi-layout))
+
+(define-cg-llvm-rule abi-layout ()
+  (let ((abi pos-integer)
+	(pref (? (progn #\: pos-integer))))
+    `(:abi ,abi ,@(if pref `(,pref)))))
+
+(define-cg-llvm-rule mangling-layout ()
+  #\:
+  (list :mangling
+	(|| (progn #\e :elf)
+	    (progn #\m :mips)
+	    (progn #\o :mach-o)
+	    (progn #\w :windows-coff))))
+
+(define-plural-rule integer-sizes pos-integer #\:)
+
+(define-cg-llvm-rule native-integers-layout ()
+  `(:native-integers ,@integer-sizes))
+
+(define-cg-llvm-rule datalayout-spec ()
+  (|| (progn #\E '(:endianness :big))
+      (progn #\e '(:endianness :little))
+      (progn #\S stack-layout)
+      (progn #\p pointer-layout)
+      (progn #\i integer-layout)
+      (progn #\v vector-layout)
+      (progn #\f float-layout)
+      (progn #\a aggregate-layout)
+      (progn #\m mangling-layout)
+      (progn #\n native-integers-layout)))
 
 (define-cg-llvm-rule target-datalayout ()
   "target" whitespace "datalayout" whitespace "=" whitespace
   (let ((it (cl-ppcre:split (literal-string "-") llvm-string)))
+    ;; `(target-datalayout ,it)))
     `(target-datalayout ,@(mapcar (lambda (x)
 				    (cg-llvm-parse 'datalayout-spec x))
 				  it))))
-
-
 
 
 
@@ -1432,6 +1492,54 @@
 				      cconv unnamed-addr return-attrs
 				      fun-attrs section align comdat gc
 				      prefix prologue body))))
-	    
+
+(define-cg-llvm-rule internal-global-variable-definition ()
+  (let ((global-or-constant (progn (? whitespace)
+				   (|| (progn "global" :global)
+				       (progn "constant" :constant))))
+	(meat llvm-constant)
+	(section (? (progn (? whitespace) #\, (? whitespace) section)))
+	(comdat (? (progn (? whitespace) #\, (? whitespace) comdat)))
+	(align (? (progn (? whitespace) #\, (? whitespace) align))))
+    `(,@meat ,global-or-constant
+	     ,!m(inject-kwds-if-nonnil section comdat align))))
+
+(define-cg-llvm-rule external-global-variable-definition ()
+  (let ((external (progn (? whitespace) "external" `(:external t)))
+    `(,type ,!m(inject-if-nonnil value)
+	    ,global-or-constant
+	    ,!m(inject-kwds-if-nonnil external section comdat align))))
+
+
+(define-cg-llvm-rule global-variable-definition ()
+  (let ((name global-identifier))
+    whitespace #\=
+    (let* ((linkage (?wh linkage-type))
+      	   (visibility (?wh visibility-style))
+	   (dll-storage-class (?wh dll-storage-class))
+	   (thread-local (?wh thread-local))
+	   (unnamed-addr (?wh (progn "unnamed_addr" t)))
+	   (addrspace (? (let ((it addr-space))
+			   (if (equal 0 it)
+			       nil
+			       it))))
+	   (externally-initialized (? (progn (? whitespace) "externally_initialized" t)))
+	   (constant (progn (? whitespace)
+			    (|| (progn "global" nil)
+				(progn "constant" t))))
+	   (type (emit-lisp-repr (wh? llvm-type)))
+	   (value (if (eq :external linkage)
+	   	      (? (?wh llvm-constant-value))
+	   	      (?wh llvm-constant-value)))
+	   (section (? (progn (? whitespace) #\, (? whitespace) section)))
+	   (comdat (? (progn (? whitespace) #\, (? whitespace) comdat)))
+	   (align (? (progn (? whitespace) #\, (? whitespace) align))))
+      `(:global-var ,name ,type ,value
+		    ,!m(inject-kwds-if-nonnil linkage visibility dll-storage-class
+					      thread-local unnamed-addr addrspace
+					      externally-initialized
+					      constant
+					      section comdat align
+					      )))))
 	    
 	 

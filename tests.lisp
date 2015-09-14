@@ -617,3 +617,22 @@ entry:
         ret double %addtmp
 }")
     ))
+
+
+(test target-datalayout
+  (macrolet ((frob (x y)
+	       `(is (equal ',x (cg-llvm-parse 'target-datalayout ,y)))))
+    (frob (cg-llvm::target-datalayout (:endianness :little) (:mangling :elf) (:integer 64 (:abi 64))
+	    (:float 80 (:abi 128)) (:native-integers 8 16 32 64) (:stack 128))
+	  "target datalayout = \"e-m:e-i64:64-f80:128-n8:16:32:64-S128\"")))
+
+(test target-triple
+  (macrolet ((frob (x y)
+	       `(is (equal ',x (cg-llvm-parse 'target-triple ,y)))))
+    (frob (cg-llvm::target-triple (:ARCH "x86_64") (:VENDOR "pc") (:SYSTEM "linux") (:ENV "gnu"))
+	  "target triple = \"x86_64-pc-linux-gnu\"")
+    (frob (cg-llvm::target-triple (:ARCH "x86_64") (:VENDOR "pc") (:SYSTEM "linux"))
+	  "target triple = \"x86_64-pc-linux\"")))
+    
+
+
