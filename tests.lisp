@@ -654,4 +654,28 @@ entry:
 		       (:linkage :private) (:unnamed-addr t) (:constant t) (:align 1))
 	  "@.str = private unnamed_addr constant [14 x i8] c\"Hello world!\\0A\\00\", align 1")
     ))
+
 	  
+(test attribute-groups
+  (macrolet ((frob (x y)
+	       `(is (equal ',x (cg-llvm-parse 'attribute-group ,y)))))
+    (frob (cg-llvm::attributes 0 :alwaysinline (:alignstack 4))
+	  "attributes #0 = { alwaysinline alignstack(4) }")
+    (frob (cg-llvm::attributes 1 "no-sse")
+	  "attributes #1 = { \"no-sse\" }")
+    (frob (CG-LLVM::ATTRIBUTES 0 :UWTABLE ("less-precise-fpmad" "false") ("no-frame-pointer-elim" "true")
+			       "no-frame-pointer-elim-non-leaf" ("no-infs-fp-math" "false")
+			       ("no-nans-fp-math" "false") ("stack-protector-buffer-size" "8")
+			       ("unsafe-fp-math" "false") ("use-soft-float" "false"))
+	  "attributes #0 = { uwtable \"less-precise-fpmad\"=\"false\"
+ \"no-frame-pointer-elim\"=\"true\" \"no-frame-pointer-elim-non-leaf\"
+ \"no-infs-fp-math\"=\"false\" \"no-nans-fp-math\"=\"false\"
+ \"stack-protector-buffer-size\"=\"8\" \"unsafe-fp-math\"=\"false\" \"use-soft-float\"=\"false\" }")
+    (frob (CG-LLVM::ATTRIBUTES 1 ("less-precise-fpmad" "false") ("no-frame-pointer-elim" "true")
+			       "no-frame-pointer-elim-non-leaf" ("no-infs-fp-math" "false")
+			       ("no-nans-fp-math" "false") ("stack-protector-buffer-size" "8")
+			       ("unsafe-fp-math" "false") ("use-soft-float" "false"))
+	  "attributes #1 = { \"less-precise-fpmad\"=\"false\" \"no-frame-pointer-elim\"=\"true\"
+ \"no-frame-pointer-elim-non-leaf\" \"no-infs-fp-math\"=\"false\" \"no-nans-fp-math\"=\"false\"
+ \"stack-protector-buffer-size\"=\"8\" \"unsafe-fp-math\"=\"false\" \"use-soft-float\"=\"false\" }")
+    ))

@@ -1530,5 +1530,27 @@
 					      section comdat)
 		    ,!m(inject-stuff-if-nonnil thread-local align)
 		    ))))
-	    
-	 
+
+(define-cg-llvm-rule long-abstract-attr ()
+  c!-name-llvm-string (? whitespace) #\= (? whitespace) c!-value-llvm-string
+  (list c!-name c!-value))
+
+(define-cg-llvm-rule short-abstract-attr ()
+  llvm-string)
+
+(define-cg-llvm-rule abstract-attr ()
+  (|| fun-attr
+      parameter-attr
+      long-abstract-attr
+      short-abstract-attr))
+
+(define-plural-rule abstract-attrs abstract-attr whitespace)
+
+(define-instruction-rule (attribute-group attributes)
+  (let* ((id (progn (? whitespace) #\# pos-integer))
+	 (attrs (progm (progn (? whitespace) #\= (? whitespace) #\{ (? whitespace))
+		       abstract-attrs
+		       (progn (? whitespace) #\}))))
+    `(,id ,@attrs)))
+
+  
