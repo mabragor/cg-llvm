@@ -635,4 +635,23 @@ entry:
 	  "target triple = \"x86_64-pc-linux\"")))
     
 
-
+(test global-variable-definition
+  (macrolet ((frob (x y)
+	       `(is (equal ',x (cg-llvm-parse 'global-variable-definition ,y)))))
+    (frob (:global-var *@g (integer 32) nil (:linkage :external))
+	  "@G = external global i32")
+    (frob (:global-var *@g (integer 32) 0 (:thread-local :initialexec) (:align 4))
+	  "@G = thread_local(initialexec) global i32 0, align 4")
+    (frob (:global-var *@g (integer 32) 0 (:thread-local t) (:align 4))
+	  "@G = thread_local global i32 0, align 4")
+    (frob (:global-var *@g (float 32 16) 1.0 (:addrspace 5) (:constant t) (:section "foo") (:align 4))
+	  "@G = addrspace(5) constant float 1.0, section \"foo\", align 4")
+    (frob (:global-var @.str (array (integer 8) 14)
+		       (((integer 8) 72) ((integer 8) 101) ((integer 8) 108) ((integer 8) 108)
+			((integer 8) 111) ((integer 8) 32) ((integer 8) 119) ((integer 8) 111)
+			((integer 8) 114) ((integer 8) 108) ((integer 8) 100) ((integer 8) 33)
+			((integer 8) 10) ((integer 8) 0))
+		       (:linkage :private) (:unnamed-addr t) (:constant t) (:align 1))
+	  "@.str = private unnamed_addr constant [14 x i8] c\"Hello world!\\0A\\00\", align 1")
+    ))
+	  

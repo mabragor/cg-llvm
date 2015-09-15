@@ -547,6 +547,12 @@
   ``,@(if ,smth
 	  (list ,smth)))
 
+(defmacro inject-stuff-if-nonnil (&rest stuff)
+  ``,@`(,,@(mapcar (lambda (x)
+		     ``,!m(inject-if-nonnil ,x))
+		   stuff)))
+
+
 (defun return-type-lisp-form (type attrs)
   (declare (ignore type attrs))
   :return-type-placeholder)
@@ -1493,24 +1499,6 @@
 				      fun-attrs section align comdat gc
 				      prefix prologue body))))
 
-(define-cg-llvm-rule internal-global-variable-definition ()
-  (let ((global-or-constant (progn (? whitespace)
-				   (|| (progn "global" :global)
-				       (progn "constant" :constant))))
-	(meat llvm-constant)
-	(section (? (progn (? whitespace) #\, (? whitespace) section)))
-	(comdat (? (progn (? whitespace) #\, (? whitespace) comdat)))
-	(align (? (progn (? whitespace) #\, (? whitespace) align))))
-    `(,@meat ,global-or-constant
-	     ,!m(inject-kwds-if-nonnil section comdat align))))
-
-(define-cg-llvm-rule external-global-variable-definition ()
-  (let ((external (progn (? whitespace) "external" `(:external t)))
-    `(,type ,!m(inject-if-nonnil value)
-	    ,global-or-constant
-	    ,!m(inject-kwds-if-nonnil external section comdat align))))
-
-
 (define-cg-llvm-rule global-variable-definition ()
   (let ((name global-identifier))
     whitespace #\=
@@ -1519,27 +1507,28 @@
 	   (dll-storage-class (?wh dll-storage-class))
 	   (thread-local (?wh thread-local))
 	   (unnamed-addr (?wh (progn "unnamed_addr" t)))
-	   (addrspace (? (let ((it addr-space))
-			   (if (equal 0 it)
-			       nil
-			       it))))
+	   (addrspace (?wh (let ((it addr-space))
+			     (if (equal 0 it)
+				 nil
+				 it))))
 	   (externally-initialized (? (progn (? whitespace) "externally_initialized" t)))
 	   (constant (progn (? whitespace)
 			    (|| (progn "global" nil)
 				(progn "constant" t))))
 	   (type (emit-lisp-repr (wh? llvm-type)))
 	   (value (if (eq :external linkage)
-	   	      (? (?wh llvm-constant-value))
-	   	      (?wh llvm-constant-value)))
+	   	      (? (?wh (descend-with-rule 'llvm-constant-value type)))
+	   	      (?wh (descend-with-rule 'llvm-constant-value type))))
 	   (section (? (progn (? whitespace) #\, (? whitespace) section)))
 	   (comdat (? (progn (? whitespace) #\, (? whitespace) comdat)))
 	   (align (? (progn (? whitespace) #\, (? whitespace) align))))
       `(:global-var ,name ,type ,value
 		    ,!m(inject-kwds-if-nonnil linkage visibility dll-storage-class
-					      thread-local unnamed-addr addrspace
+					      unnamed-addr addrspace
 					      externally-initialized
 					      constant
-					      section comdat align
-					      )))))
+					      section comdat)
+		    ,!m(inject-stuff-if-nonnil thread-local align)
+		    ))))
 	    
 	 
