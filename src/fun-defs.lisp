@@ -128,10 +128,14 @@
 		       (symbol-value known-algol-var)))))))
 
 
-(define-algol-consy-kwd-rule parameter-attr
+(define-algol-consy-kwd-rule %parameter-attr
     known-parameter-attrs 
   known-cons-parameter-attrs
   known-algol-parameter-attrs)
+
+(define-cg-llvm-rule parameter-attr ()
+  (|| `(:group ,(progn #\# pos-integer))
+      %parameter-attr))
 
 (defmacro!! define-plural-rule (name single delim) ()
   `(define-cg-llvm-rule ,name ()
@@ -152,7 +156,11 @@
   (defparameter known-cons-fun-attrs '())
   (defparameter known-algol-fun-attrs '((alignstack pos-integer))))
 
-(define-algol-consy-kwd-rule fun-attr known-fun-attrs known-cons-fun-attrs known-algol-fun-attrs)
+(define-algol-consy-kwd-rule %fun-attr known-fun-attrs known-cons-fun-attrs known-algol-fun-attrs)
+
+(define-cg-llvm-rule fun-attr ()
+  (|| `(:group ,(progn #\# pos-integer))
+      %fun-attr))
 
 (define-plural-rule fun-attrs fun-attr whitespace)
 
@@ -554,39 +562,30 @@
 
 
 (defun return-type-lisp-form (type attrs)
-  (declare (ignore type attrs))
-  :return-type-placeholder)
+  `(,(emit-lisp-repr type) ,!m(inject-kwd-if-nonnil attrs)))
 
-(define-cg-llvm-rule function-declaration ()
-  "declare"
-  (macrolet ((frob (x)
-	       `(? (progn whitespace ,x))))
-    (let* ((linkage (frob linkage-type))
-	   (visibility (frob visibility-style))
-	   (dll-storage-class (frob dll-storage-class))
-	   (cconv (frob cconv))
-	   (unnamed-addr (frob unnamed-addr))
-	   (return-type (progn whitespace llvm-type))
-	   (return-attrs (frob parameter-attrs))
-	   (fname (progn whitespace llvm-identifier))
-	   ;; TODO: arguments
-	   (args (wh defun-args))
-	   (align (frob align))
-	   (gc (frob gc-name))
-	   (prefix (frob prefix))
-	   ;; TODO: something needs to be done with whitespace here ...
-	   (prologue (frob prologue)))
-      `(declare ,fname ,args
-		,!m(inject-kwd-if-nonnil linkage)
-		,!m(inject-kwd-if-nonnil visibility)
-		,!m(inject-kwd-if-nonnil dll-storage-class)
-		,!m(inject-kwd-if-nonnil cconv)
-		,!m(inject-if-nonnil unnamed-addr)
-		,(return-type-lisp-form return-type return-attrs)
-		,!m(inject-kwd-if-nonnil align)
-		,!m(inject-kwd-if-nonnil gc)
-		,!m(inject-kwd-if-nonnil prefix)
-		,!m(inject-kwd-if-nonnil prologue)))))
+(define-instruction-rule (function-declaration declare)
+  (let* ((linkage (?wh linkage-type))
+	 (visibility (?wh visibility-style))
+	 (dll-storage-class (?wh dll-storage-class))
+	 (cconv (?wh cconv))
+	 (unnamed-addr (?wh unnamed-addr))
+	 (return-attrs (?wh parameter-attrs))
+	 (return-type (progn whitespace llvm-type))
+	 (fname (progn whitespace llvm-identifier))
+	 (args (wh? declfun-args))
+	 (fun-attrs (?wh fun-attrs))
+	 (align (?wh align))
+	 (gc (?wh gc-name))
+	 (prefix (?wh prefix))
+	 ;; TODO: something needs to be done with whitespace here ...
+	 (prologue (?wh prologue)))
+    `(,fname ,args
+	     ,(return-type-lisp-form return-type return-attrs)
+	     ,!m(inject-kwds-if-nonnil linkage visibility dll-storage-class
+				       cconv)
+	     ,!m(inject-if-nonnil unnamed-addr)
+	     ,!m(inject-kwds-if-nonnil fun-attrs align gc prefix prologue))))
 		
 ;; Let's move to alias definitions
   
@@ -1427,9 +1426,43 @@
 (define-plural-rule funcall-args funcall-arg white-comma)
 
 (define-cg-llvm-rule defun-arg ()
-  (fail-parse "Not implemented yet"))
+  (|| vararg-sign
+      (let* ((arg long-defun-arg) ; arg in defun must have a name
+	     (attrs (?wh parameter-attrs)))
+	`(,@arg ,!m(inject-kwd-if-nonnil attrs)))))
 
-(define-plural-rule defun-args defun-arg white-comma)
+(define-plural-rule %defun-args defun-arg white-comma)
+
+(define-cg-llvm-rule defun-args ()
+  #\( (? whitespace)
+  (let ((args (? %defun-args)))
+    ;; TODO : here we check for vararg special syntax
+    (? whitespace) #\)
+    args))
+
+(define-cg-llvm-rule short-defun-arg ()
+  `(,(emit-lisp-repr llvm-type)))
+(define-cg-llvm-rule long-defun-arg ()
+  `(,@short-defun-arg ,(wh? local-identifier)))
+
+(define-cg-llvm-rule vararg-sign ()
+  "..." :vararg)
+
+(define-cg-llvm-rule declfun-arg ()
+  (|| vararg-sign
+      (let* ((arg (|| long-defun-arg
+		      short-defun-arg))
+	     (attrs (?wh parameter-attrs)))
+	`(,@arg ,!m(inject-kwd-if-nonnil attrs)))))
+
+(define-plural-rule %declfun-args declfun-arg white-comma)
+
+(define-cg-llvm-rule declfun-args ()
+  #\( (? whitespace)
+  (let ((args (? %declfun-args)))
+    ;; TODO : here we check for vararg special syntax
+    (? whitespace) #\)
+    args))
 
 ;;; Let's write something that is able to parse whole basic block of instructions
 
@@ -1484,7 +1517,7 @@
 	 (type (wh (emit-lisp-repr llvm-type)))
 	 (return-attrs (?wh parameter-attrs))
 	 (fname (wh llvm-identifier))
-	 (args (wh? (progm #\( (? defun-args) #\))))
+	 (args (wh? defun-args))
 	 (fun-attrs (?wh fun-attrs))
 	 (section (?wh section))
 	 (align (?wh align))

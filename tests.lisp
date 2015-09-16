@@ -679,3 +679,46 @@ entry:
  \"no-frame-pointer-elim-non-leaf\" \"no-infs-fp-math\"=\"false\" \"no-nans-fp-math\"=\"false\"
  \"stack-protector-buffer-size\"=\"8\" \"unsafe-fp-math\"=\"false\" \"use-soft-float\"=\"false\" }")
     ))
+
+(test more-function-declarations
+  (is (equal '(((pointer (integer 8))) :vararg) (cg-llvm-parse 'declfun-args "(i8*, ...)")))
+  (is (equal '((:group 1)) (cg-llvm-parse 'parameter-attrs "#1")))
+  (macrolet ((frob (x y)
+	       `(is (equal ',x (cg-llvm-parse 'function-declaration ,y)))))
+    (frob (declare @printf
+		   (((pointer (integer 8))) :vararg)
+		   ((integer 32))
+		   (:fun-attrs ((:group 1))))
+	  "declare i32 @printf(i8*, ...) #1")
+    (frob (declare @printf
+		   (((pointer (integer 8)) (:attrs (:noalias :nocapture))) :vararg)
+		   ((integer 32)))
+	  "declare i32 @printf(i8* noalias nocapture, ...)")
+    (frob (declare @atoi
+		   (((integer 8) (:attrs (:zeroext))))
+		   ((integer 32)))
+	  "declare i32 @atoi(i8 zeroext)")
+    (frob (declare @returns-signed-char
+		   nil
+		   ((integer 8) (:attrs (:signext))))
+	  "declare signext i8 @returns_signed_char()")
+    (frob (declare @puts
+		   (((pointer (integer 8)) (:attrs (:nocapture))))
+		   ((integer 32))
+		   (:fun-attrs (:nounwind)))
+	  "declare i32 @puts(i8* nocapture) nounwind")
+    (frob (declare @foo
+		   (((pointer (integer 8))))
+		   (cg-llvm::void))
+	  "declare void @foo(i8*)")
+    (frob (declare +-@get-pointer
+		   (((pointer (integer 8))))
+		   ((pointer (integer 8))))
+	  "declare i8* @getPointer(i8*)")
+    (frob (declare @llvm.invariant.group.barrier
+		   (((pointer (integer 8))))
+		   ((pointer (integer 8))))
+	  "declare i8* @llvm.invariant.group.barrier(i8*)")
+    ))
+
+
