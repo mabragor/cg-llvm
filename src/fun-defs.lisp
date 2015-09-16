@@ -291,7 +291,9 @@
 
 (define-cg-llvm-rule ordinary-constant ()
   (|| simple-constant
-      complex-constant))
+      complex-constant
+      blockaddress
+      constant-expression))
 
 (define-cg-llvm-rule ordinary-constant-value (type)
   (|| (descend-with-rule 'simple-constant-value type)
@@ -1269,21 +1271,23 @@
 			   label
 			   type))))
 
-(define-cast-instruction bitcast
-  (rough-check-bitcast-type "First" type1)
-  (rough-check-bitcast-type "Second" type2)
-  (if (not (and (firstclass-type-p type2) (not (aggregate-type-p type2))))
-      (fail-parse-format "Second type must be first-class non-aggregate type, but got: ~a" type2))
-  (cond ((llvm-typep '(pointer ***) type1)
-	 (pointer-pointer-check type1 type2))
-	((llvm-typep '(vector (pointer ***) ***) type1)
-	 (vector-check type1 type2)
-	 (pointer-pointer-check (cadr type1) (cadr type2)))
-	(t (if (not (equal (bit-length type1) (bit-length type2)))
-	       (fail-parse "Types of BITCAST should have identical bit sizes")))))
-	
-	
+(defmacro bitcast-constraints ()
+  `(progn (rough-check-bitcast-type "First" type1)
+	  (rough-check-bitcast-type "Second" type2)
+	  (if (not (and (firstclass-type-p type2) (not (aggregate-type-p type2))))
+	      (fail-parse-format "Second type must be first-class non-aggregate type, but got: ~a" type2))
+	  (cond ((llvm-typep '(pointer ***) type1)
+		 (pointer-pointer-check type1 type2))
+		((llvm-typep '(vector (pointer ***) ***) type1)
+		 (vector-check type1 type2)
+		 (pointer-pointer-check (cadr type1) (cadr type2)))
+		(t (if (not (equal (bit-length type1) (bit-length type2)))
+		       (fail-parse "Types of BITCAST should have identical bit sizes"))))))
 
+
+
+(define-cast-instruction bitcast (bitcast-constraints))
+	
 (define-simple-based pointer pointer)
 
 (define-cast-instruction addrspacecast (pointer->pointer-based have-different-addrspaces))
@@ -1586,4 +1590,33 @@
 		       (progn (? whitespace) #\}))))
     `(,id ,@attrs)))
 
-  
+(define-instruction-rule (blockaddress blockaddress)
+  `(,global-identifier ,local-identifier))
+
+(defmacro define-cast-constexpr (name &body constraints)
+  (let ((rule-name (intern #?"$((string name))-TO-CONSTEXPR")))
+    `(define-instruction-rule (,rule-name ,name)
+       #\( (? whitespace)
+       (destructuring-bind (type1 value) llvm-constant
+	 whitespace "to" whitespace
+	 (let ((type2 (emit-lisp-repr (prog1 llvm-type (? whitespace) #\)))))
+	   ,@constraints
+	   `(,value ,type1 ,type2))))))
+
+(define-cast-constexpr trunc (integer->integer-based first-bitsize-larger))
+(define-cast-constexpr zext (integer->integer-based first-bitsize-smaller))
+(define-cast-constexpr sext (integer->integer-based first-bitsize-smaller))
+(define-cast-constexpr fptrunc (float->float-based first-bitsize-larger))
+(define-cast-constexpr fpext (float->float-based first-bitsize-smaller))
+(define-cast-constexpr fptoui (float->integer-based))
+(define-cast-constexpr fptosi (float->integer-based))
+(define-cast-constexpr uitofp (integer->float-based))
+(define-cast-constexpr sitofp (integer->float-based))
+(define-cast-constexpr ptrtoint (pointer->integer-based))
+(define-cast-constexpr inttoptr (integer->pointer-based))
+
+(define-cast-constexpr bitcast (bitcast-constraints))
+(define-cast-constexpr addrspacecast (pointer->pointer-based have-different-addrspaces))
+
+(define-cg-llvm-rule constant-expression ()
+  ...)
