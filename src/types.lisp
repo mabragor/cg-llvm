@@ -373,8 +373,16 @@
   c!-1-llvm-ident whitespace "=" whitespace "type" whitespace c!-2-struct
   (list c!-1 c!-2))
 
+(defclass llvm-named-type (llvm-type)
+  ((name :initarg :name :initform "You should specify the name of the named type")))
+
+(defmethod emit-lisp-repr ((obj llvm-named-type))
+  `(named ,(slot-value obj 'name)))
+
 (define-cg-llvm-rule nonpointer-type ()
-  (|| void-type function-type integer-type float-type x86-mmx vector label metadata array literal-struct))
+  (|| (|| void-type function-type integer-type float-type
+	  x86-mmx vector label metadata array literal-struct)
+      (make-instance 'llvm-named-type :name local-identifier)))
 
 (define-cg-llvm-rule nonpointer-firstclass-type ()
   (|| integer-type float-type x86-mmx vector label metadata array literal-struct))

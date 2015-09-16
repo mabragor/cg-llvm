@@ -548,39 +548,35 @@
 	  (list ,smth)))
 
 (defun return-type-lisp-form (type attrs)
-  (declare (ignore type attrs))
-  :return-type-placeholder)
+  `(,(emit-lisp-repr type) ,@(if attrs `((:attrs ,@attrs)))))
 
 (define-cg-llvm-rule function-declaration ()
   "declare"
-  (macrolet ((frob (x)
-	       `(? (progn whitespace ,x))))
-    (let* ((linkage (frob linkage-type))
-	   (visibility (frob visibility-style))
-	   (dll-storage-class (frob dll-storage-class))
-	   (cconv (frob cconv))
-	   (unnamed-addr (frob unnamed-addr))
-	   (return-type (progn whitespace llvm-type))
-	   (return-attrs (frob parameter-attrs))
-	   (fname (progn whitespace llvm-identifier))
-	   ;; TODO: arguments
-	   (args (wh defun-args))
-	   (align (frob align))
-	   (gc (frob gc-name))
-	   (prefix (frob prefix))
-	   ;; TODO: something needs to be done with whitespace here ...
-	   (prologue (frob prologue)))
-      `(declare ,fname ,args
-		,!m(inject-kwd-if-nonnil linkage)
-		,!m(inject-kwd-if-nonnil visibility)
-		,!m(inject-kwd-if-nonnil dll-storage-class)
-		,!m(inject-kwd-if-nonnil cconv)
-		,!m(inject-if-nonnil unnamed-addr)
-		,(return-type-lisp-form return-type return-attrs)
-		,!m(inject-kwd-if-nonnil align)
-		,!m(inject-kwd-if-nonnil gc)
-		,!m(inject-kwd-if-nonnil prefix)
-		,!m(inject-kwd-if-nonnil prologue)))))
+  (let* ((linkage (?wh linkage-type))
+	 (visibility (?wh visibility-style))
+	 (dll-storage-class (?wh dll-storage-class))
+	 (cconv (?wh cconv))
+	 (unnamed-addr (?wh unnamed-addr))
+	 (return-type (wh llvm-type))
+	 (return-attrs (?wh parameter-attrs))
+	 (fname (wh llvm-identifier))
+	 (args (wh? (progm #\( (? defun-args) #\))))
+	 (align (?wh align))
+	 (gc (?wh gc-name))
+	 (prefix (?wh prefix))
+	 ;; TODO: something needs to be done with whitespace here ...
+	 (prologue (?wh prologue)))
+    `(declare ,fname ,args
+	      ,!m(inject-kwd-if-nonnil linkage)
+	      ,!m(inject-kwd-if-nonnil visibility)
+	      ,!m(inject-kwd-if-nonnil dll-storage-class)
+	      ,!m(inject-kwd-if-nonnil cconv)
+	      ,!m(inject-if-nonnil unnamed-addr)
+	      ,(return-type-lisp-form return-type return-attrs)
+	      ,!m(inject-kwd-if-nonnil align)
+	      ,!m(inject-kwd-if-nonnil gc)
+	      ,!m(inject-kwd-if-nonnil prefix)
+	      ,!m(inject-kwd-if-nonnil prologue))))
 		
 ;; Let's move to alias definitions
   
@@ -1099,8 +1095,23 @@
 (define-cg-llvm-rule scalar-getelementptr-body ()
   (let* ((ptrval (fail-parse-if-not (llvm-typep '(pointer ***) (car it))
 				    instr-arg))
-	 (indices caboom!))
+	 (indices geteltptr-indices))
     `(,ptrval ,@indices)))
+
+;; TODO : we do not check correct types of indices of getelementptr
+;; at this stage, as this would require keeping track of symbol table
+;; (for named types) as we go along.
+;; This, apparently, should be done at later stages of the transformation
+(define-plural-rule geteltptr-indices geteltptr-index white-comma)
+
+(define-cg-llvm-rule geteltptr-index ()
+  (let ((type (emit-lisp-repr llvm-type)))
+    (if (not (llvm-typep '(integer ***) type))
+	(fail-parse "Geteltptr index is not an integer"))
+    (let ((what (wh (|| integer llvm-identifier))))
+      (list type what))))
+		    
+    
 
 (define-instruction-rule getelementptr
   (let* ((inbounds (?wh (progn "inbounds" t)))
@@ -1361,7 +1372,10 @@
 (define-plural-rule funcall-args funcall-arg white-comma)
 
 (define-cg-llvm-rule defun-arg ()
-  (fail-parse "Not implemented yet"))
+  (let ((type (emit-lisp-repr llvm-type))
+	(param-attrs (?wh parameter-attrs))
+	(name (wh local-identifier)))
+    `(,type ,name ,@(if param-attrs `((:attrs ,@param-attrs))))))
 
 (define-plural-rule defun-args defun-arg white-comma)
 
