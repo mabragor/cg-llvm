@@ -627,3 +627,108 @@ entry:
         ret double %addtmp
 }")
     ))
+
+
+(test target-datalayout
+  (macrolet ((frob (x y)
+	       `(is (equal ',x (cg-llvm-parse 'target-datalayout ,y)))))
+    (frob (cg-llvm::target-datalayout (:endianness :little) (:mangling :elf) (:integer 64 (:abi 64))
+	    (:float 80 (:abi 128)) (:native-integers 8 16 32 64) (:stack 128))
+	  "target datalayout = \"e-m:e-i64:64-f80:128-n8:16:32:64-S128\"")))
+
+(test target-triple
+  (macrolet ((frob (x y)
+	       `(is (equal ',x (cg-llvm-parse 'target-triple ,y)))))
+    (frob (cg-llvm::target-triple (:ARCH "x86_64") (:VENDOR "pc") (:SYSTEM "linux") (:ENV "gnu"))
+	  "target triple = \"x86_64-pc-linux-gnu\"")
+    (frob (cg-llvm::target-triple (:ARCH "x86_64") (:VENDOR "pc") (:SYSTEM "linux"))
+	  "target triple = \"x86_64-pc-linux\"")))
+    
+
+(test global-variable-definition
+  (macrolet ((frob (x y)
+	       `(is (equal ',x (cg-llvm-parse 'global-variable-definition ,y)))))
+    (frob (:global-var *@g (integer 32) nil (:linkage :external))
+	  "@G = external global i32")
+    (frob (:global-var *@g (integer 32) 0 (:thread-local :initialexec) (:align 4))
+	  "@G = thread_local(initialexec) global i32 0, align 4")
+    (frob (:global-var *@g (integer 32) 0 (:thread-local t) (:align 4))
+	  "@G = thread_local global i32 0, align 4")
+    (frob (:global-var *@g (float 32 16) 1.0 (:addrspace 5) (:constant t) (:section "foo") (:align 4))
+	  "@G = addrspace(5) constant float 1.0, section \"foo\", align 4")
+    (frob (:global-var @.str (array (integer 8) 14)
+		       (((integer 8) 72) ((integer 8) 101) ((integer 8) 108) ((integer 8) 108)
+			((integer 8) 111) ((integer 8) 32) ((integer 8) 119) ((integer 8) 111)
+			((integer 8) 114) ((integer 8) 108) ((integer 8) 100) ((integer 8) 33)
+			((integer 8) 10) ((integer 8) 0))
+		       (:linkage :private) (:unnamed-addr t) (:constant t) (:align 1))
+	  "@.str = private unnamed_addr constant [14 x i8] c\"Hello world!\\0A\\00\", align 1")
+    ))
+
+	  
+(test attribute-groups
+  (macrolet ((frob (x y)
+	       `(is (equal ',x (cg-llvm-parse 'attribute-group ,y)))))
+    (frob (cg-llvm::attributes 0 :alwaysinline (:alignstack 4))
+	  "attributes #0 = { alwaysinline alignstack(4) }")
+    (frob (cg-llvm::attributes 1 "no-sse")
+	  "attributes #1 = { \"no-sse\" }")
+    (frob (CG-LLVM::ATTRIBUTES 0 :UWTABLE ("less-precise-fpmad" "false") ("no-frame-pointer-elim" "true")
+			       "no-frame-pointer-elim-non-leaf" ("no-infs-fp-math" "false")
+			       ("no-nans-fp-math" "false") ("stack-protector-buffer-size" "8")
+			       ("unsafe-fp-math" "false") ("use-soft-float" "false"))
+	  "attributes #0 = { uwtable \"less-precise-fpmad\"=\"false\"
+ \"no-frame-pointer-elim\"=\"true\" \"no-frame-pointer-elim-non-leaf\"
+ \"no-infs-fp-math\"=\"false\" \"no-nans-fp-math\"=\"false\"
+ \"stack-protector-buffer-size\"=\"8\" \"unsafe-fp-math\"=\"false\" \"use-soft-float\"=\"false\" }")
+    (frob (CG-LLVM::ATTRIBUTES 1 ("less-precise-fpmad" "false") ("no-frame-pointer-elim" "true")
+			       "no-frame-pointer-elim-non-leaf" ("no-infs-fp-math" "false")
+			       ("no-nans-fp-math" "false") ("stack-protector-buffer-size" "8")
+			       ("unsafe-fp-math" "false") ("use-soft-float" "false"))
+	  "attributes #1 = { \"less-precise-fpmad\"=\"false\" \"no-frame-pointer-elim\"=\"true\"
+ \"no-frame-pointer-elim-non-leaf\" \"no-infs-fp-math\"=\"false\" \"no-nans-fp-math\"=\"false\"
+ \"stack-protector-buffer-size\"=\"8\" \"unsafe-fp-math\"=\"false\" \"use-soft-float\"=\"false\" }")
+    ))
+
+(test more-function-declarations
+  (is (equal '(((pointer (integer 8))) :vararg) (cg-llvm-parse 'declfun-args "(i8*, ...)")))
+  (is (equal '((:group 1)) (cg-llvm-parse 'parameter-attrs "#1")))
+  (macrolet ((frob (x y)
+	       `(is (equal ',x (cg-llvm-parse 'function-declaration ,y)))))
+    (frob (declare @printf
+		   (((pointer (integer 8))) :vararg)
+		   ((integer 32))
+		   (:fun-attrs ((:group 1))))
+	  "declare i32 @printf(i8*, ...) #1")
+    (frob (declare @printf
+		   (((pointer (integer 8)) (:attrs (:noalias :nocapture))) :vararg)
+		   ((integer 32)))
+	  "declare i32 @printf(i8* noalias nocapture, ...)")
+    (frob (declare @atoi
+		   (((integer 8) (:attrs (:zeroext))))
+		   ((integer 32)))
+	  "declare i32 @atoi(i8 zeroext)")
+    (frob (declare @returns-signed-char
+		   nil
+		   ((integer 8) (:attrs (:signext))))
+	  "declare signext i8 @returns_signed_char()")
+    (frob (declare @puts
+		   (((pointer (integer 8)) (:attrs (:nocapture))))
+		   ((integer 32))
+		   (:fun-attrs (:nounwind)))
+	  "declare i32 @puts(i8* nocapture) nounwind")
+    (frob (declare @foo
+		   (((pointer (integer 8))))
+		   (cg-llvm::void))
+	  "declare void @foo(i8*)")
+    (frob (declare +-@get-pointer
+		   (((pointer (integer 8))))
+		   ((pointer (integer 8))))
+	  "declare i8* @getPointer(i8*)")
+    (frob (declare @llvm.invariant.group.barrier
+		   (((pointer (integer 8))))
+		   ((pointer (integer 8))))
+	  "declare i8* @llvm.invariant.group.barrier(i8*)")
+    ))
+
+

@@ -128,10 +128,14 @@
 		       (symbol-value known-algol-var)))))))
 
 
-(define-algol-consy-kwd-rule parameter-attr
+(define-algol-consy-kwd-rule %parameter-attr
     known-parameter-attrs 
   known-cons-parameter-attrs
   known-algol-parameter-attrs)
+
+(define-cg-llvm-rule parameter-attr ()
+  (|| `(:group ,(progn #\# pos-integer))
+      %parameter-attr))
 
 (defmacro!! define-plural-rule (name single delim) ()
   `(define-cg-llvm-rule ,name ()
@@ -152,7 +156,11 @@
   (defparameter known-cons-fun-attrs '())
   (defparameter known-algol-fun-attrs '((alignstack pos-integer))))
 
-(define-algol-consy-kwd-rule fun-attr known-fun-attrs known-cons-fun-attrs known-algol-fun-attrs)
+(define-algol-consy-kwd-rule %fun-attr known-fun-attrs known-cons-fun-attrs known-algol-fun-attrs)
+
+(define-cg-llvm-rule fun-attr ()
+  (|| `(:group ,(progn #\# pos-integer))
+      %fun-attr))
 
 (define-plural-rule fun-attrs fun-attr whitespace)
 
@@ -283,7 +291,9 @@
 
 (define-cg-llvm-rule ordinary-constant ()
   (|| simple-constant
-      complex-constant))
+      complex-constant
+      blockaddress
+      constant-expression))
 
 (define-cg-llvm-rule ordinary-constant-value (type)
   (|| (descend-with-rule 'simple-constant-value type)
@@ -547,36 +557,37 @@
   ``,@(if ,smth
 	  (list ,smth)))
 
-(defun return-type-lisp-form (type attrs)
-  `(,(emit-lisp-repr type) ,@(if attrs `((:attrs ,@attrs)))))
+(defmacro inject-stuff-if-nonnil (&rest stuff)
+  ``,@`(,,@(mapcar (lambda (x)
+		     ``,!m(inject-if-nonnil ,x))
+		   stuff)))
 
-(define-cg-llvm-rule function-declaration ()
-  "declare"
+
+(defun return-type-lisp-form (type attrs)
+  `(,(emit-lisp-repr type) ,!m(inject-kwd-if-nonnil attrs)))
+
+(define-instruction-rule (function-declaration declare)
   (let* ((linkage (?wh linkage-type))
 	 (visibility (?wh visibility-style))
 	 (dll-storage-class (?wh dll-storage-class))
 	 (cconv (?wh cconv))
 	 (unnamed-addr (?wh unnamed-addr))
-	 (return-type (wh llvm-type))
 	 (return-attrs (?wh parameter-attrs))
-	 (fname (wh llvm-identifier))
-	 (args (wh? (progm #\( (? defun-args) #\))))
+	 (return-type (progn whitespace llvm-type))
+	 (fname (progn whitespace llvm-identifier))
+	 (args (wh? declfun-args))
+	 (fun-attrs (?wh fun-attrs))
 	 (align (?wh align))
 	 (gc (?wh gc-name))
 	 (prefix (?wh prefix))
 	 ;; TODO: something needs to be done with whitespace here ...
 	 (prologue (?wh prologue)))
-    `(declare ,fname ,args
-	      ,!m(inject-kwd-if-nonnil linkage)
-	      ,!m(inject-kwd-if-nonnil visibility)
-	      ,!m(inject-kwd-if-nonnil dll-storage-class)
-	      ,!m(inject-kwd-if-nonnil cconv)
-	      ,!m(inject-if-nonnil unnamed-addr)
-	      ,(return-type-lisp-form return-type return-attrs)
-	      ,!m(inject-kwd-if-nonnil align)
-	      ,!m(inject-kwd-if-nonnil gc)
-	      ,!m(inject-kwd-if-nonnil prefix)
-	      ,!m(inject-kwd-if-nonnil prologue))))
+    `(,fname ,args
+	     ,(return-type-lisp-form return-type return-attrs)
+	     ,!m(inject-kwds-if-nonnil linkage visibility dll-storage-class
+				       cconv)
+	     ,!m(inject-if-nonnil unnamed-addr)
+	     ,!m(inject-kwds-if-nonnil fun-attrs align gc prefix prologue))))
 		
 ;; Let's move to alias definitions
   
@@ -654,7 +665,10 @@
 (define-cg-llvm-rule target-triple ()
   "target" whitespace "triple" whitespace "=" whitespace
   (let ((it llvm-string))
-    `(target-triple ,@(cl-ppcre:split (literal-string "-") it))))
+    `(target-triple ,@(mapcar (lambda (x y)
+				(list x y))
+			      '(:arch :vendor :system :env)
+			      (cl-ppcre:split (literal-string "-") it)))))
 
 (define-cg-llvm-rule dl-big-endian ()
   "E" :big-endian)
@@ -676,11 +690,70 @@
     `(:pointer-size ,@(if n `((:addrspace ,n)))
 		    (:size ,size) (:abi ,abi) (:pref ,pref))))
     
+(define-cg-llvm-rule stack-layout ()
+  (let ((it pos-integer))
+    (if (not (equal 0 (mod it 8)))
+	(fail-parse-format "Stack alignment should be multiple of 8, but got ~a" it))
+    `(:stack ,it)))
 
+(define-cg-llvm-rule pointer-layout ()
+  (let ((n (? pos-integer)))
+    (if (and n (not (and (< 0 n)
+			 (> (expt 2 23) n))))
+	(fail-parse-format "Pointer address space not in range: ~a" n))
+    (let ((size (progm #\: pos-integer #\:))
+	  (abi-pref abi-layout))
+      `(:pointer ,size ,abi-pref ,@(if n `((:addrspace ,n)))))))
+
+(define-cg-llvm-rule integer-layout ()
+  (let ((size (prog1 pos-integer #\:))
+	(abi-pref abi-layout))
+    `(:integer ,size ,abi-pref)))
+(define-cg-llvm-rule vector-layout ()
+  (let ((size (prog1 pos-integer #\:))
+	(abi-pref abi-layout))
+    `(:vector ,size ,abi-pref)))
+(define-cg-llvm-rule float-layout ()
+  (let ((size (prog1 pos-integer #\:))
+	(abi-pref abi-layout))
+    `(:float ,size ,abi-pref)))
+(define-cg-llvm-rule aggregate-layout ()
+  `(:aggregate ,abi-layout))
+
+(define-cg-llvm-rule abi-layout ()
+  (let ((abi pos-integer)
+	(pref (? (progn #\: pos-integer))))
+    `(:abi ,abi ,@(if pref `(,pref)))))
+
+(define-cg-llvm-rule mangling-layout ()
+  #\:
+  (list :mangling
+	(|| (progn #\e :elf)
+	    (progn #\m :mips)
+	    (progn #\o :mach-o)
+	    (progn #\w :windows-coff))))
+
+(define-plural-rule integer-sizes pos-integer #\:)
+
+(define-cg-llvm-rule native-integers-layout ()
+  `(:native-integers ,@integer-sizes))
+
+(define-cg-llvm-rule datalayout-spec ()
+  (|| (progn #\E '(:endianness :big))
+      (progn #\e '(:endianness :little))
+      (progn #\S stack-layout)
+      (progn #\p pointer-layout)
+      (progn #\i integer-layout)
+      (progn #\v vector-layout)
+      (progn #\f float-layout)
+      (progn #\a aggregate-layout)
+      (progn #\m mangling-layout)
+      (progn #\n native-integers-layout)))
 
 (define-cg-llvm-rule target-datalayout ()
   "target" whitespace "datalayout" whitespace "=" whitespace
   (let ((it (cl-ppcre:split (literal-string "-") llvm-string)))
+    ;; `(target-datalayout ,it)))
     `(target-datalayout ,@(mapcar (lambda (x)
 				    (cg-llvm-parse 'datalayout-spec x))
 				  it))))
@@ -1215,18 +1288,22 @@
 			   label
 			   type))))
 
-(define-cast-instruction bitcast
-  (rough-check-bitcast-type "First" type1)
-  (rough-check-bitcast-type "Second" type2)
-  (if (not (and (firstclass-type-p type2) (not (aggregate-type-p type2))))
-      (fail-parse-format "Second type must be first-class non-aggregate type, but got: ~a" type2))
-  (cond ((llvm-typep '(pointer ***) type1)
-	 (pointer-pointer-check type1 type2))
-	((llvm-typep '(vector (pointer ***) ***) type1)
-	 (vector-check type1 type2)
-	 (pointer-pointer-check (cadr type1) (cadr type2)))
-	(t (if (not (equal (bit-length type1) (bit-length type2)))
-	       (fail-parse "Types of BITCAST should have identical bit sizes")))))
+(defmacro bitcast-constraints ()
+  `(progn (rough-check-bitcast-type "First" type1)
+	  (rough-check-bitcast-type "Second" type2)
+	  (if (not (and (firstclass-type-p type2) (not (aggregate-type-p type2))))
+	      (fail-parse-format "Second type must be first-class non-aggregate type, but got: ~a" type2))
+	  (cond ((llvm-typep '(pointer ***) type1)
+		 (pointer-pointer-check type1 type2))
+		((llvm-typep '(vector (pointer ***) ***) type1)
+		 (vector-check type1 type2)
+		 (pointer-pointer-check (cadr type1) (cadr type2)))
+		(t (if (not (equal (bit-length type1) (bit-length type2)))
+		       (fail-parse "Types of BITCAST should have identical bit sizes"))))))
+
+
+
+(define-cast-instruction bitcast (bitcast-constraints))
 	
 	
 
@@ -1372,12 +1449,43 @@
 (define-plural-rule funcall-args funcall-arg white-comma)
 
 (define-cg-llvm-rule defun-arg ()
-  (let ((type (emit-lisp-repr llvm-type))
-	(param-attrs (?wh parameter-attrs))
-	(name (wh local-identifier)))
-    `(,type ,name ,@(if param-attrs `((:attrs ,@param-attrs))))))
+  (|| vararg-sign
+      (let* ((arg long-defun-arg) ; arg in defun must have a name
+	     (attrs (?wh parameter-attrs)))
+	`(,@arg ,!m(inject-kwd-if-nonnil attrs)))))
 
-(define-plural-rule defun-args defun-arg white-comma)
+(define-plural-rule %defun-args defun-arg white-comma)
+
+(define-cg-llvm-rule defun-args ()
+  #\( (? whitespace)
+  (let ((args (? %defun-args)))
+    ;; TODO : here we check for vararg special syntax
+    (? whitespace) #\)
+    args))
+
+(define-cg-llvm-rule short-defun-arg ()
+  `(,(emit-lisp-repr llvm-type)))
+(define-cg-llvm-rule long-defun-arg ()
+  `(,@short-defun-arg ,(wh? local-identifier)))
+
+(define-cg-llvm-rule vararg-sign ()
+  "..." :vararg)
+
+(define-cg-llvm-rule declfun-arg ()
+  (|| vararg-sign
+      (let* ((arg (|| long-defun-arg
+		      short-defun-arg))
+	     (attrs (?wh parameter-attrs)))
+	`(,@arg ,!m(inject-kwd-if-nonnil attrs)))))
+
+(define-plural-rule %declfun-args declfun-arg white-comma)
+
+(define-cg-llvm-rule declfun-args ()
+  #\( (? whitespace)
+  (let ((args (? %declfun-args)))
+    ;; TODO : here we check for vararg special syntax
+    (? whitespace) #\)
+    args))
 
 ;;; Let's write something that is able to parse whole basic block of instructions
 
@@ -1432,7 +1540,7 @@
 	 (type (wh (emit-lisp-repr llvm-type)))
 	 (return-attrs (?wh parameter-attrs))
 	 (fname (wh llvm-identifier))
-	 (args (wh? (progm #\( (? defun-args) #\))))
+	 (args (wh? defun-args))
 	 (fun-attrs (?wh fun-attrs))
 	 (section (?wh section))
 	 (align (?wh align))
@@ -1446,6 +1554,88 @@
 				      cconv unnamed-addr return-attrs
 				      fun-attrs section align comdat gc
 				      prefix prologue body))))
-	    
-	    
-	 
+
+(define-cg-llvm-rule global-variable-definition ()
+  (let ((name global-identifier))
+    whitespace #\=
+    (let* ((linkage (?wh linkage-type))
+      	   (visibility (?wh visibility-style))
+	   (dll-storage-class (?wh dll-storage-class))
+	   (thread-local (?wh thread-local))
+	   (unnamed-addr (?wh (progn "unnamed_addr" t)))
+	   (addrspace (?wh (let ((it addr-space))
+			     (if (equal 0 it)
+				 nil
+				 it))))
+	   (externally-initialized (? (progn (? whitespace) "externally_initialized" t)))
+	   (constant (progn (? whitespace)
+			    (|| (progn "global" nil)
+				(progn "constant" t))))
+	   (type (emit-lisp-repr (wh? llvm-type)))
+	   (value (if (eq :external linkage)
+	   	      (? (?wh (descend-with-rule 'llvm-constant-value type)))
+	   	      (?wh (descend-with-rule 'llvm-constant-value type))))
+	   (section (? (progn (? whitespace) #\, (? whitespace) section)))
+	   (comdat (? (progn (? whitespace) #\, (? whitespace) comdat)))
+	   (align (? (progn (? whitespace) #\, (? whitespace) align))))
+      `(:global-var ,name ,type ,value
+		    ,!m(inject-kwds-if-nonnil linkage visibility dll-storage-class
+					      unnamed-addr addrspace
+					      externally-initialized
+					      constant
+					      section comdat)
+		    ,!m(inject-stuff-if-nonnil thread-local align)
+		    ))))
+
+(define-cg-llvm-rule long-abstract-attr ()
+  c!-name-llvm-string (? whitespace) #\= (? whitespace) c!-value-llvm-string
+  (list c!-name c!-value))
+
+(define-cg-llvm-rule short-abstract-attr ()
+  llvm-string)
+
+(define-cg-llvm-rule abstract-attr ()
+  (|| fun-attr
+      parameter-attr
+      long-abstract-attr
+      short-abstract-attr))
+
+(define-plural-rule abstract-attrs abstract-attr whitespace)
+
+(define-instruction-rule (attribute-group attributes)
+  (let* ((id (progn (? whitespace) #\# pos-integer))
+	 (attrs (progm (progn (? whitespace) #\= (? whitespace) #\{ (? whitespace))
+		       abstract-attrs
+		       (progn (? whitespace) #\}))))
+    `(,id ,@attrs)))
+
+(define-instruction-rule (blockaddress blockaddress)
+  `(,global-identifier ,local-identifier))
+
+(defmacro define-cast-constexpr (name &body constraints)
+  (let ((rule-name (intern #?"$((string name))-TO-CONSTEXPR")))
+    `(define-instruction-rule (,rule-name ,name)
+       #\( (? whitespace)
+       (destructuring-bind (type1 value) llvm-constant
+	 whitespace "to" whitespace
+	 (let ((type2 (emit-lisp-repr (prog1 llvm-type (? whitespace) #\)))))
+	   ,@constraints
+	   `(,value ,type1 ,type2))))))
+
+(define-cast-constexpr trunc (integer->integer-based first-bitsize-larger))
+(define-cast-constexpr zext (integer->integer-based first-bitsize-smaller))
+(define-cast-constexpr sext (integer->integer-based first-bitsize-smaller))
+(define-cast-constexpr fptrunc (float->float-based first-bitsize-larger))
+(define-cast-constexpr fpext (float->float-based first-bitsize-smaller))
+(define-cast-constexpr fptoui (float->integer-based))
+(define-cast-constexpr fptosi (float->integer-based))
+(define-cast-constexpr uitofp (integer->float-based))
+(define-cast-constexpr sitofp (integer->float-based))
+(define-cast-constexpr ptrtoint (pointer->integer-based))
+(define-cast-constexpr inttoptr (integer->pointer-based))
+
+(define-cast-constexpr bitcast (bitcast-constraints))
+(define-cast-constexpr addrspacecast (pointer->pointer-based have-different-addrspaces))
+
+(define-cg-llvm-rule constant-expression ()
+  ...)
