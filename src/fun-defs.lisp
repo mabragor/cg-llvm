@@ -49,6 +49,9 @@
 (defmacro wh? (x)
   `(progn (? whitespace) ,x))
 
+(define-cg-llvm-rule wh? ()
+  (? whitespace) nil)
+
 (defmacro ?wh (x)
   `(? (progn whitespace ,x)))
 
@@ -502,9 +505,12 @@
       (descend-with-rule 'vector-constant-value type)
       (descend-with-rule 'zero-init-constant-value type)))
 
-(define-cg-llvm-rule usual-identifier-body ()
+(define-cg-llvm-rule named-identifier-body ()
   (text (list (|| alpha-char #\- #\$ #\. #\_)
 	      (times (|| alphanumeric-char #\- #\$ #\. #\_)))))
+
+(define-cg-llvm-rule unnamed-identifier-body ()
+  (text (list (postimes (character-ranges (#\0 #\9))))))
 
 (defun try-destringify-symbol (str)
   (handler-case (destringify-symbol str)
@@ -526,8 +532,9 @@
 	       #\")))
   
 (define-cg-llvm-rule identifier-body ()
-  (|| usual-identifier-body
-      llvm-string))
+  (|| named-identifier-body
+      llvm-string
+      unnamed-identifier-body))
 
 (define-cg-llvm-rule local-identifier ()
   (try-destringify-symbol (text (list #\% identifier-body))))
@@ -565,6 +572,25 @@
 
 (defun return-type-lisp-form (type attrs)
   `(,(emit-lisp-repr type) ,!m(inject-kwd-if-nonnil attrs)))
+
+(defmacro with-rule-names ((name-var) &body body)
+  `(destructuring-bind (rule-name instr-name) (if (symbolp ,name-var)
+						  (list (intern #?"$((string ,name-var))-INSTRUCTION")
+							,name-var)
+						  (list (car ,name-var) (cadr ,name-var)))
+     (declare (ignorable rule-name instr-name))
+     ,@body))
+  
+(defmacro!! define-instruction-rule (name &body body) ()
+  (with-rule-names (name)
+    (let ((body-rule-name (if (symbolp name)
+			      (intern #?"$((string name))-INSTRUCTION-BODY")
+			      (intern #?"$((string (car name)))-BODY"))))
+      `(progn (define-cg-llvm-rule ,body-rule-name ()
+		,@body)
+	      (define-cg-llvm-rule ,rule-name ()
+		(descend-with-rule 'string ,(stringify-symbol instr-name))
+		(cons ',instr-name ,body-rule-name))))))
 
 (define-instruction-rule (function-declaration declare)
   (let* ((linkage (?wh linkage-type))
@@ -767,24 +793,6 @@
 (define-cg-llvm-rule white-comma ()
   (progm (? whitespace) #\, (? whitespace)))
 
-(defmacro with-rule-names ((name-var) &body body)
-  `(destructuring-bind (rule-name instr-name) (if (symbolp ,name-var)
-						  (list (intern #?"$((string ,name-var))-INSTRUCTION")
-							,name-var)
-						  (list (car ,name-var) (cadr ,name-var)))
-     (declare (ignorable rule-name instr-name))
-     ,@body))
-  
-(defmacro!! define-instruction-rule (name &body body) ()
-  (with-rule-names (name)
-    (let ((body-rule-name (if (symbolp name)
-			      (intern #?"$((string name))-INSTRUCTION-BODY")
-			      (intern #?"$((string (car name)))-BODY"))))
-      `(progn (define-cg-llvm-rule ,body-rule-name ()
-		,@body)
-	      (define-cg-llvm-rule ,rule-name ()
-		(descend-with-rule 'string ,(stringify-symbol instr-name))
-		(cons ',instr-name ,body-rule-name))))))
 
 (defmacro define-simple-instruction-rule (name (&rest args) &body body)
   `(define-instruction-rule ,name
@@ -1780,8 +1788,8 @@
 
 (define-instruction-rule (getelementptr-constexpr getelementptr)
   (let* ((inbounds (?wh (progn "inbounds" t)))
-	 (type (progn wh? #\( wh? llvm-type))
-	 (indices indices))
+	 (type (progn wh? #\( wh? llvm-constant))
+	 (indices (progn white-comma (prog1 geteltptr-indices wh? #\)))))
     `(,type ,@indices ,!m(inject-kwd-if-nonnil inbounds))))
 
 
@@ -1793,6 +1801,23 @@
   add sub mul fadd fsub fmul frem fdiv udiv sdiv urem srem
   shl lshr ashr and or xor)
 
-(define-cg-llvm-rule constant-expression ()
+(define-cg-llvm-rule constant-expression-value ()
   (|| cast-to-constexpr
       special-constexpr))
+
+(define-cg-llvm-rule constant-expression ()
+  `(,(emit-lisp-repr llvm-type) ,(wh constant-expression-value)))
+
+(define-cg-llvm-rule symbol-table-entry ()
+  (fail-parse "Not implemented"))
+
+(define-cg-llvm-rule llvm-element ()
+  (|| global-variable-definition
+      function-declaration
+      function-definition
+      symbol-table-entry))
+
+(define-plural-rule llvm-elements llvm-element (? whitespace))
+
+(define-cg-llvm-rule llvm-module ()
+  (? whitespace) `(module ,@llvm-elements))

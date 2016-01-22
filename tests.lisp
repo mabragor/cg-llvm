@@ -315,6 +315,8 @@
 	    (((pointer (integer 32)) *@x)
 	     ((pointer (integer 32)) *@y)))
 	  "[2 x i32*] [ i32* @X, i32* @Y ]")
+    (frob '((pointer (array (integer 8) 14)) @.str)
+	  "[14 x i8]* @.str")
     ))
   
 (test metadata-constants
@@ -548,8 +550,19 @@
 				   ((pointer (integer 8)))
 				   :vararg-p t))
 		@printf
+		(((integer 32) 0) ((integer 32) 0)))
+	  call-instruction "call i32 (i8*, ...)* @printf(i32 0, i32 0)")
+    (frob (call (pointer (function (integer 32)
+				   ((pointer (integer 8)))
+				   :vararg-p t))
+		@printf
 		(((pointer (integer 8)) %msg) ((integer 32) 12) ((integer 8) 42)))
 	  call-instruction "call i32 (i8*, ...)* @printf(i8* %msg, i32 12, i8 42)")
+    (frob (call (pointer (function (integer 32) ((pointer (integer 8))) :vararg-p t)) @printf
+		(((pointer (integer 8)) (getelementptr ((pointer (array (integer 8) 14)) @.str)
+						       ((integer 32) 0) ((integer 32) 0) (:inbounds t)))))
+	  call-instruction "call i32 (i8*, ...)* @printf(i8* getelementptr inbounds
+                                                       ([14 x i8]* @.str, i32 0, i32 0))")
     (frob (call (integer 32) @foo nil (:tail :tail))
 	  call-instruction "tail call i32 @foo()")
     (frob (call (integer 32) @foo nil (:cconv :fastcc) (:tail :tail))
@@ -626,7 +639,23 @@ entry:
         %addtmp = fadd double 4.000000e+00, 5.000000e+00
         ret double %addtmp
 }")
+    (frob (cg-llvm::define (integer 32) @main nil (:fun-attrs ((:group 0)))
+			   (:body
+			    ((block
+				 (= %1
+				    (call (pointer (function (integer 32) ((pointer (integer 8))) :vararg-p t))
+					  @printf
+					  (((pointer (integer 8))
+					    (getelementptr ((pointer (array (integer 8) 14))
+							    @.str) ((integer 32) 0) ((integer 32) 0)
+							    (:inbounds t))))))
+			       (cg-llvm::ret ((integer 32) 0))))))
+	  "define i32 @main() #0 {
+             %1 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([14 x i8]* @.str, i32 0, i32 0))
+             ret i32 0
+           }")
     ))
+  
 
 
 (test target-datalayout
@@ -731,4 +760,10 @@ entry:
 	  "declare i8* @llvm.invariant.group.barrier(i8*)")
     ))
 
-
+(test constant-expressions
+  (macrolet ((frob (x y)
+	       `(is (equal ',x (cg-llvm-parse 'constant-expression-value ,y)))))
+    (frob (getelementptr ((pointer (array (integer 8) 14)) @.str)
+			 ((integer 32) 0) ((integer 32) 0)
+			 (:inbounds t))
+	  "getelementptr inbounds ([14 x i8]* @.str, i32 0, i32 0)")))
