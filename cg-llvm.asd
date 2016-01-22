@@ -1,7 +1,6 @@
 ;;;; cg-llvm.asd
 
 (asdf:defsystem #:cg-llvm
-  :serial t
   :description "Generate LLVM IR, without using fantastic C++ API."
   :author "Alexandr Popolitov <popolit@gmail.com>"
   :license "GPL"
@@ -9,10 +8,17 @@
 				      #:esrap-liquid #:optima #:defmacro-enhance
 				      #:quasiquote-2.0 #:parse-number)
   :pathname "src/"
+  :serial t
   :components ((:file "package")
 	       (:file "types-macros")
 	       (:file "types")
 	       (:file "fun-defs")
+	       (:file "identifiers")
+	       (:file "constants")
+	       (:file "metadata")
+	       (:file "instructions")
+	       (:file "constant-expressions")
+	       (:file "high-level-structure")
 	       ;; (:file "basics")
 	       ))
 
