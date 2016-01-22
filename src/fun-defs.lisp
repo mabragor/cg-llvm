@@ -1507,8 +1507,8 @@
   (|| vararg-sign
       (let* ((type (emit-lisp-repr llvm-type))
 	     (attrs (?wh parameter-attrs))
-	     (id (wh? local-identifier)))
-	`(,type ,id ,!m(inject-kwd-if-nonnil attrs)))))
+	     (id (? (wh? local-identifier))))
+	`(,type ,!m(inject-if-nonnil id) ,!m(inject-kwd-if-nonnil attrs)))))
 
 (define-plural-rule %declfun-args declfun-arg white-comma)
 

@@ -490,11 +490,11 @@
       (frob1 (:add ((pointer (integer 32)) %ptr) ((integer 32) 1) (:ordering :acquire))
 	     "add i32* %ptr, i32 1 acquire"))))
 
-(test complex-memory-instructions
-  (macrolet ((frob (x y z)
-	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
-    (with-frob1 getelementptr
-      (frob1 nil "inbounds %struct.ST, %struct.ST* %s, i64 1, i32 2, i32 1, i64 5, i64 13"))))
+;; (test complex-memory-instructions
+;;   (macrolet ((frob (x y z)
+;; 	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
+;;     (with-frob1 getelementptr
+;;       (frob1 nil "inbounds %struct.ST, %struct.ST* %s, i64 1, i32 2, i32 1, i64 5, i64 13"))))
 
     ;;   (frob1 nil "%struct.ST, %struct.ST* %s, i32 1")
     ;;   (frob1 nil "%struct.ST, %struct.ST* %t1, i32 0, i32 2")
