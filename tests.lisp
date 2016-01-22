@@ -52,9 +52,9 @@
     (frob (cg-llvm::struct ((integer 8) (integer 32)) :packed-p t)
 	  "<{ i8, i32 }>"))
   (is (equal 'cg-llvm::opaque (emit-lisp-repr (cg-llvm-parse 'struct "opaque"))))
-  (is (equal '(cg-llvm::named +%struct.-s-t)
+  (is (equal '(cg-llvm::named +-%struct.-s-t)
 	     (emit-lisp-repr (cg-llvm-parse 'llvm-type "%struct.ST"))))
-  (is (equal '(pointer (cg-llvm::named +%struct.-s-t))
+  (is (equal '(pointer (cg-llvm::named +-%struct.-s-t))
 	     (emit-lisp-repr (cg-llvm-parse 'llvm-type "%struct.ST*")))))
     
 
@@ -315,6 +315,8 @@
 	    (((pointer (integer 32)) *@x)
 	     ((pointer (integer 32)) *@y)))
 	  "[2 x i32*] [ i32* @X, i32* @Y ]")
+    (frob '((pointer (array (integer 8) 14)) @.str)
+	  "[14 x i8]* @.str")
     ))
   
 (test metadata-constants
@@ -348,7 +350,8 @@
 	    ((integer 32))
 	    (:linkage :private)
 	    (:unnamed-addr t))
-	  "declare private unnamed_addr i32 @foo (i32 %a zeroext, i8* %b)")))
+	  "declare private unnamed_addr i32 @foo (i32 zeroext %a , i8* %b)")))
+
 
 (test thread-local
   (is (equal '(:thread-local t) (cg-llvm-parse 'thread-local "thread_local")))
@@ -490,11 +493,11 @@
       (frob1 (:add ((pointer (integer 32)) %ptr) ((integer 32) 1) (:ordering :acquire))
 	     "add i32* %ptr, i32 1 acquire"))))
 
-(test complex-memory-instructions
-  (macrolet ((frob (x y z)
-	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
-    (with-frob1 getelementptr
-      (frob1 nil "inbounds %struct.ST, %struct.ST* %s, i64 1, i32 2, i32 1, i64 5, i64 13"))))
+;; (test complex-memory-instructions
+;;   (macrolet ((frob (x y z)
+;; 	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
+;;     (with-frob1 getelementptr
+;;       (frob1 nil "inbounds %struct.ST, %struct.ST* %s, i64 1, i32 2, i32 1, i64 5, i64 13"))))
 
     ;;   (frob1 nil "%struct.ST, %struct.ST* %s, i32 1")
     ;;   (frob1 nil "%struct.ST, %struct.ST* %t1, i32 0, i32 2")
@@ -548,8 +551,19 @@
 				   ((pointer (integer 8)))
 				   :vararg-p t))
 		@printf
+		(((integer 32) 0) ((integer 32) 0)))
+	  call-instruction "call i32 (i8*, ...)* @printf(i32 0, i32 0)")
+    (frob (call (pointer (function (integer 32)
+				   ((pointer (integer 8)))
+				   :vararg-p t))
+		@printf
 		(((pointer (integer 8)) %msg) ((integer 32) 12) ((integer 8) 42)))
 	  call-instruction "call i32 (i8*, ...)* @printf(i8* %msg, i32 12, i8 42)")
+    (frob (call (pointer (function (integer 32) ((pointer (integer 8))) :vararg-p t)) @printf
+		(((pointer (integer 8)) (getelementptr ((pointer (array (integer 8) 14)) @.str)
+						       ((integer 32) 0) ((integer 32) 0) (:inbounds t)))))
+	  call-instruction "call i32 (i8*, ...)* @printf(i8* getelementptr inbounds
+                                                       ([14 x i8]* @.str, i32 0, i32 0))")
     (frob (call (integer 32) @foo nil (:tail :tail))
 	  call-instruction "tail call i32 @foo()")
     (frob (call (integer 32) @foo nil (:cconv :fastcc) (:tail :tail))
@@ -626,7 +640,23 @@ entry:
         %addtmp = fadd double 4.000000e+00, 5.000000e+00
         ret double %addtmp
 }")
+    (frob (cg-llvm::define (integer 32) @main nil (:fun-attrs ((:group 0)))
+			   (:body
+			    ((block
+				 (= %1
+				    (call (pointer (function (integer 32) ((pointer (integer 8))) :vararg-p t))
+					  @printf
+					  (((pointer (integer 8))
+					    (getelementptr ((pointer (array (integer 8) 14))
+							    @.str) ((integer 32) 0) ((integer 32) 0)
+							    (:inbounds t))))))
+			       (cg-llvm::ret ((integer 32) 0))))))
+	  "define i32 @main() #0 {
+             %1 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([14 x i8]* @.str, i32 0, i32 0))
+             ret i32 0
+           }")
     ))
+  
 
 
 (test target-datalayout
@@ -730,4 +760,12 @@ entry:
 		   ((pointer (integer 8))))
 	  "declare i8* @llvm.invariant.group.barrier(i8*)")
     ))
+
+(test constant-expressions
+  (macrolet ((frob (x y)
+	       `(is (equal ',x (cg-llvm-parse 'constant-expression-value ,y)))))
+    (frob (getelementptr ((pointer (array (integer 8) 14)) @.str)
+			 ((integer 32) 0) ((integer 32) 0)
+			 (:inbounds t))
+	  "getelementptr inbounds ([14 x i8]* @.str, i32 0, i32 0)")))
 
