@@ -344,11 +344,11 @@
 	       `(is (equal ,x (cg-llvm-parse 'function-declaration ,y)))))
     (frob '(declare @foo (((integer 32) %a) ((pointer (integer 8)) %b)) ((integer 32)))
 	  "declare i32 @foo (i32 %a , i8* %b)")
-    (frob '(declare @foo (((integer 32) %a (:attrs :zeroext)) ((pointer (integer 8)) %b))
+    (frob '(declare @foo (((integer 32) %a (:attrs (:zeroext))) ((pointer (integer 8)) %b))
+	    ((integer 32))
 	    (:linkage :private)
-	    (:unnamed-addr t)
-	    ((integer 32)))
-	  "declare private unnamed_addr i32 @foo (i32 zeroext %a , i8* %b)")))
+	    (:unnamed-addr t))
+	  "declare private unnamed_addr i32 @foo (i32 %a zeroext, i8* %b)")))
 
 (test thread-local
   (is (equal '(:thread-local t) (cg-llvm-parse 'thread-local "thread_local")))
@@ -730,5 +730,4 @@ entry:
 		   ((pointer (integer 8))))
 	  "declare i8* @llvm.invariant.group.barrier(i8*)")
     ))
-
 

@@ -1638,4 +1638,4 @@
 (define-cast-constexpr addrspacecast (pointer->pointer-based have-different-addrspaces))
 
 (define-cg-llvm-rule constant-expression ()
-  ...)
+  (fail-parse "Not implemented yet!"))
