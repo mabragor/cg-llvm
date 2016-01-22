@@ -980,15 +980,15 @@
   
 
 (defmacro define-integer-binop-definer (name &optional prefix)
-  (let ((constexpr-name (intern #?"$((string name))-CONSTEXPR")))
-    `(defmacro ,name (name)
+  `(defmacro ,name (name)
+     (let ((constexpr-name (intern #?"$((string name))-CONSTEXPR")))
        (with-rule-names (name)
 	 `(progn (define-instruction-rule ,name
 		   (,,(if prefix
 			  (intern #?"WITH-$((string prefix))-PREFIX")
 			  'progn)
 		      ,@(binop-instruction-body instr-name 'integer)))
-		 (define-instruction-rule (,,constexpr-name ,instr-name)
+		 (define-instruction-rule (,constexpr-name ,instr-name)
 		   (,,(if prefix
 			  (intern #?"WITH-$((string prefix))-PREFIX")
 			  'progn)
@@ -1505,10 +1505,10 @@
 
 (define-cg-llvm-rule declfun-arg ()
   (|| vararg-sign
-      (let* ((arg (|| long-defun-arg
-		      short-defun-arg))
-	     (attrs (?wh parameter-attrs)))
-	`(,@arg ,!m(inject-kwd-if-nonnil attrs)))))
+      (let* ((type (emit-lisp-repr llvm-type))
+	     (attrs (?wh parameter-attrs))
+	     (id (wh? local-identifier)))
+	`(,type ,id ,!m(inject-kwd-if-nonnil attrs)))))
 
 (define-plural-rule %declfun-args declfun-arg white-comma)
 

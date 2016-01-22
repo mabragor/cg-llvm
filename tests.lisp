@@ -52,9 +52,9 @@
     (frob (cg-llvm::struct ((integer 8) (integer 32)) :packed-p t)
 	  "<{ i8, i32 }>"))
   (is (equal 'cg-llvm::opaque (emit-lisp-repr (cg-llvm-parse 'struct "opaque"))))
-  (is (equal '(cg-llvm::named +%struct.-s-t)
+  (is (equal '(cg-llvm::named +-%struct.-s-t)
 	     (emit-lisp-repr (cg-llvm-parse 'llvm-type "%struct.ST"))))
-  (is (equal '(pointer (cg-llvm::named +%struct.-s-t))
+  (is (equal '(pointer (cg-llvm::named +-%struct.-s-t))
 	     (emit-lisp-repr (cg-llvm-parse 'llvm-type "%struct.ST*")))))
     
 
@@ -344,10 +344,10 @@
 	       `(is (equal ,x (cg-llvm-parse 'function-declaration ,y)))))
     (frob '(declare @foo (((integer 32) %a) ((pointer (integer 8)) %b)) ((integer 32)))
 	  "declare i32 @foo (i32 %a , i8* %b)")
-    (frob '(declare @foo (((integer 32) %a (:attrs :zeroext)) ((pointer (integer 8)) %b))
+    (frob '(declare @foo (((integer 32) %a (:attrs (:zeroext))) ((pointer (integer 8)) %b))
+	    ((integer 32))
 	    (:linkage :private)
-	    (:unnamed-addr t)
-	    ((integer 32)))
+	    (:unnamed-addr t))
 	  "declare private unnamed_addr i32 @foo (i32 zeroext %a , i8* %b)")))
 
 (test thread-local
