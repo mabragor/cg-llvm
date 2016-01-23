@@ -2,7 +2,8 @@
 
 (defpackage :cg-llvm-tests
   (:use :cl :cg-llvm :fiveam :iterate :cl-read-macro-tokens)
-  (:shadowing-import-from #:cg-llvm #:join)
+  (:shadowing-import-from #:cg-llvm #:join
+			  #:meta-str #:meta-node #:meta-id%)
   (:export #:run-tests))
 
 (in-package :cg-llvm-tests)
@@ -318,18 +319,18 @@
     (frob '((pointer (array (integer 8) 14)) @.str)
 	  "[14 x i8]* @.str")
     ))
-  
+
 (test metadata-constants
   (macrolet ((frob (x y)
-	       `(is (equal ,x (cg-llvm-parse 'metadata-node ,y)))))
-    (frob '(:metadata-ref 24) "!24")
-    (frob '(:metadata (:metadata-ref 4) (:metadata-ref 3)) "!{!4, !3}")
-    (frob '(:metadata (:metadata #?"test\0") ((integer 32) 10)) "!{ !\"test\\00\", i32 10}")
-    (frob '(:metadata (:metadata-ref 0) (:metadata (:metadata-ref 2) (:metadata-ref 0)) (:metadata "test"))
+	       `(is (equal ,x (cg-llvm-parse 'metadata-constant ,y)))))
+    (frob '(meta-id 24) "!24")
+    (frob '(meta-node (meta-id 4) (meta-id 3)) "!{!4, !3}")
+    (frob '(meta-node (meta-str #?"test\0") ((integer 32) 10)) "!{ !\"test\\00\", i32 10}")
+    (frob '(meta-node (meta-id 0) (meta-node (meta-id 2) (meta-id 0)) (meta-str "test"))
 	  "!{!0, !{!2, !0}, !\"test\"}")
-    (frob '(:metadata (:metadata-ref 0) ((integer 32) 0) ((pointer (integer 8)) @global)
+    (frob '(meta-node (meta-id 0) ((integer 32) 0) ((pointer (integer 8)) @global)
 	    ((pointer (function (integer 64) ((integer 64)) :vararg-p nil)) @function)
-	    (:metadata "str"))
+	    (meta-str "str"))
 	  "!{!0, i32 0, i8* @global, i64 (i64)* @function, !\"str\"}")
     ))
 	  

@@ -99,7 +99,7 @@
 
 (define-cg-llvm-rule llvm-constant ()
   (|| ordinary-constant
-      metadata-node))
+      metadata-constant))
 
 (define-cg-llvm-rule llvm-constant-value (type)
   (|| (descend-with-rule 'ordinary-constant-value type)

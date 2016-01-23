@@ -13,19 +13,16 @@
 
 
 (define-cg-llvm-rule metadata-string ()
-  #\! `(:metadata ,llvm-string))
+  #\! `(meta-str ,llvm-string))
 
-(define-cg-llvm-rule named-metadata-identifier ()
-  ;; TODO : I don't know precisely what is allowed as a name for named metadata
-  #\! `(:metadata-ref ,alphanumeric-word))
+(define-cg-llvm-rule metadata-identifier ()
+  #\! `(meta-id ,(let ((it identifier-body))
+		      (handler-case (parse-integer it)
+			(error () (try-destringify-symbol it))))))
 
-(define-cg-llvm-rule unnamed-metadata-identifier ()
-  ;; TODO : I don't know precisely what is allowed as a name for named metadata
-  #\! `(:metadata-ref ,pos-integer))
-
-(define-cg-llvm-rule metadata-structure ()
-  #\! #\{ (? whitespace) c!-1-metadata-nodes #\}
-  `(:metadata ,@c!-1))
+(define-cg-llvm-rule metadata-node ()
+  #\! #\{ wh? c!-1-metadata-node-operands #\}
+  `(meta-node ,@c!-1))
   
 (define-cg-llvm-rule specialized-metadata ()
   (fail-parse "Specialized metadata not implemented yet"))
@@ -101,13 +98,23 @@
 (define-specialized-metadata m-d-imported-entity
     tag name scope entity line)
 
-
-(define-cg-llvm-rule metadata-node ()
+(define-cg-llvm-rule metadata-constant ()
   (|| metadata-string
-      unnamed-metadata-identifier
-      named-metadata-identifier
-      ordinary-constant
-      metadata-structure
+      metadata-identifier
+      metadata-node
       specialized-metadata))
 
-(define-plural-rule metadata-nodes metadata-node (progn (? whitespace) #\, (? whitespace)))
+(define-plural-rule metadata-node-operands metadata-node-operand white-comma)
+
+(define-cg-llvm-rule metadata-node-operand ()
+  ;; TODO : maybe this will turn out to be not exactly correct
+  ;; but this is the best I can get for now from LLVM language reference manual.
+  llvm-constant)
+
+(define-cg-llvm-rule metadata-entry ()
+  (let* ((id metadata-identifier))
+    wh? #\=
+    (let* ((distinct (?wh? (progn "distinct" t)))
+	   (node (progn wh? metadata-node)))
+      `(= ,id ,node
+	  ,!m(inject-kwd-if-nonnil distinct)))))

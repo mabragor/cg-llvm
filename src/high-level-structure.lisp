@@ -10,6 +10,7 @@
       target-triple
       inline-assembly
       attribute-group
+      metadata-entry
       (fail-parse "Not implemented")))
 
 (define-cg-llvm-rule llvm-element ()
