@@ -789,8 +789,8 @@
 (define-cg-llvm-rule fundef-metadata-entry ()
   ;; TODO : in future the syntax of LLVM will likely become more flexible,
   ;;        and hence this place would have to be changed.
-  (cons metadata-identifier
-	metadata-identifier))
+  (list metadata-identifier
+	(progn whitespace metadata-identifier)))
 
 (define-plural-rule fundef-metadata fundef-metadata-entry whitespace)
 
@@ -812,7 +812,7 @@
 	 (prefix (?wh prefix))
 	 (prologue (?wh prologue))
 	 (personality (?wh personality))
-	 (metadata (? fundef-metadata))
+	 (metadata (?wh? fundef-metadata))
 	 (body (wh? function-body)))
     `(,type ,fname ,args
 	    ,!m(inject-kwds-if-nonnil linkage visibility dll-storage-class

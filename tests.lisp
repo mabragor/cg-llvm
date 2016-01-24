@@ -645,9 +645,11 @@ entry:
         ret double %addtmp
 }")
     (frob (define (float 64 32) @ nil
-	    (:metadata (((meta-id dbg) . (meta-id 0))
-			((meta-id asdf) . (meta-id 100))))
-	    (:body nil))
+	    (:metadata (((meta-id dbg) (meta-id 0))
+			((meta-id asdf) (meta-id 100))))
+	    (:body ((block (:label %entry)
+		      (= %addtmp (fadd (float 64 32) 4.0 5.0))
+		      (ret ((float 64 32) %addtmp))))))
 	  "define double @\"\"() !dbg !0 !asdf !100 {
 entry:
         %addtmp = fadd double 4.000000e+00, 5.000000e+00
@@ -780,9 +782,10 @@ entry:
 			 (:inbounds t))
 	  "getelementptr inbounds ([14 x i8]* @.str, i32 0, i32 0)")))
 
-(elt-test funcall-arg
+(elt-test funcall-args
 	  (meta-id 0) "metadata !0"
 	  (meta-node (meta-id 0) (meta-id 1) (meta-id 2)) "metadata !{!0, !1, !2}")
 
 (elt-test fundef-metadatas
-	  nil "!dbg !0 !asdf !100")
+	  (((meta-id dbg) (meta-id 0)) ((meta-id asdf) (meta-id 100)))
+	  "!dbg !0 !asdf !100")
