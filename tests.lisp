@@ -11,7 +11,7 @@
 			  #:void #:x86-mmx #:nbits #:pointer #:struct #:opaque #:named
 			  #:alias #:comdat #:asm #:target-triple
 			  #:attributes #:ret #:target-datalayout #:br #:resume #:unreachable
-			  #:fmul #:define #:label
+			  #:fmul #:define #:label #:blockaddress
 			  ;; #:*context* #:reset-tmp-var-counts
 			  ;; END of symbols I have to manually include, so that parsing is done correctly
 			  )
@@ -789,3 +789,11 @@ entry:
 (elt-test fundef-metadatas
 	  (((meta-id dbg) (meta-id 0)) ((meta-id asdf) (meta-id 100)))
 	  "!dbg !0 !asdf !100")
+
+(elt-test blockaddresss
+	  (blockaddress @foo %bar) "blockaddress(@foo, %bar )")
+	  
+(elt-test (instructions-with-metadata nonfinal-statement)
+	  (= %indvar.next (add (integer 64) %indvar 1 (:metadata (((meta-id dbg) (meta-id 21))))))
+	  "%indvar.next = add i64 %indvar, 1, !dbg !21")
+

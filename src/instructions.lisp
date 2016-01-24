@@ -208,7 +208,7 @@
 			  (intern #?"WITH-$((string prefix))-PREFIX")
 			  'progn)
 		      ,@(binop-instruction-body instr-name 'integer)))
-		 (define-instruction-rule (,constexpr-name ,instr-name)
+		 (define-op-rule (,constexpr-name ,instr-name)
 		   (,,(if prefix
 			  (intern #?"WITH-$((string prefix))-PREFIX")
 			  'progn)
@@ -224,7 +224,7 @@
       `(progn (define-instruction-rule ,name
 		(with-fast-math-flags-prefix
 		  ,@(binop-instruction-body instr-name type)))
-	      (define-instruction-rule (,constexpr-name ,instr-name)
+	      (define-op-rule (,constexpr-name ,instr-name)
 		(with-fast-math-flags-prefix
 		  ,@(binop-instruction-body instr-name type)))))))
 
@@ -794,7 +794,7 @@
 
 (define-plural-rule fundef-metadata fundef-metadata-entry whitespace)
 
-(define-instruction-rule (function-definition define)
+(define-op-rule (function-definition define)
   (let* ((linkage (?wh linkage-type))
 	 (visibility (?wh visibility-style))
 	 (dll-storage-class (?wh dll-storage-class))
@@ -868,13 +868,14 @@
 
 (define-plural-rule abstract-attrs abstract-attr whitespace)
 
-(define-instruction-rule (attribute-group attributes)
+(define-op-rule (attribute-group attributes)
   (let* ((id (progn (? whitespace) #\# pos-integer))
 	 (attrs (progm (progn (? whitespace) #\= (? whitespace) #\{ (? whitespace))
 		       abstract-attrs
 		       (progn (? whitespace) #\}))))
     `(,id ,@attrs)))
 
-(define-instruction-rule (blockaddress blockaddress)
-  `(,global-identifier ,local-identifier))
+(define-op-rule (blockaddress blockaddress)
+  wh? #\( c!-1-global-identifier white-comma c!-2-local-identifier wh? #\)
+  `(,c!-1 ,c!-2))
 

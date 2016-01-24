@@ -8,7 +8,7 @@
 
 (defmacro define-cast-constexpr (name &body constraints)
   (let ((rule-name (intern #?"$((string name))-TO-CONSTEXPR")))
-    `(define-instruction-rule (,rule-name ,name)
+    `(define-op-rule (,rule-name ,name)
        #\( (? whitespace)
        (destructuring-bind (type1 value) llvm-constant
 	 whitespace "to" whitespace
@@ -35,7 +35,7 @@
   trunc zext sext fptrunc fpext fptoui fptosi uitofp sitofp ptrtoint inttoptr
   bitcast addrspacecast)
 
-(define-instruction-rule (select-constexpr select)
+(define-op-rule (select-constexpr select)
   (let* ((cond (?wh (progn #\( wh? (let ((it llvm-constant))
 				     (if (not (or (llvm-typep '(integer 1) (car it))
 						  (llvm-typep '(vector (integer 1) *) (car it))))
@@ -63,7 +63,7 @@
 (defmacro define-cmp-constexpr (name typecheck &rest errinfo)
   (let ((macro-name (intern #?"$((string name))-KWDS"))
 	(constexpr-name (intern #?"$((string name))-CONSTEXPR")))
-    `(define-instruction-rule (,constexpr-name ,name)
+    `(define-op-rule (,constexpr-name ,name)
        (let* ((cond (wh (,macro-name)))
 	      (val1 (progn wh? #\( wh? llvm-constant))
 	      (val2 (prog1 (progn white-comma llvm-constant) wh? #\))))
@@ -85,7 +85,7 @@
   "Type of arguments of FCMP constexpr should be FLOAT or~
     VECTOR of FLOATs")
 
-(define-instruction-rule (insertvalue-constexpr insertvalue)
+(define-op-rule (insertvalue-constexpr insertvalue)
   (let ((val (progn wh? #\( wh? llvm-constant)))
     (if (not (or (llvm-typep '(struct ***) (car val))
 		 (llvm-typep '(array ***) (car val))))
@@ -96,7 +96,7 @@
       ;; TODO : check that elt has same type as elt of val
       `(,val ,elt ,@indices))))
 
-(define-instruction-rule (extractvalue-constexpr extractvalue)
+(define-op-rule (extractvalue-constexpr extractvalue)
   (let ((val (progn wh? #\( wh? llvm-constant)))
     (if (not (or (llvm-typep '(struct ***) (car val))
 		 (llvm-typep '(array ***) (car val))))
@@ -106,7 +106,7 @@
       ;; TODO : check that elt has same type as elt of val
       `(,val ,@indices))))
 
-(define-instruction-rule (shufflevector-constexpr shufflevector)
+(define-op-rule (shufflevector-constexpr shufflevector)
   (let* ((v1 (progn wh? #\( wh? llvm-constant))
 	 (v2 (progn white-comma llvm-constant))
 	 (mask (prog1 (progn white-comma llvm-constant) wh? #\))))
@@ -118,7 +118,7 @@
 	(fail-parse "V1 and V2 must have same subtype"))
     `(,v1 ,v2 ,mask)))
 
-(define-instruction-rule (extractelement-constexpr extractelement)
+(define-op-rule (extractelement-constexpr extractelement)
   (let* ((val (progn wh? #\( wh? llvm-constant))
 	(idx (prog1 (progn white-comma llvm-constant) wh? #\))))
     (if (not (llvm-typep '(vector ***) (car val)))
@@ -127,7 +127,7 @@
 	(fail-parse-format "EXTRACTELEMENT constexpr 2nd arg is integer type, but got: ~a" (car idx)))
     `(,val ,idx)))
 
-(define-instruction-rule (insertelement-constexpr insertelement)
+(define-op-rule (insertelement-constexpr insertelement)
   (let* ((val (progn wh? #\( wh? llvm-constant))
 	 (elt (progn white-comma llvm-constant))
 	 (idx (prog1 (progn white-comma llvm-constant) wh? #\))))
@@ -140,7 +140,7 @@
     `(,val ,elt ,idx)))
 
 
-(define-instruction-rule (getelementptr-constexpr getelementptr)
+(define-op-rule (getelementptr-constexpr getelementptr)
   (let* ((inbounds (?wh (progn "inbounds" t)))
 	 (type (progn wh? #\( wh? llvm-constant))
 	 (indices (progn white-comma (prog1 geteltptr-indices wh? #\)))))

@@ -250,7 +250,7 @@
      (declare (ignorable rule-name instr-name))
      ,@body))
   
-(defmacro!! define-instruction-rule (name &body body) ()
+(defmacro!! define-op-rule (name &body body) ()
   (with-rule-names (name)
     (let ((body-rule-name (if (symbolp name)
 			      (intern #?"$((string name))-INSTRUCTION-BODY")
@@ -261,7 +261,18 @@
 		(descend-with-rule 'string ,(stringify-symbol instr-name))
 		(cons ',instr-name ,body-rule-name))))))
 
-(define-instruction-rule (function-declaration declare)
+(define-plural-rule instruction-metadata fundef-metadata-entry white-comma)
+
+(defmacro!! define-instruction-rule (name &body body) ()
+  `(define-op-rule ,name
+     (let ((body (progn ,@body))
+	   (metadata (? (progn white-comma instruction-metadata))))
+       (if metadata
+	   (append body (list (list :metadata metadata)))
+	   body))))
+	       
+
+(define-op-rule (function-declaration declare)
   (let* ((linkage (?wh linkage-type))
 	 (visibility (?wh visibility-style))
 	 (dll-storage-class (?wh dll-storage-class))
