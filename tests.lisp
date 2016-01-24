@@ -1,20 +1,10 @@
 (in-package :cl-user)
 
 (defpackage :cg-llvm-tests
-  (:use :cl :cg-llvm :fiveam :iterate :cl-read-macro-tokens :defmacro-enhance)
+  (:use :cl :cg-llvm :fiveam :iterate :cl-read-macro-tokens :defmacro-enhance
+	:cg-llvm-symbols)
   (:import-from #:cg-common-ground #:pairs)
-  (:shadowing-import-from #:cg-llvm #:join
-			  ;; BEGIN of symbols I have to manually include, so that parsing is done correctly
-			  ;; This is, of course, a KLUDGE -- symbols should be accurately exported, perhaps,
-			  ;; through auxilliary package
-			  #:meta-str #:meta-node #:meta-id
-			  #:void #:x86-mmx #:nbits #:pointer #:struct #:opaque #:named
-			  #:alias #:comdat #:asm #:target-triple
-			  #:attributes #:ret #:target-datalayout #:br #:resume #:unreachable
-			  #:fmul #:define #:label #:blockaddress #:module
-			  ;; #:*context* #:reset-tmp-var-counts
-			  ;; END of symbols I have to manually include, so that parsing is done correctly
-			  )
+  (:shadowing-import-from #:cg-llvm #:join)
   (:export #:run-tests))
 
 (in-package :cg-llvm-tests)

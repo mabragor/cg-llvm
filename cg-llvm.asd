@@ -20,6 +20,7 @@
 	       (:file "instructions")
 	       (:file "constant-expressions")
 	       (:file "high-level-structure")
+	       (:file "package-post")
 	       ;; (:file "basics")
 	       ))
 
