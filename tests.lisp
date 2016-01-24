@@ -3,7 +3,7 @@
 (defpackage :cg-llvm-tests
   (:use :cl :cg-llvm :fiveam :iterate :cl-read-macro-tokens)
   (:shadowing-import-from #:cg-llvm #:join
-			  #:meta-str #:meta-node #:meta-id%)
+			  #:meta-str #:meta-node #:meta-id)
   (:export #:run-tests))
 
 (in-package :cg-llvm-tests)
@@ -333,7 +333,13 @@
 	    (meta-str "str"))
 	  "!{!0, i32 0, i8* @global, i64 (i64)* @function, !\"str\"}")
     ))
-	  
+
+(test metadata-entries
+  (macrolet ((frob (x y)
+	       `(is (equal ,x (cg-llvm-parse 'metadata-entry ,y)))))
+    (frob `(= (meta-id 0) (meta-node (meta-str ,#?"test\0") ((integer 32) 10)) (:distinct t))
+	  "!0 = distinct !{!\"test\\00\", i32 10}")))
+  
   
 
 (test llvm-identifier
@@ -770,3 +776,11 @@ entry:
 			 (:inbounds t))
 	  "getelementptr inbounds ([14 x i8]* @.str, i32 0, i32 0)")))
 
+(test funcall-args
+  (macrolet ((frob (x y)
+	       `(is (equal ',x (cg-llvm-parse 'funcall-arg ,y)))))
+    (frob (meta-id 0) "metadata !0")
+    (frob (meta-node (meta-id 0) (meta-id 1) (meta-id 2)) "metadata !{!0, !1, !2}")
+    ))
+  
+  

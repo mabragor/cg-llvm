@@ -104,6 +104,9 @@
       metadata-node
       specialized-metadata))
 
+(define-cg-llvm-rule metadata-funcall-arg ()
+  "metadata" whitespace metadata-constant)
+
 (define-plural-rule metadata-node-operands metadata-node-operand white-comma)
 
 (define-cg-llvm-rule metadata-node-operand ()

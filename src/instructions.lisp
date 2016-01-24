@@ -693,10 +693,13 @@
       `(call ,type ,fnptrval ,args
 	     ,!m(inject-kwds-if-nonnil cconv return-attrs ftype fun-attrs tail)))))
 
-(define-cg-llvm-rule funcall-arg ()
+(define-cg-llvm-rule usual-funcall-arg ()
   (let ((instr-arg instr-arg)
 	(attrs (?wh parameter-attrs)))
     `(,@instr-arg ,@(if attrs `((:attrs ,@attrs))))))
+
+(define-cg-llvm-rule funcall-arg ()
+  (|| usual-funcall-arg metadata-funcall-arg))
 
 (define-plural-rule funcall-args funcall-arg white-comma)
 
