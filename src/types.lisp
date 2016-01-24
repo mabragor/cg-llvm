@@ -260,7 +260,14 @@
 
 ;;; parsing
 (define-cg-llvm-rule whitespace ()
-  (postimes (|| #\space #\tab #\newline #\return)))
+  (postimes (|| #\space #\tab #\newline #\return
+		llvm-comment)))
+
+(define-cg-llvm-rule llvm-comment ()
+  ;; we just totally ignore comments, replacing them with single space (C-style)
+  #\; (times (!! (|| #\newline #\return)))
+  (literal-char #\space))
+  
 
 (define-cg-llvm-rule ns-dec-digit ()
   (character-ranges (#\0 #\9)))

@@ -1,9 +1,10 @@
 ;;;; cg-llvm.asd
 
 (asdf:defsystem #:cg-llvm
-  :description "Generate LLVM IR, without using fantastic C++ API."
+  :description "Parse and generate LLVM IR, without using fantastic C++ API, purely in CL."
   :author "Alexandr Popolitov <popolit@gmail.com>"
-  :license "GPL"
+  :license "MIT"
+  :version "0.1"
   :depends-on (#:cl-trivial-templates #:cl-ppcre #:cl-interpol #:iterate #:cg-common-ground #:lol-re
 				      #:esrap-liquid #:optima #:defmacro-enhance
 				      #:quasiquote-2.0 #:parse-number)
@@ -26,7 +27,7 @@
 
 (defsystem :cg-llvm-tests
   :description "Tests for CG-LLVM."
-  :licence "GPL"
+  :licence "MIT"
   :depends-on (:cg-llvm :fiveam :cl-interpol)
   :components ((:file "tests")))
 

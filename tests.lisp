@@ -11,7 +11,7 @@
 			  #:void #:x86-mmx #:nbits #:pointer #:struct #:opaque #:named
 			  #:alias #:comdat #:asm #:target-triple
 			  #:attributes #:ret #:target-datalayout #:br #:resume #:unreachable
-			  #:fmul #:define #:label #:blockaddress
+			  #:fmul #:define #:label #:blockaddress #:module
 			  ;; #:*context* #:reset-tmp-var-counts
 			  ;; END of symbols I have to manually include, so that parsing is done correctly
 			  )
@@ -797,3 +797,65 @@ entry:
 	  (= %indvar.next (add (integer 64) %indvar 1 (:metadata (((meta-id dbg) (meta-id 21))))))
 	  "%indvar.next = add i64 %indvar, 1, !dbg !21")
 
+(elt-test llvm-comments
+	  #\space ";   asdf")
+
+(elt-test llvm-modules
+	  (module
+	   (target-datalayout (:endianness :little) (:mangling :elf) (:integer 64 (:abi 64))
+			      (:float 80 (:abi 128)) (:native-integers 8 16 32 64) (:stack 128))
+	   (target-triple (:arch "x86_64") (:vendor "unknown") (:system "linux") (:env "gnu"))
+	   (:global-var @.str (array (integer 8) 13)
+			(((integer 8) 72) ((integer 8) 101) ((integer 8) 108) ((integer 8) 108)
+			 ((integer 8) 111) ((integer 8) 32) ((integer 8) 119) ((integer 8) 111)
+			 ((integer 8) 114) ((integer 8) 108) ((integer 8) 100) ((integer 8) 33) ((integer 8) 0))
+			(:linkage :private) (:unnamed-addr t) (:constant t) (:align 1))
+	   (define (integer 32) @main nil (:fun-attrs ((:group 0)))
+		   (:body
+		    ((block (:label %entry)
+		       (= %retval (alloca (integer 32) (:align 4)))
+		       (store ((integer 32) 0) ((pointer (integer 32)) %retval))
+		       (= %call
+			  (call (pointer (function (integer 32) ((pointer (integer 8))) :vararg-p t)) @printf
+				(((pointer (integer 8)) (getelementptr ((pointer (array (integer 8) 13)) @.str)
+								       ((integer 32) 0) ((integer 32) 0)
+								       (:inbounds t))))))
+		       (ret ((integer 32) 0))))))
+	   (declare @printf
+		    (((pointer (integer 8))) :vararg)
+		    ((integer 32))
+		    (:fun-attrs ((:group 1))))
+	   (attributes 0 :nounwind :uwtable ("less-precise-fpmad" "false") ("no-frame-pointer-elim" "true")
+		       "no-frame-pointer-elim-non-leaf" ("no-infs-fp-math" "false")
+		       ("no-nans-fp-math" "false") ("stack-protector-buffer-size" "8")
+		       ("unsafe-fp-math" "false") ("use-soft-float" "false"))
+	   (attributes 1 ("less-precise-fpmad" "false") ("no-frame-pointer-elim" "true")
+		       "no-frame-pointer-elim-non-leaf" ("no-infs-fp-math" "false")
+		       ("no-nans-fp-math" "false") ("stack-protector-buffer-size" "8")
+		       ("unsafe-fp-math" "false") ("use-soft-float" "false"))
+	   (= (meta-id llvm.ident) (meta-node (meta-id 0)))
+	   (= (meta-id 0) (meta-node (meta-str "clang version 3.6.2 (branches/release_36 255700)"))))
+	  "; ModuleID = 'hello-world.c'
+target datalayout = \"e-m:e-i64:64-f80:128-n8:16:32:64-S128\"
+target triple = \"x86_64-unknown-linux-gnu\"
+
+@.str = private unnamed_addr constant [13 x i8] c\"Hello world!\\00\", align 1
+
+; Function Attrs: nounwind uwtable
+define i32 @main() #0 {
+entry:
+  %retval = alloca i32, align 4
+  store i32 0, i32* %retval
+  %call = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([13 x i8]* @.str, i32 0, i32 0))
+  ret i32 0
+}
+
+declare i32 @printf(i8*, ...) #1
+
+attributes #0 = { nounwind uwtable \"less-precise-fpmad\"=\"false\" \"no-frame-pointer-elim\"=\"true\" \"no-frame-pointer-elim-non-leaf\" \"no-infs-fp-math\"=\"false\" \"no-nans-fp-math\"=\"false\" \"stack-protector-buffer-size\"=\"8\" \"unsafe-fp-math\"=\"false\" \"use-soft-float\"=\"false\" }
+attributes #1 = { \"less-precise-fpmad\"=\"false\" \"no-frame-pointer-elim\"=\"true\" \"no-frame-pointer-elim-non-leaf\" \"no-infs-fp-math\"=\"false\" \"no-nans-fp-math\"=\"false\" \"stack-protector-buffer-size\"=\"8\" \"unsafe-fp-math\"=\"false\" \"use-soft-float\"=\"false\" }
+
+!llvm.ident = !{!0}
+
+!0 = !{!\"clang version 3.6.2 (branches/release_36 255700)\"}
+")
