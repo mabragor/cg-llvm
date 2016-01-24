@@ -786,6 +786,14 @@
 	 (? basic-blocks)
 	 (progn (? whitespace) #\})))
 
+(define-cg-llvm-rule fundef-metadata-entry ()
+  ;; TODO : in future the syntax of LLVM will likely become more flexible,
+  ;;        and hence this place would have to be changed.
+  (cons metadata-identifier
+	metadata-identifier))
+
+(define-plural-rule fundef-metadata fundef-metadata-entry whitespace)
+
 (define-instruction-rule (function-definition define)
   (let* ((linkage (?wh linkage-type))
 	 (visibility (?wh visibility-style))
@@ -803,12 +811,15 @@
 	 (gc (?wh gc-name))
 	 (prefix (?wh prefix))
 	 (prologue (?wh prologue))
+	 (personality (?wh personality))
+	 (metadata (? fundef-metadata))
 	 (body (wh? function-body)))
     `(,type ,fname ,args
 	    ,!m(inject-kwds-if-nonnil linkage visibility dll-storage-class
 				      cconv unnamed-addr return-attrs
 				      fun-attrs section align comdat gc
-				      prefix prologue body))))
+				      prefix prologue personality metadata
+				      body))))
 
 (define-cg-llvm-rule global-variable-definition ()
   (let ((name global-identifier))

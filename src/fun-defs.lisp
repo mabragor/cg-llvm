@@ -236,6 +236,7 @@
 
 (define-python-rule prefix llvm-constant)
 (define-python-rule prologue llvm-constant)
+(define-python-rule personality llvm-constant)
 
 
 (defun return-type-lisp-form (type attrs)
