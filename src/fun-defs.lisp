@@ -286,7 +286,6 @@
 	 (align (?wh align))
 	 (gc (?wh gc-name))
 	 (prefix (?wh prefix))
-	 ;; TODO: something needs to be done with whitespace here ...
 	 (prologue (?wh prologue)))
     `(,fname ,args
 	     ,(return-type-lisp-form return-type return-attrs)
