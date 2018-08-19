@@ -403,13 +403,17 @@
   atomic-store non-atomic-store)
 
 (define-instruction-rule fence
-  (let ((singlethread (? (wh (progn "singlethread" t))))
-	(ordering (wh (whitelist-kwd-expr '(:acquire :release :acq-rel :seq-cst) (v ordering)))))
+  (let ((singlethread (? (wh (progn (v "singlethread")
+				    t))))
+	(ordering (wh (whitelist-kwd-expr '(:acquire :release :acq-rel :seq-cst)
+					  (v ordering)))))
     `(,!m(inject-kwds-if-nonnil singlethread ordering))))
 
 (define-instruction-rule cmpxchg
-  (let* ((weak (? (wh (progn "weak" t))))
-	 (volatile (? (wh (progn "volatile" t))))
+  (let* ((weak (? (wh (progn (v "weak")
+			     t))))
+	 (volatile (? (wh (progn (v "volatile")
+				 t))))
 	 (ptr (wh (fail-parse-if-not (and (llvm-typep '(pointer (integer ***) ***) (car it))
 					  (>= (bit-length (cadar it)) 8))
 				     (v instr-arg))))
@@ -419,7 +423,8 @@
 	 (new (progn (v white-comma)
 		     (fail-parse-if-not (llvm-same-typep (car it) (car cmp))
 					(v instr-arg))))
-	 (singlethread (? (wh (progn "singlethread" t))))
+	 (singlethread (? (wh (progn (v "singlethread")
+				     t))))
 	 (success-ord (wh ordering))
 	 (failure-ord (wh ordering)))
     ;; TODO : constraints on orderings

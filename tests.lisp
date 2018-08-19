@@ -333,7 +333,6 @@
 	  ((pointer (array (integer 8) 14)) @.str) "[14 x i8]* @.str"
 	  )
 
-;;;FIXME
 (elt-test metadata-constants
 	  (meta-id 24) "!24"
 	  (meta-node (meta-id 4) (meta-id 3)) "!{!4, !3}"
@@ -461,7 +460,6 @@
 		       ,(concatenate 'string ,(cg-llvm::stringify-symbol name) " " y))))
      ,@body))
 
-;;;FIXME
 (test simple-memory-instructions
   (macrolet ((frob (x y z)
 	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
@@ -527,7 +525,6 @@
     ))
   
 
-;;;FIXME
 (test misc-instructions
   (macrolet ((frob (x y z)
 	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
@@ -623,7 +620,7 @@
   %calltmp = call double @cos(double 1.234000e+00)
   ret double %calltmp")
     ))
-;;;FIXME
+
 (test function-definitions
   (macrolet ((frob (x y)
 	       `(is (equal ',x (cg-llvm-parse 'function-definition ,y)))))
