@@ -676,7 +676,7 @@ entry:
   (target-triple (:ARCH "x86_64") (:VENDOR "pc") (:SYSTEM "linux"))
   "target triple = \"x86_64-pc-linux\"")
     
-;;;FIXME
+
 (test global-variable-definition
   (macrolet ((frob (x y)
 	       `(is (equal ',x (cg-llvm-parse 'global-variable-definition ,y)))))
@@ -696,7 +696,6 @@ entry:
 		       (:linkage :private) (:unnamed-addr t) (:constant t) (:align 1))
 	  "@.str = private unnamed_addr constant [14 x i8] c\"Hello world!\\0A\\00\", align 1")
     ))
-
 	  
 (test attribute-groups
   (macrolet ((frob (x y)
