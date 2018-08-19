@@ -10,7 +10,7 @@
 (in-package :cg-llvm-tests)
 
 (cl-interpol:enable-interpol-syntax)
-(enable-read-macro-tokens)
+;;;(enable-read-macro-tokens)
 (quasiquote-2.0:enable-quasiquote-2.0)
 
 (def-suite cg-llvm)

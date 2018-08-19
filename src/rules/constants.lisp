@@ -2,7 +2,7 @@
 (in-package #:cg-llvm)
 
 (cl-interpol:enable-interpol-syntax)
-(enable-read-macro-tokens)
+;;;;(enable-read-macro-tokens)
 (quasiquote-2.0:enable-quasiquote-2.0)
 
 (defmacro define-constant-rules (name typecheck errinfo &body value-rule-body)
