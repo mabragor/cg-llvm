@@ -12,10 +12,11 @@
    #:iterate
    #:cg-common-ground
    #:lol-re
-   #:esrap-liquid #:optima
+   #:esrap-liquid
+   #:optima
    #:quasiquote-2.0
    #:parse-number
-				      ;;;added by terminal625
+   ;;added by terminal625
    #:alexandria)
   :pathname "src/"
   :serial t
