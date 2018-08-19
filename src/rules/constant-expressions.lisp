@@ -1,8 +1,6 @@
-
 (in-package #:cg-llvm)
 
 (cl-interpol:enable-interpol-syntax)
-;;;(enable-read-macro-tokens)
 (quasiquote-2.0:enable-quasiquote-2.0)
 
 
