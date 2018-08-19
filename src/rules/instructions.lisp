@@ -761,7 +761,12 @@
 	  (ftype (?wh (fail-parse-if-not (llvm-typep '(pointer (function ***) ***) it)
 					 (emit-lisp-repr (v llvm-type)))))
 	  (fnptrval (wh llvm-identifier))
-	  (args (wh? (progm #\( (? funcall-args) #\))))
+	  (args (wh? (progn (v #\()
+			    (v wh?)
+			    (cap thing (? funcall-args))
+			    (v wh?)
+			    (v #\))
+			    (recap thing))))
 	  (fun-attrs (?wh (mapcar (lambda (x)
 				    (whitelist-kwd-expr '(:noreturn :nounwind :readonly :readnone) x))
 				  (v fun-attrs)))))
@@ -831,31 +836,29 @@
 (define-instruction-alternative nolvalue-nonterminator
   nolvalue-other nolvalue-conversion nolvalue-memory
   nolvalue-aggregate nolvalue-bitwise-binary nolvalue-binary)
-      
 
 (define-cg-llvm-rule block-label ()
   (destringify-symbol (text (list (literal-char #\%)
 				  (prog1 (v identifier-body)
 				    (v #\:))))))
+;;;;FIXME::why discriminate between final and nonfinal statements?
 
-(define-cg-llvm-rule nonfinal-statement ()
-  (|| nolvalue-nonterminator-instruction
+(define-cg-llvm-rule lvalue-nonterminator-aux ()
+  (|| lvalue-nonterminator-instruction
       `(= ,(v local-identifier)
 	  ,(progn (v whitespace)
 		  (v #\=)
 		  (v  whitespace)
 		  (v lvalue-nonterminator-instruction)))))
+(define-cg-llvm-rule nonfinal-statement ()
+  (|| nolvalue-nonterminator-instruction
+      lvalue-nonterminator-aux))
 
 (define-plural-rule nonfinal-statements nonfinal-statement whitespace)
 
 (define-cg-llvm-rule final-statement ()
   (|| nolvalue-terminator-instruction
-      `(= ,(v local-identifier)
-	  (progn (v whitespace)
-		 (v #\=)
-		 (v whitespace)
-		 ,(v lvalue-nonterminator-instruction)))))
-
+      lvalue-nonterminator-aux))
 (define-cg-llvm-rule basic-block-body ()
   (let ((nonfinal-statements (? nonfinal-statements)))
     (if nonfinal-statements
@@ -863,6 +866,22 @@
     ;; this way we first know that everything parsed well before we construct the list
     (let ((final-statement (v final-statement)))
       `(,@nonfinal-statements ,final-statement))))
+
+#+nil
+(define-plural-rule any-statements any-statement whitespace)
+#+nil
+(define-cg-llvm-rule any-statement ()
+  (|| nolvalue-terminator-instruction
+      nolvalue-nonterminator-instruction
+      lvalue-nonterminator-instruction
+      `(= ,(v local-identifier)
+	  ,(progn (v whitespace)
+		  (v #\=)
+		  (v whitespace)
+		  (v lvalue-nonterminator-instruction)))))
+#+nil
+(define-cg-llvm-rule basic-block-body ()
+  (? any-statements))
 
 (define-cg-llvm-rule basic-block ()
   (let ((label (? (prog1 (v block-label)

@@ -34,6 +34,7 @@
   x)
 
 (defmacro |test| (&rest args)
-  (cons '|| (mapcar (lambda (arg)
-		      `(prog1-v ,arg (print ',arg)))
-		    args)))
+  (cons '||
+	(mapcar (lambda (arg)
+		  `(prog1-v ,arg (format t "debug||:: ~s" ',arg)))
+		args)))
