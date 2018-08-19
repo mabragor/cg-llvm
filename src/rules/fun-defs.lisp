@@ -44,22 +44,22 @@
 ;; * as usual, the easiest thing is to start with ESRAP rules for parsing text representation.
 
 
-;;;;FIXME:: WTF is going on with theses "wh" macros?
+;;;;FIXME:: WTF is going on with theses "wh" macros? chanaged progns to progn-v's
 (defmacro wh (x)
-  `(progn whitespace ,x))
+  `(progn-v whitespace ,x))
 
 (defmacro wh? (x)
-  `(progn (? whitespace) ,x))
+  `(progn-v (? whitespace) ,x))
 
 (define-cg-llvm-rule wh? ()
   (? whitespace)
   nil)
 
 (defmacro ?wh (x)
-  `(? (progn whitespace ,x)))
+  `(? (progn-v whitespace ,x)))
 
 (defmacro ?wh? (x)
-  `(? (progn (? whitespace) ,x)))
+  `(? (progn-v (? whitespace) ,x)))
 
 
 (define-cg-llvm-rule white-comma ()
@@ -232,13 +232,15 @@
 (define-algol-consy-kwd-rule %fun-attr known-fun-attrs known-cons-fun-attrs known-algol-fun-attrs)
 
 (define-cg-llvm-rule fun-attr ()
-  (|| `(:group ,(progn #\# pos-integer))
+  (|| `(:group ,(progn
+		 (v #\#)
+		 (v pos-integer)))
       %fun-attr))
 
 (define-plural-rule fun-attrs fun-attr whitespace)
 
 (define-cg-llvm-rule unnamed-addr ()
-  "unnamed_addr"
+  (v "unnamed_addr")
   '(:unnamed-addr t))
 
 (define-cg-llvm-rule alpha-char ()
@@ -251,29 +253,43 @@
   (text (postimes alphanumeric-char)))
 
 (define-cg-llvm-rule section ()
-  "section" whitespace #\" c!-1-alphanumeric-word #\"
-  c!-1)
+  (v "section")
+  (v whitespace)
+  (v #\")
+  (cap a alphanumeric-word)
+  (v #\")
+  (recap a))
 
 (defmacro!! define-python-rule (name subrule)
     ()
   (destructuring-bind (rule-name cmd-name) (if (atom name) (list name name) name)
     `(define-cg-llvm-rule ,rule-name ()
        `(,,(intern (string cmd-name) (literal-string "KEYWORD"))
-	   ,(progn (descend-with-rule 'string ,(stringify-symbol cmd-name))
-		   whitespace ,subrule)))))
+	   ,(progn-v (descend-with-rule 'string ,(stringify-symbol cmd-name))
+		     whitespace
+		     ,subrule)))))
 
 (defmacro!! define-algol-rule (name subrule)
     ()
   (destructuring-bind (rule-name cmd-name) (if (atom name) (list name name) name)
     `(define-cg-llvm-rule ,rule-name ()
        `(,,(intern (string cmd-name) (literal-string "KEYWORD"))
-	   ,(progn (descend-with-rule 'string ,(stringify-symbol cmd-name))
-		   "(" (prog1 ,subrule ")"))))))
+	   ,(progn-v (descend-with-rule 'string ,(stringify-symbol cmd-name))
+		     "("
+		     (prog1-v ,subrule
+			      ")"))))))
 
 
 (define-python-rule align pos-integer)
-(define-algol-rule comdat (progn "$" alphanumeric-word))
-(define-python-rule (gc-name gc) (progm #\" alphanumeric-word #\"))
+(define-algol-rule comdat
+    (progn
+      (v "$")
+      (v alphanumeric-word)))
+(define-python-rule (gc-name gc)
+    (progm
+     #\"
+     alphanumeric-word
+     #\"))
 
 (define-python-rule prefix llvm-constant)
 (define-python-rule prologue llvm-constant)
@@ -285,9 +301,12 @@
 
 (defmacro with-rule-names ((name-var) &body body)
   `(destructuring-bind (rule-name instr-name) (if (symbolp ,name-var)
-						  (list (intern #?"$((string ,name-var))-INSTRUCTION")
-							,name-var)
-						  (list (car ,name-var) (cadr ,name-var)))
+						  (list
+						   (intern #?"$((string ,name-var))-INSTRUCTION")
+						   ,name-var)
+						  (list
+						   (car ,name-var)
+						   (cadr ,name-var)))
      (declare (ignorable rule-name instr-name))
      ,@body))
   
@@ -300,14 +319,17 @@
 		,@body)
 	      (define-cg-llvm-rule ,rule-name ()
 		(descend-with-rule 'string ,(stringify-symbol instr-name))
-		(cons ',instr-name ,body-rule-name))))))
+		(cons ',instr-name
+		      (v ,body-rule-name)))))))
 
 (define-plural-rule instruction-metadata fundef-metadata-entry white-comma)
 
 (defmacro!! define-instruction-rule (name &body body) ()
   `(define-op-rule ,name
-     (let ((body (progn ,@body))
-	   (metadata (? (progn white-comma instruction-metadata))))
+     (let ((body (progn-v ,@body))
+	   (metadata (? (progn
+			  (v white-comma)
+			  (v instruction-metadata)))))
        (if metadata
 	   (append body (list (list :metadata metadata)))
 	   body))))
@@ -320,8 +342,10 @@
 	 (cconv (?wh cconv))
 	 (unnamed-addr (?wh unnamed-addr))
 	 (return-attrs (?wh parameter-attrs))
-	 (return-type (progn whitespace llvm-type))
-	 (fname (progn whitespace llvm-identifier))
+	 (return-type (progn (v whitespace)
+			     (v llvm-type)))
+	 (fname (progn (v whitespace)
+		       (v llvm-identifier)))
 	 (args (wh? declfun-args))
 	 (fun-attrs (?wh fun-attrs))
 	 (align (?wh align))
@@ -345,14 +369,19 @@
 ;;   ...)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter known-tls-models '(localdynamic initialexec localexec generaldynamic)))
+  (defparameter known-tls-models
+    '(localdynamic
+      initialexec
+      localexec
+      generaldynamic
+      )))
 (define-kwd-rule tls-model known-tls-models)
 
 (define-algol-rule (%thread-local thread-local) tls-model)
 
 (define-cg-llvm-rule thread-local ()
   (|| %thread-local
-      (progn "thread_local"
+      (progn (v "thread_local")
 	     '(:thread-local t))))
 
 (defun whitelist-kwd-expr (allowed-kwds expr)
@@ -368,18 +397,29 @@
 
 (define-cg-llvm-rule alias ()
   (macrolet ((frob (x)
-	       `(? (progn whitespace ,x))))
-    (let ((name llvm-identifier))
-      whitespace "="
-      (let* ((linkage (frob (whitelist-kwd-expr '(:private :internal :linkoce :weak :linkonce-odr :weak-odr :external)
-					    linkage-type)))
+	       `(? (progn-v whitespace ,x))))
+    (let ((name (v llvm-identifier)))
+      (v whitespace)
+      (v "=")
+      (let* ((linkage (frob (whitelist-kwd-expr
+			     '(:private
+			       :internal
+			       :linkoce
+			       :weak
+			       :linkonce-odr
+			       :weak-odr
+			       :external)
+			     (v linkage-type))))
 	     (visibility (frob visibility-style))
 	     (dll-storage-class (frob dll-storage-class))
 	     (thread-local (frob thread-local))
 	     (unnamed-addr (frob unnamed-addr)))
-	whitespace "alias"
-	(let* ((type (progn whitespace llvm-type))
-	       (old-name (progn whitespace llvm-identifier)))
+	(v whitespace)
+	(v "alias")
+	(let* ((type (progn (v whitespace)
+			    (v llvm-type)))
+	       (old-name (progn (v whitespace)
+				(v llvm-identifier))))
 	  `(alias ,name ,old-name ,(emit-lisp-repr type)
 		  ,!m(inject-kwd-if-nonnil linkage)
 		  ,!m(inject-kwd-if-nonnil visibility)
@@ -390,13 +430,23 @@
 ;;; Let's move to comdats
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter known-selection-kinds '(any exactmatch largest noduplicates samesize)))
+  (defparameter known-selection-kinds
+    '(any
+      exactmatch
+      largest
+      noduplicates
+      samesize)))
 (define-kwd-rule selection-kind)
 
 (define-cg-llvm-rule comdat-toplevel ()
-  (let ((name (progn "$" alphanumeric-word)))
-    whitespace "=" whitespace "comdat" whitespace
-    (let ((kind selection-kind))
+  (let ((name (progn (v "$")
+		     (v alphanumeric-word))))
+    (v whitespace)
+    (v "=")
+    (v whitespace)
+    (v "comdat")
+    (v whitespace)
+    (let ((kind (v selection-kind)))
       `(comdat ,name ,kind))))
 
 ;;; Metadata is to scary to tackle right now ...
@@ -404,40 +454,55 @@
 
 ;;; Inline assembly
 (define-cg-llvm-rule inline-assembly ()
-  "module" whitespace "asm" whitespace
-  (let ((it llvm-string))
+  (v "module")
+  (v whitespace)
+  (v "asm")
+  (v whitespace)
+  (let ((it (v llvm-string)))
     `(asm ,it)))
 
 (define-cg-llvm-rule target-triple ()
-  "target" whitespace "triple" whitespace "=" whitespace
-  (let ((it llvm-string))
+  (v "target")
+  (v whitespace)
+  (v "triple")
+  (v whitespace)
+  (v "=")
+  (v whitespace)
+  (let ((it (v llvm-string)))
     `(target-triple ,@(mapcar (lambda (x y)
 				(list x y))
 			      '(:arch :vendor :system :env)
 			      (cl-ppcre:split (literal-string "-") it)))))
 
 (define-cg-llvm-rule dl-big-endian ()
-  "E" :big-endian)
+  (v "E")
+  :big-endian)
 (define-cg-llvm-rule dl-big-endian ()
-  "e" :little-endian)
+  (v "e")
+  :little-endian)
 
 (define-cg-llvm-rule dl-stack-alignment ()
-  "S"
-  (let ((it pos-integer))
+  (v "S")
+  (let ((it (v pos-integer)))
     (assert (equal 0 (mod it 8)))
     `(:stack-alignment ,it)))
 
 (define-cg-llvm-rule dl-pointer-size ()
-  "p"
+  (v "p")
   (let ((n (? pos-integer))
-	(size (progn #\: pos-integer))
-	(abi (progn #\: pos-integer))
-	(pref (progn #\: pos-integer)))
+	(size (progn (v #\:)
+		     (v pos-integer)))
+	(abi (progn (v #\:)
+		    (v pos-integer)))
+	(pref (progn (v #\:)
+		     (v pos-integer))))
     `(:pointer-size ,@(if n `((:addrspace ,n)))
-		    (:size ,size) (:abi ,abi) (:pref ,pref))))
-    
+		    (:size ,size)
+		    (:abi ,abi)
+		    (:pref ,pref))))
+
 (define-cg-llvm-rule stack-layout ()
-  (let ((it pos-integer))
+  (let ((it (v pos-integer)))
     (if (not (equal 0 (mod it 8)))
 	(fail-parse-format "Stack alignment should be multiple of 8, but got ~a" it))
     `(:stack ,it)))
@@ -448,57 +513,81 @@
 			 (> (expt 2 23) n))))
 	(fail-parse-format "Pointer address space not in range: ~a" n))
     (let ((size (progm #\: pos-integer #\:))
-	  (abi-pref abi-layout))
+	  (abi-pref (v abi-layout)))
       `(:pointer ,size ,abi-pref ,@(if n `((:addrspace ,n)))))))
 
 (define-cg-llvm-rule integer-layout ()
-  (let ((size (prog1 pos-integer #\:))
-	(abi-pref abi-layout))
+  (let ((size (prog1 (v pos-integer)
+		(v #\:)))
+	(abi-pref (v abi-layout)))
     `(:integer ,size ,abi-pref)))
 (define-cg-llvm-rule vector-layout ()
-  (let ((size (prog1 pos-integer #\:))
-	(abi-pref abi-layout))
+  (let ((size (prog1 (v pos-integer)
+		(v#\:)))
+	(abi-pref (v abi-layout)))
     `(:vector ,size ,abi-pref)))
 (define-cg-llvm-rule float-layout ()
-  (let ((size (prog1 pos-integer #\:))
-	(abi-pref abi-layout))
+  (let ((size (prog1 (v pos-integer)
+		(v #\:)))
+	(abi-pref (v abi-layout)))
     `(:float ,size ,abi-pref)))
 (define-cg-llvm-rule aggregate-layout ()
   `(:aggregate ,abi-layout))
 
 (define-cg-llvm-rule abi-layout ()
-  (let ((abi pos-integer)
-	(pref (? (progn #\: pos-integer))))
+  (let ((abi (v pos-integer))
+	(pref (? (progn (v #\:)
+			(v pos-integer)))))
     `(:abi ,abi ,@(if pref `(,pref)))))
 
 (define-cg-llvm-rule mangling-layout ()
-  #\:
+  (v #\:)
   (list :mangling
-	(|| (progn #\e :elf)
-	    (progn #\m :mips)
-	    (progn #\o :mach-o)
-	    (progn #\w :windows-coff))))
+	(|| (progn (v #\e)
+		   :elf)
+	    (progn (v #\m)
+		   :mips)
+	    (progn (v #\o)
+		   :mach-o)
+	    (progn (v #\w)
+		   :windows-coff))))
 
 (define-plural-rule integer-sizes pos-integer #\:)
 
 (define-cg-llvm-rule native-integers-layout ()
-  `(:native-integers ,@integer-sizes))
+  `(:native-integers ,@(v integer-sizes)))
 
 (define-cg-llvm-rule datalayout-spec ()
-  (|| (progn #\E '(:endianness :big))
-      (progn #\e '(:endianness :little))
-      (progn #\S stack-layout)
-      (progn #\p pointer-layout)
-      (progn #\i integer-layout)
-      (progn #\v vector-layout)
-      (progn #\f float-layout)
-      (progn #\a aggregate-layout)
-      (progn #\m mangling-layout)
-      (progn #\n native-integers-layout)))
+  (|| (progn (v #\E)
+	     '(:endianness :big))
+      (progn (v #\e)
+	     '(:endianness :little))
+      (progn (v #\S)
+	     (v stack-layout))
+      (progn (v #\p)
+	     (v pointer-layout))
+      (progn (v #\i)
+	     (v integer-layout))
+      (progn (v #\v)
+	     (v vector-layout))
+      (progn (v #\f)
+	     (v float-layout))
+      (progn (v #\a)
+	     (v aggregate-layout))
+      (progn (v #\m)
+	     (v mangling-layout))
+      (progn (v #\n)
+	     (v native-integers-layout))))
 
 (define-cg-llvm-rule target-datalayout ()
-  "target" whitespace "datalayout" whitespace "=" whitespace
-  (let ((it (cl-ppcre:split (literal-string "-") llvm-string)))
+  (v "target")
+  (v whitespace)
+  (v "datalayout")
+  (v whitespace)
+  (v "=")
+  (v whitespace)
+  (let ((it (cl-ppcre:split (literal-string "-")
+			    (v llvm-string))))
     ;; `(target-datalayout ,it)))
     `(target-datalayout ,@(mapcar (lambda (x)
 				    (cg-llvm-parse 'datalayout-spec x))
