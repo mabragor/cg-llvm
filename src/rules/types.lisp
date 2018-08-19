@@ -397,7 +397,7 @@
 	    (? whitespace)
 	    (cap rectypes comma-separated-types)))
   (cons (recap type)
-	(recap rectypes)))
+	(recap? rectypes)))
 
 
 (define-cg-llvm-rule nonpacked-literal-struct ()
@@ -414,7 +414,7 @@
   (cap a comma-separated-types)
   (? whitespace)
   (v "}>")
-  (apply #'llvm-struct `(:packed-p t ,@ (recap a))))
+  (apply #'llvm-struct `(:packed-p t ,@(recap a))))
 
 (define-cg-llvm-rule literal-struct ()
   (|| nonpacked-literal-struct

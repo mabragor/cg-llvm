@@ -322,7 +322,7 @@
 	     (cg-llvm-parse 'zero-init-constant "[ 3 x i8 ] zeroinitializer")))
   (is (equal '((array (integer 8) 3) (((integer 8) 97) ((integer 8) 115) ((integer 8) 100) ((integer 8) 102)))
 	     (cg-llvm-parse 'string-constant "[ 3 x i8 ] c\"asdf\""))))
-  
+;;;FIXME
 (elt-test llvm-constants
 	  ((integer 8) 1) "i8 1"
 	  ((integer 32) 42) "i32 42"
@@ -332,6 +332,7 @@
 	  "[2 x i32*] [ i32* @X, i32* @Y ]"
 	  ((pointer (array (integer 8) 14)) @.str) "[14 x i8]* @.str")
 
+;;;FIXME
 (elt-test metadata-constants
 	  (meta-id 24) "!24"
 	  (meta-node (meta-id 4) (meta-id 3)) "!{!4, !3}"
@@ -459,7 +460,7 @@
 		       ,(concatenate 'string ,(cg-llvm::stringify-symbol name) " " y))))
      ,@body))
 
-
+;;;FIXME
 (test simple-memory-instructions
   (macrolet ((frob (x y z)
 	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
@@ -525,7 +526,7 @@
     ))
   
 
-    
+;;;FIXME
 (test misc-instructions
   (macrolet ((frob (x y z)
 	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
@@ -621,7 +622,7 @@
   %calltmp = call double @cos(double 1.234000e+00)
   ret double %calltmp")
     ))
-
+;;;FIXME
 (test function-definitions
   (macrolet ((frob (x y)
 	       `(is (equal ',x (cg-llvm-parse 'function-definition ,y)))))
@@ -677,7 +678,7 @@ entry:
   (target-triple (:ARCH "x86_64") (:VENDOR "pc") (:SYSTEM "linux"))
   "target triple = \"x86_64-pc-linux\"")
     
-
+;;;FIXME
 (test global-variable-definition
   (macrolet ((frob (x y)
 	       `(is (equal ',x (cg-llvm-parse 'global-variable-definition ,y)))))
@@ -763,7 +764,7 @@ entry:
 		   ((pointer (integer 8))))
 	  "declare i8* @llvm.invariant.group.barrier(i8*)")
     ))
-
+;;;FIXME
 (test constant-expressions
   (macrolet ((frob (x y)
 	       `(is (equal ',x (cg-llvm-parse 'constant-expression-value ,y)))))
@@ -789,7 +790,7 @@ entry:
 
 (elt-test llvm-comments
 	  #\space ";   asdf")
-
+;;;FIXME
 (elt-test llvm-modules
 	  (module
 	   (target-datalayout (:endianness :little) (:mangling :elf) (:integer 64 (:abi 64))
