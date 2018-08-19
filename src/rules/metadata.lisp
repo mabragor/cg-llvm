@@ -13,17 +13,24 @@
 
 
 (define-cg-llvm-rule metadata-string ()
-  #\! `(meta-str ,llvm-string))
+  (v #\!)
+  `(meta-str ,(v llvm-string)))
 
 (define-cg-llvm-rule metadata-identifier ()
-  #\! `(meta-id ,(let ((it identifier-body))
-		      (handler-case (parse-integer it)
-			(error () (try-destringify-symbol it))))))
+  (v #\!)
+  `(meta-id
+    ,(let ((it (v identifier-body)))
+	  (handler-case (parse-integer it)
+	    (error () (try-destringify-symbol it))))))
 
 (define-cg-llvm-rule metadata-node ()
-  #\! #\{ wh? c!-1-metadata-node-operands #\}
-  `(meta-node ,@c!-1))
-  
+  (v #\!)
+  (v #\{)
+  (v wh?)
+  (cap a metadata-node-operands)
+  (v #\})
+  `(meta-node ,@(recap a)))
+
 (define-cg-llvm-rule specialized-metadata ()
   (fail-parse "Specialized metadata not implemented yet"))
 
@@ -105,19 +112,24 @@
       specialized-metadata))
 
 (define-cg-llvm-rule metadata-funcall-arg ()
-  "metadata" whitespace metadata-constant)
+  (v "metadata")
+  (v whitespace)
+  (v metadata-constant))
 
 (define-plural-rule metadata-node-operands metadata-node-operand white-comma)
 
 (define-cg-llvm-rule metadata-node-operand ()
   ;; TODO : maybe this will turn out to be not exactly correct
   ;; but this is the best I can get for now from LLVM language reference manual.
-  llvm-constant)
+  (v llvm-constant))
 
 (define-cg-llvm-rule metadata-entry ()
-  (let* ((id metadata-identifier))
-    wh? #\=
-    (let* ((distinct (?wh? (progn "distinct" t)))
-	   (node (progn wh? metadata-node)))
+  (let* ((id (v metadata-identifier)))
+    (v wh?)
+    (v #\=)
+    (let* ((distinct (?wh? (progn (v "distinct")
+				  t)))
+	   (node (progn (v wh?)
+			(v metadata-node))))
       `(= ,id ,node
 	  ,!m(inject-kwd-if-nonnil distinct)))))
