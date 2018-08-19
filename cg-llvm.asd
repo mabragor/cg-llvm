@@ -6,7 +6,8 @@
   :license "MIT"
   :version "0.1"
   :depends-on (#:cl-trivial-templates #:cl-ppcre #:cl-interpol #:iterate #:cg-common-ground #:lol-re
-				      #:esrap-liquid #:optima #:defmacro-enhance
+				      #:esrap-liquid #:optima
+				      ;#:defmacro-enhance
 				      #:quasiquote-2.0 #:parse-number
 
 				      ;;;added by terminal625

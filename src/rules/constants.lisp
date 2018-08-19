@@ -5,7 +5,7 @@
 (enable-read-macro-tokens)
 (quasiquote-2.0:enable-quasiquote-2.0)
 
-(defmacro!! define-constant-rules (name typecheck errinfo &body value-rule-body) ()
+(defmacro define-constant-rules (name typecheck errinfo &body value-rule-body)
   (let ((type-rule-name (intern #?"$(name)-CONSTANT-TYPE"))
 	(value-rule-name (intern #?"$(name)-CONSTANT-VALUE"))
 	(rule-name (intern #?"$(name)-CONSTANT")))
@@ -21,7 +21,7 @@
 		(list type (wh (descend-with-rule ',value-rule-name type))))))))
 	    
 
-(defmacro!! define-typeguarding-constant-rules (name typecheck errinfo &body value-rule-body) ()
+(defmacro define-typeguarding-constant-rules (name typecheck errinfo &body value-rule-body)
   `(define-constant-rules ,name ,typecheck ,errinfo
      (if (and type (not ,typecheck))
 	 (fail-parse-format ,@errinfo))

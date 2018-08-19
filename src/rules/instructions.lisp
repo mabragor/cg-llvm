@@ -349,7 +349,7 @@
 
 (define-kwd-rule ordering)
 
-(defmacro!! define-load-store-instruction (name pre-body type-getter &body body) ()
+(defmacro define-load-store-instruction (name pre-body type-getter &body body)
   `(define-instruction-rule ,name
      ,@pre-body
      (let ((volatile (? (wh (progn (v "volatile")
@@ -360,7 +360,7 @@
 					  (v llvm-constant)))))
        ,@body)))
 
-(defmacro!! define-atomic-load-store-instruction (name type-getter) ()
+(defmacro define-atomic-load-store-instruction (name type-getter)
   (let ((rule-name (intern #?"ATOMIC-$((string name))-INSTRUCTION")))
     `(define-load-store-instruction (,rule-name ,name) ((wh "atomic"))
        ,type-getter
@@ -378,8 +378,7 @@
 				     volatile
 				     singlethread))))))
 
-
-(defmacro!! define-non-atomic-load-store-instruction (name type-getter) ()
+(defmacro define-non-atomic-load-store-instruction (name type-getter)
   (let ((rule-name (intern #?"NON-ATOMIC-$((string name))-INSTRUCTION")))
     `(define-load-store-instruction (,rule-name ,name) ()
 	 ,type-getter

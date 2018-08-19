@@ -100,7 +100,7 @@
 		   stuff)))
 
 
-(defmacro!! define-plural-rule (name single delim) ()
+(defmacro define-plural-rule (name single delim)
   `(define-cg-llvm-rule ,name ()
      (cons (v ,single)
 	   (times (progn-v ,delim ,single)))))
@@ -260,8 +260,7 @@
   (v #\")
   (recap a))
 
-(defmacro!! define-python-rule (name subrule)
-    ()
+(defmacro define-python-rule (name subrule)
   (destructuring-bind (rule-name cmd-name) (if (atom name) (list name name) name)
     `(define-cg-llvm-rule ,rule-name ()
        `(,,(intern (string cmd-name) (literal-string "KEYWORD"))
@@ -269,8 +268,7 @@
 		     whitespace
 		     ,subrule)))))
 
-(defmacro!! define-algol-rule (name subrule)
-    ()
+(defmacro define-algol-rule (name subrule)
   (destructuring-bind (rule-name cmd-name) (if (atom name) (list name name) name)
     `(define-cg-llvm-rule ,rule-name ()
        `(,,(intern (string cmd-name) (literal-string "KEYWORD"))
@@ -311,7 +309,7 @@
      (declare (ignorable rule-name instr-name))
      ,@body))
 
-(defmacro!! define-op-rule (name &body body) ()
+(defmacro define-op-rule (name &body body)
   (with-rule-names (name)
     (let ((body-rule-name (if (symbolp name)
 			      (intern #?"$((string name))-INSTRUCTION-BODY")
@@ -325,7 +323,7 @@
 
 (define-plural-rule instruction-metadata fundef-metadata-entry white-comma)
 
-(defmacro!! define-instruction-rule (name &body body) ()
+(defmacro define-instruction-rule (name &body body)
   `(define-op-rule ,name
      (let ((body (progn-v ,@body))
 	   (metadata (? (progn
