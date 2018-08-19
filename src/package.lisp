@@ -18,3 +18,8 @@
 
 (defun literal-char (x)
   x)
+
+(defmacro |test| (&rest args)
+  (cons '|| (mapcar (lambda (arg)
+		      `(prog1-v ,arg (print ',arg)))
+		    args)))

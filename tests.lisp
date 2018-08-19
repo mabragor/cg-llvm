@@ -322,7 +322,7 @@
 	     (cg-llvm-parse 'zero-init-constant "[ 3 x i8 ] zeroinitializer")))
   (is (equal '((array (integer 8) 3) (((integer 8) 97) ((integer 8) 115) ((integer 8) 100) ((integer 8) 102)))
 	     (cg-llvm-parse 'string-constant "[ 3 x i8 ] c\"asdf\""))))
-;;;FIXME
+
 (elt-test llvm-constants
 	  ((integer 8) 1) "i8 1"
 	  ((integer 32) 42) "i32 42"
@@ -330,7 +330,8 @@
 	   (((pointer (integer 32)) *@x)
 	    ((pointer (integer 32)) *@y)))
 	  "[2 x i32*] [ i32* @X, i32* @Y ]"
-	  ((pointer (array (integer 8) 14)) @.str) "[14 x i8]* @.str")
+	  ((pointer (array (integer 8) 14)) @.str) "[14 x i8]* @.str"
+	  )
 
 ;;;FIXME
 (elt-test metadata-constants

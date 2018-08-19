@@ -67,7 +67,7 @@
 (define-typeguarding-constant-rules null-ptr
     (llvm-typep '(pointer ***) type)
     ((literal-string "Null ptr constant must be of pointer type but got ~a.") type)
-  (text "null"))
+  (v "null"))
 
 (define-typeguarding-constant-rules global-ident
     (llvm-typep '(pointer ***) type)
@@ -107,7 +107,7 @@
 
 (define-cg-llvm-rule llvm-constant ()
   (|| ordinary-constant
-      metadata-constant))
+       metadata-constant))
 
 (define-cg-llvm-rule llvm-constant-value (type)
   (|| (descend-with-rule 'ordinary-constant-value type)
@@ -138,7 +138,6 @@
       llvm-undef-value
       llvm-constant-value))
 
-
 (define-plural-rule llvm-constants llvm-constant (progn (? whitespace)
 							(v #\,)
 							(? whitespace)))
@@ -164,8 +163,35 @@
 	      (for (expr-subtype nil) in content)
 	      (if (not (llvm-same-typep theor-subtype expr-subtype))
 		  (fail-parse "Type of structure field does not match declared one.")))))
-  
 
+(PROGN
+ (DEFINE-CG-LLVM-RULE ARRAY-CONSTANT-TYPE
+     NIL
+   (LET ((TYPE (EMIT-LISP-REPR (V LLVM-TYPE))))
+     (IF (NOT (LLVM-TYPEP '(ARRAY ***) TYPE))
+	 (FAIL-PARSE-FORMAT "Array constant must be of array type, but got ~a" TYPE)
+	 TYPE)))
+ (DEFINE-CG-LLVM-RULE ARRAY-CONSTANT-VALUE
+     (TYPE)
+   (LET ((CONTENT
+	  (PROGM (PROGN (DESCEND-WITH-RULE 'STRING "[")
+			(? WHITESPACE))
+		 (V LLVM-CONSTANTS)
+		 (PROGN (? WHITESPACE)
+			(DESCEND-WITH-RULE 'STRING "]")))))
+     (IF TYPE
+	 (IF (NOT (EQUAL (CADDR TYPE) (LENGTH CONTENT)))
+	     (FAIL-PARSE "Number of elements of type and content do not match.")
+	     (ITER
+	       (FOR (EXPR-SUBTYPE NIL) IN CONTENT)
+	       (IF (NOT (LLVM-SAME-TYPEP (CADR TYPE) EXPR-SUBTYPE))
+		   (FAIL-PARSE "Type of array element does not match declared one.")))))
+     CONTENT))
+ (DEFINE-CG-LLVM-RULE ARRAY-CONSTANT
+     NIL
+   (LET ((TYPE (V ARRAY-CONSTANT-TYPE)))
+     (LIST TYPE (WH (DESCEND-WITH-RULE 'ARRAY-CONSTANT-VALUE TYPE))))))
+#+nil
 (define-complex-constant-rules array
     "[" "]" (llvm-typep '(array ***) type) "Array" "array"
     (if (not (equal (caddr type) (length content)))
