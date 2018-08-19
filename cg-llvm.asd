@@ -21,7 +21,7 @@
 		:components
 		(
 		 (:file "types")
-		 ;(:file "fun-defs")
+		 (:file "fun-defs")
 		 ;(:file "identifiers")
 		 ;(:file "constants")
 		 ;(:file "metadata")

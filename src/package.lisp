@@ -11,3 +11,7 @@
 	   #:wildcard-equal
 	   ))
 
+(in-package :cg-llvm)
+
+(defun literal-string (x)
+  x)

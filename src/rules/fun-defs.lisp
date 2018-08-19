@@ -43,6 +43,8 @@
 ;;   representations of at least these function definitions and declarations, not to mention the whole LLVM
 ;; * as usual, the easiest thing is to start with ESRAP rules for parsing text representation.
 
+
+;;;;FIXME:: WTF is going on with theses "wh" macros?
 (defmacro wh (x)
   `(progn whitespace ,x))
 
@@ -50,7 +52,8 @@
   `(progn (? whitespace) ,x))
 
 (define-cg-llvm-rule wh? ()
-  (? whitespace) nil)
+  (? whitespace)
+  nil)
 
 (defmacro ?wh (x)
   `(? (progn whitespace ,x)))
@@ -60,8 +63,12 @@
 
 
 (define-cg-llvm-rule white-comma ()
-  (progm (? whitespace) #\, (? whitespace)))
+  (progm (? whitespace)
+	 (v #\,)
+	 (? whitespace)))
 
+;;;;FIXME:: Do these macros depend on the code-walking esrap-liquid to
+;;;;expand? wtf?
 (defmacro fail-parse-if-not (cond expr)
   `(let ((it ,expr))
      (if (not ,cond)
@@ -95,14 +102,23 @@
 
 (defmacro!! define-plural-rule (name single delim) ()
   `(define-cg-llvm-rule ,name ()
-     (cons ,single
-	   (times (progn ,delim ,single)))))
+     (cons (v ,single)
+	   (times (progn-v ,delim ,single)))))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter known-linkage-types '(private internal available-externally
-				      linkonce weak common appending extern-weak
-				      linkonce-odr weak-odr external)))
+  (defparameter known-linkage-types
+    '(private
+      internal
+      available-externally
+      linkonce
+      weak
+      common
+      appending
+      extern-weak
+      linkonce-odr
+      weak-odr
+      external)))
 
 (defmacro define-kwd-rule (name &optional known-var)
   `(define-cg-llvm-rule ,name ()
@@ -110,7 +126,7 @@
 					 `(descend-with-rule 'string ,(stringify-symbol x)))
 				       (symbol-value (or known-var
 							 (intern #?"KNOWN-$(name)S")))))
-			 (literal-string "KEYWORD"))))
+			 "KEYWORD")))
 
 (define-kwd-rule linkage-type)
 
@@ -137,7 +153,7 @@
 	     ,@(mapcar (lambda (x)
 			 `(list (destringify-symbol (descend-with-rule 'string
 								       ,(stringify-symbol (car x)))
-						    (literal-string "KEYWORD"))
+						    "KEYWORD")
 				(progn (descend-with-rule 'whitespace)
 				       (descend-with-rule ',(cadr x)))))
 		       (symbol-value known-cons-var)))))))
@@ -172,19 +188,44 @@
   known-algol-parameter-attrs)
 
 (define-cg-llvm-rule parameter-attr ()
-  (|| `(:group ,(progn #\# pos-integer))
+  (|| `(:group ,(progn
+		 (v #\#)
+		 (v pos-integer)))
       %parameter-attr))
 
 (define-plural-rule parameter-attrs parameter-attr whitespace)
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter known-fun-attrs '(alwaysinline builtin cold inlinehint jumptable minsize
-				  naked nobuiltin noduplicate noimplicitfloat noinline
-				  nonlazybind noredzone noreturn nounwind optnone optsize
-				  readnone readonly returns-twice sanitize-address
-				  sanitize-memory sanitize-thread ssp sspreq sspstrong
-				  thunk uwtable))
+  (defparameter known-fun-attrs
+    '(alwaysinline
+      builtin
+      cold
+      inlinehint
+      jumptable
+      minsize
+      naked
+      nobuiltin
+      noduplicate
+      noimplicitfloat
+      noinline
+      nonlazybind
+      noredzone
+      noreturn
+      nounwind
+      optnone
+      optsize
+      readnone
+      readonly
+      returns-twice
+      sanitize-address
+      sanitize-memory
+      sanitize-thread
+      ssp
+      sspreq
+      sspstrong
+      thunk
+      uwtable))
   (defparameter known-cons-fun-attrs '())
   (defparameter known-algol-fun-attrs '((alignstack pos-integer))))
 
