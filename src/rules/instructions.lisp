@@ -450,17 +450,20 @@
 
 (define-cg-llvm-rule vector-getelementptr-body ()
   (let* ((ptrval (fail-parse-if-not (llvm-typep '(vector ***) (car it))
-				    instr-arg))
-	 (idx (progn white-comma (fail-parse-if-not (llvm-typep '(vector ***) (car it))
-						    instr-arg))))
-    (if (not (equal (caddar ptrval) (caddar idx)))
+				    (v instr-arg)))
+	 (idx (progn (v white-comma)
+		     (fail-parse-if-not (llvm-typep '(vector ***) (car it))
+					(v instr-arg)))))
+    (if (not (equal (caddar ptrval)
+		    (caddar idx)))
 	(fail-parse "Sizes of vectors should be equal"))
     `(,ptrval ,idx)))
 
 (define-cg-llvm-rule scalar-getelementptr-body ()
-  (let* ((ptrval (fail-parse-if-not (llvm-typep '(pointer ***) (car it))
-				    instr-arg))
-	 (indices geteltptr-indices))
+  (let* ((ptrval (fail-parse-if-not (llvm-typep '(pointer ***)
+						(car it))
+				    (v instr-arg)))
+	 (indices (v geteltptr-indices)))
     `(,ptrval ,@indices)))
 
 ;; TODO : we do not check correct types of indices of getelementptr
@@ -470,7 +473,7 @@
 (define-plural-rule geteltptr-indices geteltptr-index white-comma)
 
 (define-cg-llvm-rule geteltptr-index ()
-  (let ((type (emit-lisp-repr llvm-type)))
+  (let ((type (emit-lisp-repr (v llvm-type))))
     (if (not (llvm-typep '(integer ***) type))
 	(fail-parse "Geteltptr index is not an integer"))
     (let ((what (wh (|| integer llvm-identifier))))
@@ -480,7 +483,8 @@
 
 (define-instruction-rule getelementptr
   (let* ((inbounds (?wh (progn "inbounds" t)))
-	 (type (wh (prog1 llvm-type white-comma)))
+	 (type (wh (prog1 (v llvm-type)
+		     (v white-comma))))
 	 (body (|| vector-getelementptr-body
 		   scalar-getelementptr-body)))
     `(,type ,@body ,!m(inject-kwd-if-nonnil inbounds))))
@@ -495,19 +499,26 @@
 (define-lvalue-instruction-alternative conversion)
 
 (defun both-integers (type1 type2)
-  (and (llvm-typep '(integer ***) type1) (llvm-typep '(integer ***) type2)))
+  (and (llvm-typep '(integer ***) type1)
+       (llvm-typep '(integer ***) type2)))
 
 (defun first-bitsize-larger (type1 type2)
-  (> (cadr type1) (cadr type2)))
+  (> (cadr type1)
+     (cadr type2)))
 
 (defun first-bitsize-smaller (type1 type2)
-  (< (cadr type1) (cadr type2)))
+  (< (cadr type1)
+     (cadr type2)))
 
 (defun both-vector-integers (type1 type2)
-  (and (llvm-typep '(vector (integer ***) *) type1) (llvm-typep '(vector (integer ***) *) type2)))
+  (and (llvm-typep '(vector (integer ***) *)
+		   type1)
+       (llvm-typep '(vector (integer ***) *)
+		   type2)))
 
 (defun have-same-size (type1 type2)
-  (equal (caddr type1) (caddr type2)))
+  (equal (caddr type1)
+	 (caddr type2)))
 
 (defun have-different-addrspaces (type1 type2)
   (not (equal (if (equal 3 (length type1))
@@ -520,18 +531,22 @@
 (defmacro define-cast-instruction (name &body constraints)
   (let ((rule-name (intern #?"$((string name))-TO-INSTRUCTION")))
     `(define-instruction-rule (,rule-name ,name)
-       (destructuring-bind (type1 value) (wh instr-arg)
-	 whitespace "to" whitespace
-	 (let ((type2 (emit-lisp-repr llvm-type)))
+       (destructuring-bind (type1 value) (wh (v instr-arg))
+	 (v whitespace)
+	 (v "to")
+	 (v whitespace)
+	 (let ((type2 (emit-lisp-repr (v llvm-type))))
 	   ,@constraints
 	   `(,value ,type1 ,type2))))))
 
 
 (defmacro define-simple-based (type1 type2)
   `(defmacro ,(intern #?"$((string type1))->$((string type2))-BASED") (&optional condition)
-     `(or (and (llvm-typep '(,,type1 ***) type1) (llvm-typep '(,,type2 ***) type1)
+     `(or (and (llvm-typep '(,,type1 ***) type1)
+	       (llvm-typep '(,,type2 ***) type1)
 	       ,@(if condition `((,condition type1 type2))))
-	  (and (llvm-typep '(vector (,,type1 ***) *) type1) (llvm-typep '(vector (,,type2 *) *) type2)
+	  (and (llvm-typep '(vector (,,type1 ***) *) type1)
+	       (llvm-typep '(vector (,,type2 *) *) type2)
 	       (have-same-size type1 type2)
 	       ,@(if condition `((,condition (cadr type1) (cadr type2))))))))
 
@@ -613,43 +628,55 @@
 
 (define-cg-llvm-rule phi-arg (type)
   (let (c!-1)
-    #\[ whitespace
-    (setf c!-1 (|| (descend-with-rule 'llvm-constant-value type)
-		   llvm-identifier))
-    white-comma c!-2-llvm-identifier whitespace #\]
-    `(,c!-1 ,c!-2)))
+    (v #\[)
+    (v whitespace)
+    (setf c!-1
+	  (|| (descend-with-rule 'llvm-constant-value type)
+	      llvm-identifier))
+    (v white-comma)
+    (cap b llvm-identifier)
+    (v whitespace)
+    (v #\])
+    `(,c!-1 ,(recap b))))
 
 (define-instruction-rule phi
   (let ((type (emit-lisp-repr (wh llvm-type))))
     (if (not (firstclass-type-p type))
 	(fail-parse-format "Type of phi instruction must be first-class, but got ~a" type))
-    whitespace
+    (v whitespace)
     (let ((first-arg (descend-with-rule 'phi-arg type)))
-      (let ((rest-args (times (progn white-comma (descend-with-rule 'phi-arg type)))))
+      (let ((rest-args (times (progn (v white-comma)
+				     (descend-with-rule 'phi-arg type)))))
 	`(,type ,first-arg ,@rest-args)))))
-    
+
 
 (define-simple-instruction-rule select ((cond (or (llvm-typep '(integer 1) (car it))
-					   (llvm-typep '(vector (integer 1) *) (car it))))
-				 (val1 (firstclass-type-p (car it)))
-				 (val2 (firstclass-type-p (car it))))
+						  (llvm-typep '(vector (integer 1) *) (car it))))
+					(val1 (firstclass-type-p (car it)))
+					(val2 (firstclass-type-p (car it))))
   (if (llvm-typep '(integer *) (car cond))
-      (if (not (llvm-same-typep (car val1) (car val2)))
+      (if (not (llvm-same-typep (car val1)
+				(car val2)))
 	  (fail-parse-format "Different values of SELECT should be same type, but are: ~a ~a"
-			     (car val1) (car val2)))
+			     (car val1)
+			     (car val2)))
       (let ((nelts (caddar cond)))
-	(if (not (and (llvm-typep '(vector ***) (car val1))
-		      (llvm-typep '(vector ***) (car val2))
-		      (llvm-same-typep (cadar val1) (cadar val2))
+	(if (not (and (llvm-typep '(vector ***)
+				  (car val1))
+		      (llvm-typep '(vector ***)
+				  (car val2))
+		      (llvm-same-typep (cadar val1)
+				       (cadar val2))
 		      (equal nelts (caddar val1))
 		      (equal nelts (caddar val2))))
 	    (fail-parse-format "Different values of SELECT should be same type, but are: ~a ~a"
-			       (car val1) (car val2)))))
+			       (car val1)
+			       (car val2)))))
   `(,cond ,val1 ,val2))
 
 (define-simple-instruction-rule va-arg ((va-list (llvm-typep '(pointer ***) (car it))))
-  white-comma
-  (let ((type (emit-lisp-repr llvm-type)))
+  (v white-comma)
+  (let ((type (emit-lisp-repr (v llvm-type))))
     `(,va-list ,type)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -671,7 +698,7 @@
 	 (if (not ,typecheck)
 	     (fail-parse-format ,@errinfo))
 	 (let ((val1 (wh (descend-with-rule 'llvm-constant-value type))))
-	   white-comma
+	   (v white-comma)
 	   (let ((val2 (descend-with-rule 'llvm-constant-value type)))
 	     `(,cond ,type ,val1 ,val2)))))))
 	
@@ -690,14 +717,15 @@
     or VECTOR of FLOATS"))
 
 (define-cg-llvm-rule cleanup-kwd ()
-  "cleanup" '(:cleanup t))
+  (v "cleanup")
+  '(:cleanup t))
 
 (define-cg-llvm-rule catch-landingpad-clause ()
-  "catch"
+  (v "catch")
   (list :catch (wh llvm-constant)))
 
 (define-cg-llvm-rule filter-landingpad-clause ()
-  "filter"
+  (v "filter")
   (list :filter (fail-parse-if-not (llvm-typep '(array ***) (car it))
 				   (wh llvm-constant))))
 
@@ -715,26 +743,30 @@
 	`(,type ,pers ,@clauses)))))
 
 (define-cg-llvm-rule call-instruction ()
-  (let ((tail (? (|| (progn (prog1 "tail" whitespace) :tail)
-		     (progn (prog1 "musttail" whitespace) :must-tail)))))
-    "call"
+  (let ((tail (? (|| (progn (prog1 (v "tail")
+			      (v whitespace))
+			    :tail)
+		     (progn (prog1 (v "musttail")
+			      (v whitespace))
+			    :must-tail)))))
+    (v "call")
     (let ((cconv (?wh cconv))
 	  (return-attrs (?wh (mapcar (lambda (x)
 				       (whitelist-kwd-expr '(:zeroext :signext :inreg) x))
-				     parameter-attrs)))
+				     (v parameter-attrs))))
 	  (type (emit-lisp-repr (wh llvm-type)))
 	  (ftype (?wh (fail-parse-if-not (llvm-typep '(pointer (function ***) ***) it)
-					 (emit-lisp-repr llvm-type))))
+					 (emit-lisp-repr (v llvm-type)))))
 	  (fnptrval (wh llvm-identifier))
 	  (args (wh? (progm #\( (? funcall-args) #\))))
 	  (fun-attrs (?wh (mapcar (lambda (x)
 				    (whitelist-kwd-expr '(:noreturn :nounwind :readonly :readnone) x))
-				  fun-attrs))))
+				  (v fun-attrs)))))
       `(call ,type ,fnptrval ,args
 	     ,!m(inject-kwds-if-nonnil cconv return-attrs ftype fun-attrs tail)))))
 
 (define-cg-llvm-rule usual-funcall-arg ()
-  (let ((instr-arg instr-arg)
+  (let ((instr-arg (v instr-arg))
 	(attrs (?wh parameter-attrs)))
     `(,@instr-arg ,@(if attrs `((:attrs ,@attrs))))))
 
@@ -745,41 +777,46 @@
 
 (define-cg-llvm-rule defun-arg ()
   (|| vararg-sign
-      (let* ((arg long-defun-arg) ; arg in defun must have a name
+      (let* ((arg (v long-defun-arg))   ; arg in defun must have a name
 	     (attrs (?wh parameter-attrs)))
 	`(,@arg ,!m(inject-kwd-if-nonnil attrs)))))
 
 (define-plural-rule %defun-args defun-arg white-comma)
 
 (define-cg-llvm-rule defun-args ()
-  #\( (? whitespace)
+  (v #\()
+  (? whitespace)
   (let ((args (? %defun-args)))
     ;; TODO : here we check for vararg special syntax
-    (? whitespace) #\)
+    (? whitespace)
+    (v #\))
     args))
 
 (define-cg-llvm-rule short-defun-arg ()
-  `(,(emit-lisp-repr llvm-type)))
+  `(,(emit-lisp-repr (v llvm-type))))
 (define-cg-llvm-rule long-defun-arg ()
-  `(,@short-defun-arg ,(wh? local-identifier)))
+  `(,@(v short-defun-arg) ,(wh? local-identifier)))
 
 (define-cg-llvm-rule vararg-sign ()
-  "..." :vararg)
+  (v "...")
+  :vararg)
 
 (define-cg-llvm-rule declfun-arg ()
   (|| vararg-sign
-      (let* ((type (emit-lisp-repr llvm-type))
-	     (attrs (?wh parameter-attrs))
+      (let* ((type (emit-lisp-repr (v llvm-type)))
+	     (attrs (?wh (v parameter-attrs)))
 	     (id (? (wh? local-identifier))))
 	`(,type ,!m(inject-if-nonnil id) ,!m(inject-kwd-if-nonnil attrs)))))
 
 (define-plural-rule %declfun-args declfun-arg white-comma)
 
 (define-cg-llvm-rule declfun-args ()
-  #\( (? whitespace)
+  (v #\()
+  (? whitespace)
   (let ((args (? %declfun-args)))
     ;; TODO : here we check for vararg special syntax
-    (? whitespace) #\)
+    (? whitespace)
+    (v #\))
     args))
 
 ;;; Let's write something that is able to parse whole basic block of instructions
@@ -794,43 +831,58 @@
       
 
 (define-cg-llvm-rule block-label ()
-  (destringify-symbol (text (list (literal-char #\%) (prog1 identifier-body #\:)))))
+  (destringify-symbol (text (list (literal-char #\%)
+				  (prog1 (v identifier-body)
+				    (v #\:))))))
 
 (define-cg-llvm-rule nonfinal-statement ()
   (|| nolvalue-nonterminator-instruction
-      `(= ,local-identifier ,(progn whitespace #\= whitespace lvalue-nonterminator-instruction))))
+      `(= ,(v local-identifier)
+	  ,(progn (v whitespace)
+		  (v #\=)
+		  (v  whitespace)
+		  (v lvalue-nonterminator-instruction)))))
 
 (define-plural-rule nonfinal-statements nonfinal-statement whitespace)
 
 (define-cg-llvm-rule final-statement ()
   (|| nolvalue-terminator-instruction
-      `(= ,local-identifier (progn whitespace #\= whitespace ,lvalue-nonterminator-instruction))))
+      `(= ,(v local-identifier)
+	  (progn (v whitespace)
+		 (v #\=)
+		 (v whitespace)
+		 ,(v lvalue-nonterminator-instruction)))))
 
 (define-cg-llvm-rule basic-block-body ()
   (let ((nonfinal-statements (? nonfinal-statements)))
-    (if nonfinal-statements whitespace)
+    (if nonfinal-statements
+	(v whitespace))
     ;; this way we first know that everything parsed well before we construct the list
-    (let ((final-statement final-statement))
+    (let ((final-statement (v final-statement)))
       `(,@nonfinal-statements ,final-statement))))
 
 (define-cg-llvm-rule basic-block ()
-  (let ((label (? (prog1 block-label whitespace))))
-    (let ((basic-block-body basic-block-body))
+  (let ((label (? (prog1 (v block-label)
+		    (v whitespace)))))
+    (let ((basic-block-body (v basic-block-body)))
       `(block ,!m(inject-kwd-if-nonnil label)
 	       ,@basic-block-body))))
 
 (define-plural-rule basic-blocks basic-block whitespace)
 
 (define-cg-llvm-rule function-body ()
-  (progm (progn #\{ (? whitespace))
+  (progm (progn (v #\{)
+		(? whitespace))
 	 (? basic-blocks)
-	 (progn (? whitespace) #\})))
+	 (progn (? whitespace)
+		(v #\}))))
 
 (define-cg-llvm-rule fundef-metadata-entry ()
   ;; TODO : in future the syntax of LLVM will likely become more flexible,
   ;;        and hence this place would have to be changed.
-  (list metadata-identifier
-	(progn whitespace metadata-identifier)))
+  (list (v  metadata-identifier)
+	(progn (v whitespace)
+	       (v metadata-identifier))))
 
 (define-plural-rule fundef-metadata fundef-metadata-entry whitespace)
 
@@ -839,8 +891,9 @@
 	 (visibility (?wh visibility-style))
 	 (dll-storage-class (?wh dll-storage-class))
 	 (cconv (?wh cconv))
-	 (unnamed-addr (?wh (progn "unnamed_addr" t)))
-	 (type (wh (emit-lisp-repr llvm-type)))
+	 (unnamed-addr (?wh (progn (v "unnamed_addr")
+				   t)))
+	 (type (wh (emit-lisp-repr (v llvm-type))))
 	 (return-attrs (?wh parameter-attrs))
 	 (fname (wh llvm-identifier))
 	 (args (wh? defun-args))
@@ -862,14 +915,16 @@
 				      body))))
 
 (define-cg-llvm-rule global-variable-definition ()
-  (let ((name global-identifier))
-    whitespace #\=
+  (let ((name (v global-identifier)))
+    (v whitespace)
+    (v #\=)
     (let* ((linkage (?wh linkage-type))
       	   (visibility (?wh visibility-style))
 	   (dll-storage-class (?wh dll-storage-class))
 	   (thread-local (?wh thread-local))
-	   (unnamed-addr (?wh (progn "unnamed_addr" t)))
-	   (addrspace (?wh (let ((it addr-space))
+	   (unnamed-addr (?wh (progn (v "unnamed_addr")
+				     t)))
+	   (addrspace (?wh (let ((it (v addr-space)))
 			     (if (equal 0 it)
 				 nil
 				 it))))
@@ -881,9 +936,18 @@
 	   (value (if (eq :external linkage)
 	   	      (? (?wh (descend-with-rule 'llvm-constant-value type)))
 	   	      (?wh (descend-with-rule 'llvm-constant-value type))))
-	   (section (? (progn (? whitespace) #\, (? whitespace) section)))
-	   (comdat (? (progn (? whitespace) #\, (? whitespace) comdat)))
-	   (align (? (progn (? whitespace) #\, (? whitespace) align))))
+	   (section (? (progn (? whitespace)
+			      (v #\,)
+			      (? whitespace)
+			      (v  section))))
+	   (comdat (? (progn (? whitespace)
+			     (v #\,)
+			     (? whitespace)
+			     (v comdat))))
+	   (align (? (progn (? whitespace)
+			    (v #\,)
+			    (? whitespace)
+			    (v align)))))
       `(:global-var ,name ,type ,value
 		    ,!m(inject-kwds-if-nonnil linkage visibility dll-storage-class
 					      unnamed-addr addrspace
@@ -894,11 +958,16 @@
 		    ))))
 
 (define-cg-llvm-rule long-abstract-attr ()
-  c!-name-llvm-string (? whitespace) #\= (? whitespace) c!-value-llvm-string
-  (list c!-name c!-value))
+  (cap name llvm-string)
+  (? whitespace)
+  (v #\=)
+  (? whitespace)
+  (cap value llvm-string)
+  (list (recap name)
+	(recap value)))
 
 (define-cg-llvm-rule short-abstract-attr ()
-  llvm-string)
+  (v llvm-string))
 
 (define-cg-llvm-rule abstract-attr ()
   (|| fun-attr
@@ -909,13 +978,26 @@
 (define-plural-rule abstract-attrs abstract-attr whitespace)
 
 (define-op-rule (attribute-group attributes)
-  (let* ((id (progn (? whitespace) #\# pos-integer))
-	 (attrs (progm (progn (? whitespace) #\= (? whitespace) #\{ (? whitespace))
+  (let* ((id (progn (? whitespace)
+		    (v #\#)
+		    (v pos-integer)))
+	 (attrs (progm (progn (? whitespace)
+			      (v #\=)
+			      (? whitespace)
+			      (v #\{)
+			      (? whitespace))
 		       abstract-attrs
-		       (progn (? whitespace) #\}))))
+		       (progn (? whitespace)
+			      (v #\})))))
     `(,id ,@attrs)))
 
 (define-op-rule (blockaddress blockaddress)
-  wh? #\( c!-1-global-identifier white-comma c!-2-local-identifier wh? #\)
-  `(,c!-1 ,c!-2))
+  (v wh?)
+  (v #\()
+  (cap a global-identifier)
+  (v white-comma)
+  (cap b local-identifier)
+  (v wh?)
+  (v #\))
+  `(,(recap a) ,(recap b)))
 

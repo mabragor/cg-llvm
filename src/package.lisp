@@ -15,3 +15,6 @@
 
 (defun literal-string (x)
   x)
+
+(defun literal-char (x)
+  x)
