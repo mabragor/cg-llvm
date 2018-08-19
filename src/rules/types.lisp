@@ -386,28 +386,42 @@
   (cap type llvm-type)
   (? whitespace)
   (v #\])
-  (llvm-array (recap nelts) (recap type)))
+  (llvm-array (recap nelts)
+	      (recap type)))
 
 
 (define-cg-llvm-rule comma-separated-types ()
-  c!-type-llvm-type (? whitespace) (? (progn #\, (? whitespace) c!-rectypes-comma-separated-types))
-  (cons c!-type c!-rectypes))
+  (cap type llvm-type)
+  (? whitespace)
+  (? (progn (v #\,)
+	    (? whitespace)
+	    (cap rectypes comma-separated-types)))
+  (cons (recap type)
+	(recap rectypes)))
 
 
 (define-cg-llvm-rule nonpacked-literal-struct ()
-  #\{ (? whitespace) c!-1-comma-separated-types (? whitespace) #\}
-  (apply #'llvm-struct c!-1))
+  (v #\{)
+  (? whitespace)
+  (cap a comma-separated-types)
+  (? whitespace)
+  (v #\})
+  (apply #'llvm-struct (recap a)))
 
 (define-cg-llvm-rule packed-literal-struct ()
-  "<{" (? whitespace) c!-1-comma-separated-types (? whitespace) "}>"
-  (apply #'llvm-struct `(:packed-p t ,@c!-1)))
+  (v "<{")
+  (? whitespace)
+  (cap a comma-separated-types)
+  (? whitespace)
+  (v "}>")
+  (apply #'llvm-struct `(:packed-p t ,@ (recap a))))
 
 (define-cg-llvm-rule literal-struct ()
   (|| nonpacked-literal-struct
       packed-literal-struct))
 
 (define-cg-llvm-rule opaque-struct ()
-  "opaque"
+  (v "opaque")
   (make-instance 'llvm-opaque-struct))
 
 (define-cg-llvm-rule struct ()
@@ -415,8 +429,15 @@
       literal-struct))
 
 (define-cg-llvm-rule struct-declaration ()
-  c!-1-llvm-ident whitespace "=" whitespace "type" whitespace c!-2-struct
-  (list c!-1 c!-2))
+  (cap a llvm-ident)
+  (v whitespace)
+  (v "=")
+  (v whitespace)
+  (v "type")
+  (v whitespace)
+  (cap b struct)
+  (list (recap a)
+	(recap b)))
 
 (defclass llvm-named-type (llvm-type)
   ((name :initarg :name :initform "You should specify the name of the named type")))
@@ -425,9 +446,18 @@
   `(named ,(slot-value obj 'name)))
 
 (define-cg-llvm-rule nonpointer-type ()
-  (|| (|| void-type function-type integer-type float-type
-	  x86-mmx vector label metadata array literal-struct)
-      (make-instance 'llvm-named-type :name local-identifier)))
+  (|| (|| void-type
+	  function-type
+	  integer-type
+	  float-type
+	  x86-mmx
+	  vector
+	  label
+	  metadata
+	  array
+	  literal-struct)
+      (make-instance 'llvm-named-type
+		     :name (v local-identifier))))
 
 (define-cg-llvm-rule nonpointer-firstclass-type ()
   (|| integer-type float-type x86-mmx vector label metadata array literal-struct))
@@ -436,15 +466,15 @@
   (times elt-pointer))
 
 (define-cg-llvm-rule llvm-type ()
-  (let ((under-type nonpointer-type)
-	(stars pointer-stars))
+  (let ((under-type (v nonpointer-type))
+	(stars (v pointer-stars)))
     (iter (for addrspace in stars)
 	  (setf under-type (llvm-pointer under-type addrspace)))
     under-type))
 
 (define-cg-llvm-rule llvm-firstclass-type ()
-  (let ((under-type nonpointer-firstclass-type)
-	(stars pointer-stars))
+  (let ((under-type (v nonpointer-firstclass-type))
+	(stars (v pointer-stars)))
     (iter (for addrspace in stars)
 	  (setf under-type (llvm-pointer under-type addrspace)))
     under-type))
