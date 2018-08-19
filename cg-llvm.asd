@@ -30,7 +30,6 @@
 		 (:file "high-level-structure")
 		 )
 		)
-	       (:file "package-post")
 	       
 	       ;; (:file "basics")
 	       ))
@@ -41,7 +40,9 @@
   :description "Tests for CG-LLVM."
   :licence "MIT"
   :depends-on (:cg-llvm :fiveam :cl-interpol)
-  :components ((:file "tests")))
+  :serial t
+  :components ((:file "package-post")
+	       (:file "tests")))
 
 (defmethod perform ((op test-op) (sys (eql (find-system :cg-llvm))))
   (load-system :cg-llvm)
