@@ -761,7 +761,7 @@ entry:
 		   ((pointer (integer 8))))
 	  "declare i8* @llvm.invariant.group.barrier(i8*)")
     ))
-;;;FIXME
+
 (test constant-expressions
   (macrolet ((frob (x y)
 	       `(is (equal ',x (cg-llvm-parse 'constant-expression-value ,y)))))
@@ -787,7 +787,7 @@ entry:
 
 (elt-test llvm-comments
 	  #\space ";   asdf")
-;;;FIXME
+
 (elt-test llvm-modules
 	  (module
 	   (target-datalayout (:endianness :little) (:mangling :elf) (:integer 64 (:abi 64))
