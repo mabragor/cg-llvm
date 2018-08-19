@@ -1,7 +1,7 @@
 (in-package :cl-user)
 
 (defpackage :cg-llvm-tests
-  (:use :cl :cg-llvm :fiveam :iterate :cl-read-macro-tokens :defmacro-enhance
+  (:use :cl :cg-llvm :fiveam :iterate ;;:cl-read-macro-tokens :defmacro-enhance
 	:cg-llvm-symbols)
   (:import-from #:cg-common-ground #:pairs)
   (:shadowing-import-from #:cg-llvm #:join)
