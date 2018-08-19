@@ -213,7 +213,7 @@
   `(defmacro ,name (name)
      (let ((constexpr-name (intern #?"$((string name))-CONSTEXPR")))
        (with-rule-names (name)
-	 `(progn (define-instruction-rule ,(print name)
+	 `(progn (define-instruction-rule ,name
 		   (,,(if prefix
 			  (intern #?"WITH-$((string prefix))-PREFIX")
 			  'progn)
