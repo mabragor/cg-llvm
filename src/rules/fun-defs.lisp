@@ -300,16 +300,17 @@
   `(,(emit-lisp-repr type) ,!m(inject-kwd-if-nonnil attrs)))
 
 (defmacro with-rule-names ((name-var) &body body)
-  `(destructuring-bind (rule-name instr-name) (if (symbolp ,name-var)
-						  (list
-						   (intern #?"$((string ,name-var))-INSTRUCTION")
-						   ,name-var)
-						  (list
-						   (car ,name-var)
-						   (cadr ,name-var)))
+  `(destructuring-bind (rule-name instr-name)
+       (if (symbolp ,name-var)
+	   (list
+	    (intern #?"$((string ,name-var))-INSTRUCTION")
+	    ,name-var)
+	   (list
+	    (car ,name-var)
+	    (cadr ,name-var)))
      (declare (ignorable rule-name instr-name))
      ,@body))
-  
+
 (defmacro!! define-op-rule (name &body body) ()
   (with-rule-names (name)
     (let ((body-rule-name (if (symbolp name)
