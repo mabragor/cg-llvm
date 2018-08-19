@@ -22,4 +22,6 @@
 (define-plural-rule llvm-elements llvm-element (? whitespace))
 
 (define-cg-llvm-rule llvm-module ()
-  (progm (? whitespace) `(module ,@llvm-elements) (? whitespace)))
+  (progm (? whitespace)
+	 `(module ,@(v llvm-elements))
+	 (? whitespace)))
