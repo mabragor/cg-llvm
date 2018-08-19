@@ -26,7 +26,7 @@
 		 (:file "constants")
 		 (:file "metadata")
 		 (:file "instructions")
-		 ;(:file "constant-expressions")
+		 (:file "constant-expressions")
 		 (:file "high-level-structure")
 		 )
 		)
