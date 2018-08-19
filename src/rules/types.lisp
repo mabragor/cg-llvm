@@ -5,7 +5,7 @@
 (in-package #:cg-llvm)
 
 (cl-interpol:enable-interpol-syntax)
-(enable-read-macro-tokens)
+;;;(enable-read-macro-tokens)
 
 (defgeneric emit-lisp-repr (obj)
   (:documentation "Emit cons-style representation of the object"))
@@ -265,8 +265,9 @@
 
 (define-cg-llvm-rule llvm-comment ()
   ;; we just totally ignore comments, replacing them with single space (C-style)
-  #\; (times (!! (|| #\newline #\return)))
-  (literal-char #\space))
+  (v #\;)
+  (times (!! (|| #\newline #\return)))
+  #\space)
   
 
 (define-cg-llvm-rule ns-dec-digit ()
@@ -279,10 +280,11 @@
   (parse-integer (text (? "-") (postimes ns-dec-digit))))
 
 (define-cg-llvm-rule integer-type ()
-  #\i (llvm-integer pos-integer))
+  (v #\i)
+  (llvm-integer (v pos-integer)))
 
 (define-cg-llvm-rule void-type ()
-  "void"
+  (v "void")
   (make-instance 'llvm-void-type))
 
 (defun parse-function-argtypes (lst)
@@ -292,12 +294,16 @@
 
 (define-cg-llvm-rule function-argtype ()
   (|| llvm-type
-      (progn "..." '***)))
+      (progn (v "...")
+	     (quote ***) ;;return this
+	     )))
 
 (define-cg-llvm-rule function-argtypes ()
-  (cons function-argtype
-	(times (progn (? whitespace) #\, (? whitespace)
-		      function-argtype))))
+  (cons (v function-argtype)
+	(times (progn (? whitespace)
+		      (v #\,)
+		      (? whitespace)
+		      (v function-argtype)))))
 
 (define-cg-llvm-rule function-type ()
   (let ((ret-type (|| void-type
@@ -305,32 +311,45 @@
     (if (or (typep ret-type 'llvm-label)
 	    (typep ret-type 'llvm-metadata))
 	(fail-parse "Got label or metadata type as function return type"))
-    (? whitespace) "(" c!-1-function-argtypes ")"
-    (multiple-value-bind (param-types vararg-p) (parse-function-argtypes c!-1)
+    (? whitespace)
+    (v "(")
+    (cap a function-argtypes)
+    (v ")")
+    (multiple-value-bind (param-types vararg-p)
+	(parse-function-argtypes (recap a))
       (make-instance 'llvm-function-type
 		     :ret-type ret-type
 		     :param-types param-types
 		     :vararg-p vararg-p))))
 
 (define-cg-llvm-rule float-type ()
-  (llvm-float (cond-parse ("double" 'double)
-			  ("half" 'half)
-			  ("float" 'float)
-			  ("fp128" 'fp128)
-			  ("x86_fp80" 'x86-fp80)
-			  ("ppc_fp128" 'ppc-fp128))))
+  (llvm-float (cond-parse ((v "double") 'double)
+			  ((v "half") 'half)
+			  ((v "float") 'float)
+			  ((v "fp128") 'fp128)
+			  ((v "x86_fp80") 'x86-fp80)
+			  ((v "ppc_fp128") 'ppc-fp128))))
 
 (define-cg-llvm-rule x86-mmx ()
-  "x86_mmx"
+  (v "x86_mmx")
   (make-instance 'llvm-x86-mmx))
 
 (define-cg-llvm-rule addr-space ()
-  (|| (progn "addrspace(" (? whitespace) c!-1-simple-int (? whitespace) ")" c!-1)
+  (|| (progn (v "addrspace(")
+	     (? whitespace)
+	     (cap a simple-int)
+	     (? whitespace)
+	     (v ")")
+	     (recap a))
       0))
+;;;FIXME:: what Why is there a zero? what does it do?
 
 (define-cg-llvm-rule elt-pointer ()
-  (? whitespace) c!-1-addr-space (? whitespace) "*"
-  c!-1)
+  (? whitespace)
+  (cap a addr-space)
+  (? whitespace)
+  (v "*")
+  (recap a))
 
 ;; TODO: smart pointer parsing
 
@@ -338,17 +357,36 @@
   (parse-integer (text (postimes ns-dec-digit))))
 
 (define-cg-llvm-rule vector ()
-  #\< (? whitespace) c!-nelts-simple-int (? whitespace) #\x (? whitespace) c!-type-llvm-type (? whitespace) #\>
-  (llvm-vector c!-nelts c!-type))
+  (v #\<)
+  (? whitespace)
+  (cap nelts simple-int)
+  (? whitespace)
+  (v #\x)
+  (? whitespace)
+  (cap type llvm-type)
+  (? whitespace)
+  (v #\>)
+  (llvm-vector (recap nelts)
+	       (recap type)))
 
 (define-cg-llvm-rule label ()
-  "label" (make-instance 'llvm-label))
+  (v "label")
+  (make-instance 'llvm-label))
 (define-cg-llvm-rule metadata ()
-  "metadata" (make-instance 'llvm-metadata))
+  (v "metadata")
+  (make-instance 'llvm-metadata))
 
 (define-cg-llvm-rule array ()
-  #\[ (? whitespace) c!-nelts-simple-int (? whitespace) #\x (? whitespace) c!-type-llvm-type (? whitespace) #\]
-  (llvm-array c!-nelts c!-type))
+  (v #\[)
+  (? whitespace)
+  (cap nelts simple-int)
+  (? whitespace)
+  (v #\x)
+  (? whitespace)
+  (cap type llvm-type)
+  (? whitespace)
+  (v #\])
+  (llvm-array (recap nelts) (recap type)))
 
 
 (define-cg-llvm-rule comma-separated-types ()
