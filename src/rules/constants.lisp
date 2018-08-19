@@ -10,14 +10,14 @@
 	(value-rule-name (intern #?"$(name)-CONSTANT-VALUE"))
 	(rule-name (intern #?"$(name)-CONSTANT")))
     `(progn (define-cg-llvm-rule ,type-rule-name ()
-	      (let ((type (emit-lisp-repr llvm-type)))
+	      (let ((type (emit-lisp-repr (v llvm-type))))
 		(if (not ,typecheck)
 		    (fail-parse-format ,@errinfo)
 		    type)))
 	    (define-cg-llvm-rule ,value-rule-name (type)
 	      ,@value-rule-body)
 	    (define-cg-llvm-rule ,rule-name ()
-	      (let ((type ,type-rule-name))
+	      (let ((type (v ,type-rule-name)))
 		(list type (wh (descend-with-rule ',value-rule-name type))))))))
 	    
 
@@ -28,22 +28,28 @@
      ,@value-rule-body))
 
 (define-typeguarding-constant-rules boolean
-    (llvm-typep '(integer 1) type) ((literal-string "Boolean must really be integer of 1 bit."))
+    (llvm-typep '(integer 1) type)
+    ((literal-string "Boolean must really be integer of 1 bit."))
     (text (|| "true" "false")))
 
 (define-typeguarding-constant-rules integer
-    (llvm-typep '(integer *) type) ((literal-string "Integer constant must be of integer type but got ~a.")
-				    type)
-  integer)
+    (llvm-typep '(integer *) type)
+    ((literal-string "Integer constant must be of integer type but got ~a.")
+     type)
+  (v integer))
 
 (define-cg-llvm-rule sign ()
   (|| "+" "-"))
 
 (define-cg-llvm-rule decimal-float ()
-  (parse-number:parse-number (text (? sign)
-				   (times ns-dec-digit)
-				   #\. (times ns-dec-digit)
-				   (? (list #\e sign (postimes ns-dec-digit))))))
+  (parse-number:parse-number
+   (text (? sign)
+	 (times ns-dec-digit)
+	 (v #\.)
+	 (times ns-dec-digit)
+	 (? (list (v #\e)
+		  (v sign)
+		  (postimes ns-dec-digit))))))
 
 ;; TODO : hexadecimal float ???
 (define-cg-llvm-rule hexadecimal-float ()
@@ -54,8 +60,9 @@
       hexadecimal-float))
 
 (define-typeguarding-constant-rules float
-    (llvm-typep '(float ***) type) ((literal-string "Float constant must be of float type but got ~a.") type)
-  llvm-float)
+    (llvm-typep '(float ***) type)
+    ((literal-string "Float constant must be of float type but got ~a.") type)
+  (v llvm-float))
 
 (define-typeguarding-constant-rules null-ptr
     (llvm-typep '(pointer ***) type)
@@ -65,11 +72,12 @@
 (define-typeguarding-constant-rules global-ident
     (llvm-typep '(pointer ***) type)
     ((literal-string "Global identifier must be of pointer type, but got ~a.") type)
-  llvm-identifier)
+  (v llvm-identifier))
 
 (define-cg-llvm-rule global-ident-constant ()
-  (let ((type global-ident-constant-type))
-    (list type (wh (descend-with-rule 'global-ident-constant-value type)))))
+  (let ((type (v global-ident-constant-type)))
+    (list type
+	  (wh (descend-with-rule 'global-ident-constant-value type)))))
 
 (define-cg-llvm-rule simple-constant ()
   (|| boolean-constant
@@ -106,16 +114,19 @@
       (descend-with-rule 'metadata-node-value type)))
 
 (define-cg-llvm-rule llvm-variable-value ()
-  llvm-identifier)
+  (v llvm-identifier))
 
 (define-cg-llvm-rule llvm-variable ()
-  `(,(emit-lisp-repr llvm-type) ,(wh llvm-variable-value)))
+  `(,(emit-lisp-repr (v llvm-type))
+     ,(wh llvm-variable-value)))
 
 (define-cg-llvm-rule llvm-undef-value ()
-  "undef" :undef)
+  (v "undef")
+  :undef)
   
 (define-cg-llvm-rule llvm-undef ()
-  `(,(emit-lisp-repr llvm-type) ,(wh llvm-undef-value)))
+  `(,(emit-lisp-repr (v llvm-type))
+     ,(wh llvm-undef-value)))
 
 (define-cg-llvm-rule instr-arg ()
   (|| llvm-variable
@@ -128,15 +139,19 @@
       llvm-constant-value))
 
 
-(define-plural-rule llvm-constants llvm-constant (progn (? whitespace) #\, (? whitespace)))
+(define-plural-rule llvm-constants llvm-constant (progn (? whitespace)
+							(v #\,)
+							(? whitespace)))
 
 (defmacro define-complex-constant-rules (name lb rb typecheck errstr1 errstr2 contentcheck)
   (let ((errstr (join "" errstr1 " constant must be of "
 		      errstr2 " type, but got ~a")))
     `(define-constant-rules ,name ,typecheck (,errstr type)
-       (let ((content (progm (progn (descend-with-rule 'string ,lb) (? whitespace))
+       (let ((content (progm (progn (descend-with-rule 'string ,lb)
+				    (? whitespace))
 			     llvm-constants
-			     (progn (? whitespace) (descend-with-rule 'string ,rb)))))
+			     (progn (? whitespace)
+				    (descend-with-rule 'string ,rb)))))
 	 (if type
 	     ,contentcheck)
 	 content))))
@@ -172,14 +187,16 @@
 (define-constant-rules string
     (llvm-typep '(array (integer 8) *) type)
     ((literal-string "String constant must be of array-of-chars type, but got ~a") type)
-  #\c
+  (v #\c)
   (mapcar (lambda (x)
 	    `((integer 8) ,(char-code x)))
-	  (coerce llvm-string 'list)))
+	  (coerce (v llvm-string) 'list)))
 
 (define-constant-rules zero-init
-    t ("")
-  "zeroinitializer" :zero-initializer)
+    t
+    ("")
+  (v "zeroinitializer")
+  :zero-initializer)
 
 (define-cg-llvm-rule complex-constant ()
   (|| structure-constant
