@@ -22,7 +22,7 @@
 		(
 		 (:file "types")
 		 (:file "fun-defs")
-		 ;(:file "identifiers")
+		 (:file "identifiers")
 		 ;(:file "constants")
 		 ;(:file "metadata")
 		 ;(:file "instructions")

@@ -20,7 +20,7 @@
   (character-ranges (#\0 #\9) (#\a #\f) (#\A #\F)))
 
 (define-cg-llvm-rule double-hex-escaped-char ()
-  #\\
+  (v #\\)
   (code-char (parse-number:parse-number (text (times hex-digit :exactly 2))
 					:radix 16)))
 
@@ -37,9 +37,11 @@
       unnamed-identifier-body))
 
 (define-cg-llvm-rule local-identifier ()
-  (try-destringify-symbol (text (list #\% identifier-body))))
+  (try-destringify-symbol (text (list (v #\%)
+				      (v identifier-body)))))
 (define-cg-llvm-rule global-identifier ()
-  (try-destringify-symbol (text (list #\@ identifier-body))))
+  (try-destringify-symbol (text (list (v #\@)
+				      (v identifier-body)))))
 
 (define-cg-llvm-rule llvm-identifier ()
   (|| local-identifier
