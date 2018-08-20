@@ -520,7 +520,7 @@
     `(:integer ,size ,abi-pref)))
 (define-cg-llvm-rule vector-layout ()
   (let ((size (prog1 (v pos-integer)
-		(v#\:)))
+		(v #\:)))
 	(abi-pref (v abi-layout)))
     `(:vector ,size ,abi-pref)))
 (define-cg-llvm-rule float-layout ()
@@ -529,7 +529,7 @@
 	(abi-pref (v abi-layout)))
     `(:float ,size ,abi-pref)))
 (define-cg-llvm-rule aggregate-layout ()
-  `(:aggregate ,abi-layout))
+  `(:aggregate ,(v abi-layout)))
 
 (define-cg-llvm-rule abi-layout ()
   (let ((abi (v pos-integer))
