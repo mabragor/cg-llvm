@@ -391,9 +391,9 @@
 
 (define-atomic-load-store-instruction load (emit-lisp-repr (wh llvm-type)))
 (define-non-atomic-load-store-instruction load (emit-lisp-repr (wh llvm-type)))
-(define-atomic-load-store-instruction store (wh llvm-constant))
-(define-non-atomic-load-store-instruction store (wh llvm-constant))
-	
+(define-atomic-load-store-instruction store (wh instr-arg))
+(define-non-atomic-load-store-instruction store (wh instr-arg))
+
 (define-instruction-alternative load
   atomic-load non-atomic-load)
 
@@ -836,16 +836,6 @@
   lvalue-other lvalue-conversion lvalue-memory lvalue-aggregate
   lvalue-bitwise-binary lvalue-binary)
 
-(DEFINE-CG-LLVM-RULE NOLVALUE-NONTERMINATOR-INSTRUCTION
-    NIL
-  (|test|
-   NOLVALUE-OTHER-INSTRUCTION
-   NOLVALUE-CONVERSION-INSTRUCTION
-   NOLVALUE-MEMORY-INSTRUCTION
-   NOLVALUE-AGGREGATE-INSTRUCTION
-   NOLVALUE-BITWISE-BINARY-INSTRUCTION
-   NOLVALUE-BINARY-INSTRUCTION))
-#+nil
 (define-instruction-alternative nolvalue-nonterminator
   nolvalue-other nolvalue-conversion nolvalue-memory
   nolvalue-aggregate nolvalue-bitwise-binary nolvalue-binary)
