@@ -463,11 +463,12 @@
     `(,ptrval ,idx)))
 
 (define-cg-llvm-rule scalar-getelementptr-body ()
-  (let* ((ptrval (fail-parse-if-not (llvm-typep '(pointer ***)
-						(car it))
-				    (v instr-arg)))
-	 (indices (v geteltptr-indices)))
-    `(,ptrval ,@indices)))
+  (let ((ptrval (fail-parse-if-not (llvm-typep '(pointer ***)
+					       (car it))
+				   (v instr-arg))))
+    (v white-comma)
+    (let ((indices (v geteltptr-indices)))
+      `(,ptrval ,@indices))))
 
 ;; TODO : we do not check correct types of indices of getelementptr
 ;; at this stage, as this would require keeping track of symbol table
@@ -485,11 +486,13 @@
     
 
 (define-instruction-rule getelementptr
-  (let* ((inbounds (?wh (progn "inbounds" t)))
+  (let* ((inbounds (?wh (progn (v "inbounds")
+			       t)))
 	 (type (wh (prog1 (v llvm-type)
 		     (v white-comma))))
 	 (body (|| vector-getelementptr-body
-		   scalar-getelementptr-body)))
+		   scalar-getelementptr-body))
+	 )
     `(,type ,@body ,!m(inject-kwd-if-nonnil inbounds))))
 
 (define-instruction-alternative lvalue-conversion
@@ -833,6 +836,16 @@
   lvalue-other lvalue-conversion lvalue-memory lvalue-aggregate
   lvalue-bitwise-binary lvalue-binary)
 
+(DEFINE-CG-LLVM-RULE NOLVALUE-NONTERMINATOR-INSTRUCTION
+    NIL
+  (|test|
+   NOLVALUE-OTHER-INSTRUCTION
+   NOLVALUE-CONVERSION-INSTRUCTION
+   NOLVALUE-MEMORY-INSTRUCTION
+   NOLVALUE-AGGREGATE-INSTRUCTION
+   NOLVALUE-BITWISE-BINARY-INSTRUCTION
+   NOLVALUE-BINARY-INSTRUCTION))
+#+nil
 (define-instruction-alternative nolvalue-nonterminator
   nolvalue-other nolvalue-conversion nolvalue-memory
   nolvalue-aggregate nolvalue-bitwise-binary nolvalue-binary)
@@ -869,16 +882,11 @@
 
 #+nil
 (define-plural-rule any-statements any-statement whitespace)
-#+nil
+
 (define-cg-llvm-rule any-statement ()
   (|| nolvalue-terminator-instruction
       nolvalue-nonterminator-instruction
-      lvalue-nonterminator-instruction
-      `(= ,(v local-identifier)
-	  ,(progn (v whitespace)
-		  (v #\=)
-		  (v whitespace)
-		  (v lvalue-nonterminator-instruction)))))
+      lvalue-nonterminator-aux))
 #+nil
 (define-cg-llvm-rule basic-block-body ()
   (? any-statements))
