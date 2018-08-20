@@ -131,10 +131,10 @@
       llvm-undef
       llvm-constant))
 
-(define-cg-llvm-rule instr-arg-value ()
+(define-cg-llvm-rule instr-arg-value (&optional type)
   (|| llvm-variable-value
       llvm-undef-value
-      llvm-constant-value))
+      (descend-with-rule 'llvm-constant-value type)))
 
 (define-plural-rule llvm-constants llvm-constant (progn (? whitespace)
 							(v #\,)

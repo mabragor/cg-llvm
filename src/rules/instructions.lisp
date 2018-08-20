@@ -703,9 +703,9 @@
 	     (type (emit-lisp-repr (wh llvm-type))))
 	 (if (not ,typecheck)
 	     (fail-parse-format ,@errinfo))
-	 (let ((val1 (wh (descend-with-rule 'llvm-constant-value type))))
+	 (let ((val1 (wh (v instr-arg-value type))))
 	   (v white-comma)
-	   (let ((val2 (descend-with-rule 'llvm-constant-value type)))
+	   (let ((val2 (v instr-arg-value type)))
 	     `(,cond ,type ,val1 ,val2)))))))
 	
 (define-cmp-rule icmp
