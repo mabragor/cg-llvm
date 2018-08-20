@@ -144,36 +144,6 @@
 
 (define-lvalue-instruction-alternative binary)
 
-(defmacro unordered-simple-keywords (&rest kwds)
-  `(let ((kwds (times (wh (|| ,@(mapcar (lambda (x)
-					  `(progn (descend-with-rule 'string ,(stringify-symbol x))
-						  ,(intern (string x) "KEYWORD")))
-					kwds)))
-		      :upto ,(length kwds))))
-     ;; (format t "kwds are: ~a~%" kwds)
-     (mapcar (lambda (x)
-	       (if (find x kwds :test #'eq)
-		   `(,x t)))
-	     (list ,@(mapcar (lambda (x)
-			       (intern (string x) "KEYWORD"))
-			     kwds)))))
-
-
-(defmacro with-integer-overflow-prefix (&body body)
-  `(let ((prefix-kwds (destructuring-bind (nuw nsw) (unordered-simple-keywords nuw nsw)
-			`(,!m(inject-if-nonnil nuw) ,!m(inject-if-nonnil nsw)))))
-     ,@body))
-
-(defmacro with-exact-prefix (&body body)
-  `(let ((prefix-kwds (remove-if-not #'identity (unordered-simple-keywords exact))))
-     ,@body))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter known-fast-math-flags '(nnan ninf nsz arcp fast)))
-
-(defmacro with-fast-math-flags-prefix (&body body)
-  `(let ((prefix-kwds (remove-if-not #'identity (unordered-simple-keywords ,@known-fast-math-flags))))
-     ,@body))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun binop-instruction-body (name type)
@@ -206,25 +176,46 @@
                                       but got: ~a and ~a"
 			       (car val1) (car val2)))
 	`(,val1 ,val2 ,@prefix-kwds)))))
-  
 
-(defmacro define-integer-binop-definer (name &optional prefix)
+(defmacro unordered-simple-keywords (&rest kwds)
+  `(let ((kwds (times (wh (|| ,@(mapcar (lambda (x)
+					  `(progn (descend-with-rule 'string ,(stringify-symbol x))
+						  ,(intern (string x) "KEYWORD")))
+					kwds)))
+		      :upto ,(length kwds))))
+     ;; (format t "kwds are: ~a~%" kwds)
+     (mapcar (lambda (x)
+	       (if (find x kwds :test #'eq)
+		   `(,x t)))
+	     (list ,@(mapcar (lambda (x)
+			       (intern (string x) "KEYWORD"))
+			     kwds)))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defparameter known-fast-math-flags '(nnan ninf nsz arcp fast)))
+
+(defmacro with-fast-math-flags-prefix (&body body)
+  `(let ((prefix-kwds (remove-if-not #'identity (unordered-simple-keywords ,@known-fast-math-flags))))
+     ,@body))
+
+(defmacro define-integer-binop-definer (name &optional prefix-code)
   `(defmacro ,name (name)
      (let ((constexpr-name (intern #?"$((string name))-CONSTEXPR")))
        (with-rule-names (name)
 	 `(progn (define-instruction-rule ,name
-		   (,,(if prefix
-			  (intern #?"WITH-$((string prefix))-PREFIX")
-			  'progn)
-		      ,@(binop-instruction-body instr-name 'integer)))
+		   (let ((prefix-kwds ,,prefix-code))
+		     ,@(binop-instruction-body instr-name 'integer)))
 		 (define-op-rule (,constexpr-name ,instr-name)
-		   (,,(if prefix
-			  (intern #?"WITH-$((string prefix))-PREFIX")
-			  'progn)
-		      ,@(binop-constexpr-body instr-name 'integer))))))))
+		   (let ((prefix-kwds ,,prefix-code))
+		     ,@(binop-constexpr-body instr-name 'integer))))))))
 
-(define-integer-binop-definer define-integer-binop-rule integer-overflow)
-(define-integer-binop-definer define-exact-integer-binop-rule exact)
+(define-integer-binop-definer define-integer-binop-rule
+    ;;integer-overflow
+    (destructuring-bind (nuw nsw) (unordered-simple-keywords nuw nsw)
+      `(,!m(inject-if-nonnil nuw) ,!m(inject-if-nonnil nsw))))
+(define-integer-binop-definer define-exact-integer-binop-rule
+    ;;exact
+    (remove-if-not #'identity (unordered-simple-keywords exact)))
 (define-integer-binop-definer define-simple-integer-binop-rule)
 
 (defmacro define-float-binop-rule (name &key (type 'float))
@@ -250,7 +241,6 @@
 (define-exact-integer-binop-rule udiv)
 (define-exact-integer-binop-rule sdiv)
 
-;;;;FIXME::PREFIX-KWDS undefined
 (define-simple-integer-binop-rule urem)
 (define-simple-integer-binop-rule srem)
 
@@ -266,7 +256,6 @@
 (define-exact-integer-binop-rule lshr)
 (define-exact-integer-binop-rule ashr)
 
-;;;;FIXME::PREFIX-KWDS undefined
 (define-simple-integer-binop-rule and)
 (define-simple-integer-binop-rule or)
 (define-simple-integer-binop-rule xor)
