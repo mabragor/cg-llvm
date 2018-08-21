@@ -146,9 +146,7 @@
       llvm-undef-value
       (descend-with-rule 'llvm-constant-value type)))
 
-(define-plural-rule llvm-constants llvm-constant (progn (? whitespace)
-							(v #\,)
-							(? whitespace)))
+(define-plural-rule llvm-constants llvm-constant white-comma)
 
 (defmacro define-complex-constant-rules (name lb rb typecheck errstr1 errstr2 contentcheck)
   (let ((errstr (join "" errstr1 " constant must be of "
@@ -179,7 +177,6 @@
 	(iter (for (expr-subtype nil) in content)
 	      (if (not (llvm-same-typep (cadr type) expr-subtype))
 		  (fail-parse "Type of array element does not match declared one.")))))
-
 
 (define-complex-constant-rules vector
     "<" ">" (llvm-typep '(vector ***) type) "Vector" "vector"

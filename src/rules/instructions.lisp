@@ -313,18 +313,21 @@
 
 (define-lvalue-instruction-alternative aggregate)
 
-(define-simple-instruction-rule extractelement ((val (llvm-typep '(vector ***) (car it)))
-					 (idx (llvm-typep '(integer ***) (car it)))))
-(define-simple-instruction-rule insertelement ((val (llvm-typep '(vector ***) (car it)))
-					elt
-					(idx (llvm-typep '(integer ***) (car it))))
+(define-simple-instruction-rule extractelement
+    ((val (llvm-typep '(vector ***) (car it)))
+     (idx (llvm-typep '(integer ***) (car it)))))
+(define-simple-instruction-rule insertelement
+    ((val (llvm-typep '(vector ***) (car it)))
+     elt
+     (idx (llvm-typep '(integer ***) (car it))))
   (if (not (llvm-same-typep (car elt) (cadar val)))
       (fail-parse "ELT must be same type as subtype of VAL"))
   `(,val ,elt ,idx))
 
-(define-simple-instruction-rule shufflevector ((v1 (llvm-typep '(vector ***) (car it)))
-					(v2 (llvm-typep '(vector ***) (car it)))
-					(mask (llvm-typep '(vector (integer 32) *) (car it))))
+(define-simple-instruction-rule shufflevector
+    ((v1 (llvm-typep '(vector ***) (car it)))
+     (v2 (llvm-typep '(vector ***) (car it)))
+     (mask (llvm-typep '(vector (integer 32) *) (car it))))
   (if (not (llvm-same-typep (cadar v1) (cadar v2)))
       (fail-parse "V1 and V2 must have same subtype"))
   `(,v1 ,v2 ,mask))
