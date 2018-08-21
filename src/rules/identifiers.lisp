@@ -36,11 +36,11 @@
       unnamed-identifier-body))
 
 (define-cg-llvm-rule local-identifier ()
-  (try-destringify-symbol (text (list (v #\%)
-				      (v identifier-body)))))
+  (text (list (v #\%)
+	      (v identifier-body))))
 (define-cg-llvm-rule global-identifier ()
-  (try-destringify-symbol (text (list (v #\@)
-				      (v identifier-body)))))
+  (text (list (v #\@)
+	      (v identifier-body))))
 
 (define-cg-llvm-rule llvm-identifier ()
   (|| local-identifier

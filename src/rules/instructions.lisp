@@ -874,9 +874,9 @@
   nolvalue-aggregate nolvalue-bitwise-binary nolvalue-binary)
 
 (define-cg-llvm-rule block-label ()
-  (destringify-symbol (text (list (literal-char #\%)
-				  (prog1 (v identifier-body)
-				    (v #\:))))))
+  (text (list (literal-char #\%)
+	      (prog1 (v identifier-body)
+		(v #\:)))))
 ;;;;FIXME::why discriminate between final and nonfinal statements?
 
 (define-cg-llvm-rule lvalue-nonterminator-aux ()

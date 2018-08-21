@@ -69,9 +69,9 @@
     (frob (struct ((integer 8) (integer 32)) :packed-p t)
 	  "<{ i8, i32 }>"))
   (is (equal 'opaque (emit-lisp-repr (cg-llvm-parse 'struct "opaque"))))
-  (is (equal '(named +-%struct.-s-t)
+  (is (equal '(named "%struct.ST")
 	     (emit-lisp-repr (cg-llvm-parse 'llvm-type "%struct.ST"))))
-  (is (equal '(pointer (named +-%struct.-s-t))
+  (is (equal '(pointer (named "%struct.ST"))
 	     (emit-lisp-repr (cg-llvm-parse 'llvm-type "%struct.ST*")))))
     
 
@@ -327,10 +327,10 @@
 	  ((integer 8) 1) "i8 1"
 	  ((integer 32) 42) "i32 42"
 	  ((array (pointer (integer 32)) 2)
-	   (((pointer (integer 32)) *@x)
-	    ((pointer (integer 32)) *@y)))
+	   (((pointer (integer 32)) "@X")
+	    ((pointer (integer 32)) "@Y")))
 	  "[2 x i32*] [ i32* @X, i32* @Y ]"
-	  ((pointer (array (integer 8) 14)) @.str) "[14 x i8]* @.str"
+	  ((pointer (array (integer 8) 14)) "@.str") "[14 x i8]* @.str"
 	  )
 
 (elt-test metadata-constants
@@ -339,8 +339,8 @@
 	  (meta-node (meta-str #?"test\0") ((integer 32) 10)) "!{ !\"test\\00\", i32 10}"
 	  (meta-node (meta-id 0) (meta-node (meta-id 2) (meta-id 0)) (meta-str "test"))
 	  "!{!0, !{!2, !0}, !\"test\"}"
-	  (meta-node (meta-id 0) ((integer 32) 0) ((pointer (integer 8)) @global)
-		     ((pointer (function (integer 64) ((integer 64)) :vararg-p nil)) @function)
+	  (meta-node (meta-id 0) ((integer 32) 0) ((pointer (integer 8)) "@global")
+		     ((pointer (function (integer 64) ((integer 64)) :vararg-p nil)) "@function")
 		     (meta-str "str"))
 	  "!{!0, i32 0, i8* @global, i64 (i64)* @function, !\"str\"}")
 
@@ -349,15 +349,15 @@
 	  "!0 = distinct !{!\"test\\00\", i32 10}")
 
 (test llvm-identifier
-  (is (equal '@foo (cg-llvm-parse 'llvm-identifier "@foo")))
-  (is (equal '@foo (cg-llvm-parse 'llvm-identifier "@\"foo\"")))
+  (is (equal '"@foo" (cg-llvm-parse 'llvm-identifier "@foo")))
+  (is (equal '"@foo" (cg-llvm-parse 'llvm-identifier "@\"foo\"")))
   (is (equal (concatenate 'string "%" (string (code-char 1)) "foo")
 	     (string (cg-llvm-parse 'llvm-identifier "%\"\\01foo\"")))))
 
 (elt-test function-declarations
-	  (declare @foo (((integer 32) %a) ((pointer (integer 8)) %b)) ((integer 32)))
+	  (declare "@foo" (((integer 32) "%a") ((pointer (integer 8)) "%b")) ((integer 32)))
 	  "declare i32 @foo (i32 %a , i8* %b)"
-	  (declare @foo (((integer 32) %a (:attrs (:zeroext))) ((pointer (integer 8)) %b))
+	  (declare "@foo" (((integer 32) "%a" (:attrs (:zeroext))) ((pointer (integer 8)) "%b"))
 		   ((integer 32))
 		   (:linkage :private)
 		   (:unnamed-addr t))
@@ -372,8 +372,8 @@
 (test aliases
   (macrolet ((frob (x y)
 	       `(is (equal ,x (cg-llvm-parse 'alias ,y)))))
-    (frob '(alias @foo @bar (integer 8)) "@foo = alias i8 @bar")
-    (frob '(alias @foo @bar (integer 16)
+    (frob '(alias "@foo" "@bar" (integer 8)) "@foo = alias i8 @bar")
+    (frob '(alias "@foo" "@bar" (integer 16)
 	    (:linkage :private)
 	    (:visibility :default)
 	    (:dll-storage-class :dllimport)
@@ -396,24 +396,24 @@
   (ret ((struct ((integer 32) (integer 8)) :packed-p nil)
 	(((integer 32) 4) ((integer 8) 2))))
   "ret { i32, i8 } { i32 4, i8 2 }"
-  (br ((integer 1) %cond) (label +%-if-equal) (label +%-if-unequal))
+  (br ((integer 1) "%cond") (label "%IfEqual") (label "%IfUnequal"))
   "br i1 %cond, label %IfEqual, label %IfUnequal"
   (resume ((STRUCT ((POINTER (INTEGER 8)) (INTEGER 32)) :PACKED-P NIL)
-	   %EXN))
+	   "%exn"))
   "resume { i8*, i32 } %exn"
   (unreachable) "unreachable")
 
 (test parsing-binop-instructions
   (macrolet ((frob (x y z)
 	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
-    (frob (add (integer 32) 4 %var (:nuw t) (:nsw t)) add-instruction "add nuw nsw i32 4, %var")
-    (frob (add (integer 32) 4 %var (:nuw t) (:nsw t)) add-instruction "add nsw nuw i32 4, %var")
-    (frob (add (integer 32) 4 %var) add-instruction "add i32 4, %var")
-    (frob (sub (integer 32) 4 %var) sub-instruction "sub i32 4, %var")
-    (frob (sub (integer 32) 0 %val) sub-instruction "sub i32 0, %val")
-    (frob (mul (integer 32) 4 %var) mul-instruction "mul i32 4, %var")
-    (frob (fadd (float 32 16) 4.0 %var) fadd-instruction "fadd float 4.0, %var")
-    (frob (fadd (float 32 16) 4.0 %var (:ninf t) (:arcp t))
+    (frob (add (integer 32) 4 "%var" (:nuw t) (:nsw t)) add-instruction "add nuw nsw i32 4, %var")
+    (frob (add (integer 32) 4 "%var" (:nuw t) (:nsw t)) add-instruction "add nsw nuw i32 4, %var")
+    (frob (add (integer 32) 4 "%var") add-instruction "add i32 4, %var")
+    (frob (sub (integer 32) 4 "%var") sub-instruction "sub i32 4, %var")
+    (frob (sub (integer 32) 0 "%val") sub-instruction "sub i32 0, %val")
+    (frob (mul (integer 32) 4 "%var") mul-instruction "mul i32 4, %var")
+    (frob (fadd (float 32 16) 4.0 "%var") fadd-instruction "fadd float 4.0, %var")
+    (frob (fadd (float 32 16) 4.0 "%var" (:ninf t) (:arcp t))
 	  fadd-instruction "fadd arcp ninf float 4.0, %var")
     (frob (shl (vector (integer 32) 2) (((integer 32) 1) ((integer 32) 1)) (((integer 32) 1) ((integer 32) 2)))
 	  shl-instruction "shl <2 x i32> < i32 1, i32 1>, < i32 1, i32 2>")
@@ -422,33 +422,33 @@
 (test aggregate-instructions
   (macrolet ((frob (x y z)
 	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
-    (frob (extractelement ((vector (integer 32) 4) %vec) ((integer 32) 0))
+    (frob (extractelement ((vector (integer 32) 4) "%vec") ((integer 32) 0))
 	  extractelement-instruction "extractelement <4 x i32> %vec, i32 0")
-    (frob (insertelement ((vector (integer 32) 4) %vec) ((integer 32) 1) ((integer 32) 0))
+    (frob (insertelement ((vector (integer 32) 4) "%vec") ((integer 32) 1) ((integer 32) 0))
 	  insertelement-instruction "insertelement <4 x i32> %vec, i32 1, i32 0")
-    (frob (shufflevector ((vector (integer 32) 4) %v1)
-			 ((vector (integer 32) 4) %v2)
+    (frob (shufflevector ((vector (integer 32) 4) "%v1")
+			 ((vector (integer 32) 4) "%v2")
 			 ((vector (integer 32) 4)
 			  (((integer 32) 0) ((integer 32) 4) ((integer 32) 1) ((integer 32) 5))))
 	  shufflevector-instruction
 	  "shufflevector <4 x i32> %v1, <4 x i32> %v2,
                          <4 x i32> <i32 0, i32 4, i32 1, i32 5>")
-    (frob (extractvalue ((struct ((integer 32) (float 32 16)) :packed-p nil) %agg) 0)
+    (frob (extractvalue ((struct ((integer 32) (float 32 16)) :packed-p nil) "%agg") 0)
 	  extractvalue-instruction
 	  "extractvalue {i32, float} %agg, 0")
     (frob (insertvalue ((struct ((integer 32) (float 32 16)) :packed-p nil) :undef)
 		       ((integer 32) 1) 0)
 	  insertvalue-instruction
 	  "insertvalue {i32, float} undef, i32 1, 0")
-    (frob (insertvalue ((struct ((integer 32) (float 32 16)) :packed-p nil) %agg1)
-		       ((float 32 16) %val) 1)
+    (frob (insertvalue ((struct ((integer 32) (float 32 16)) :packed-p nil) "%agg1")
+		       ((float 32 16) "%val") 1)
 	  insertvalue-instruction
 	  "insertvalue {i32, float} %agg1, float %val, 1")
     (frob (insertvalue ((struct ((integer 32)
 					  (struct ((float 32 16)) :packed-p nil))
 					 :packed-p nil)
 			:undef)
-		       ((float 32 16) %val) 1 0)
+		       ((float 32 16) "%val") 1 0)
 	  insertvalue-instruction
 	  "insertvalue {i32, {float}} undef, float %val, 1, 0")
     ))
@@ -469,22 +469,23 @@
       (frob1 ((integer 32) (:nelts ((integer 32) 4)) (:align 1024)) "i32, i32 4, align 1024")
       (frob1 ((integer 32) (:align 1024)) "i32, align 1024"))
     (with-frob1 load
-      (frob1 ((:atomic t) (integer 32) ((pointer (integer 32)) %x) (:ordering :unordered) (:align 256))
+      (frob1 ((:atomic t) (integer 32) ((pointer (integer 32)) "%x")
+	      (:ordering :unordered) (:align 256))
 	     "atomic i32, i32* %x unordered, align 256")
-      (frob1 ((integer 32) ((pointer (integer 32)) %ptr)) "i32, i32* %ptr"))
+      (frob1 ((integer 32) ((pointer (integer 32)) "%ptr")) "i32, i32* %ptr"))
     (with-frob1 store
-      (frob1 (((integer 32) 3) ((pointer (integer 32)) %ptr)) "i32 3, i32* %ptr"))
+      (frob1 (((integer 32) 3) ((pointer (integer 32)) "%ptr")) "i32 3, i32* %ptr"))
     (with-frob1 fence
       (frob1 ((:ordering :acquire)) "acquire")
       (frob1 ((:singlethread t) (:ordering :seq-cst)) "singlethread seq_cst"))
     (with-frob1 cmpxchg
-      (frob1 (((pointer (integer 32)) %ptr)
-	      ((integer 32) %cmp)
-	      ((integer 32) %squared)
+      (frob1 (((pointer (integer 32)) "%ptr")
+	      ((integer 32) "%cmp")
+	      ((integer 32) "%squared")
 	      (:success-ord :acq-rel) (:failure-ord :monotonic))
 	     "i32* %ptr, i32 %cmp, i32 %squared acq_rel monotonic"))
     (with-frob1 atomicrmw
-      (frob1 (:add ((pointer (integer 32)) %ptr) ((integer 32) 1) (:ordering :acquire))
+      (frob1 (:add ((pointer (integer 32)) "%ptr") ((integer 32) 1) (:ordering :acquire))
 	     "add i32* %ptr, i32 1 acquire"))))
 
 ;; (test complex-memory-instructions
@@ -516,11 +517,11 @@
 		 (vector (integer 8) 2))
 	  "trunc <2 x i16> <i16 8, i16 7> to <2 x i8>")
     (frob (bitcast 255 (integer 8) (integer 8)) "bitcast i8 255 to i8")
-    (frob (bitcast %x (pointer (integer 32)) (pointer (integer 32)))
+    (frob (bitcast "%x" (pointer (integer 32)) (pointer (integer 32)))
 	  "bitcast i32* %x to i32*")
-    (frob (bitcast *%v (vector (integer 32) 2) (integer 64))
+    (frob (bitcast "%V" (vector (integer 32) 2) (integer 64))
 	  "bitcast <2 x i32> %V to i64")
-    (frob (bitcast *%v (vector (pointer (integer 32)) 2) (vector (pointer (integer 64)) 2))
+    (frob (bitcast "%V" (vector (pointer (integer 32)) 2) (vector (pointer (integer 64)) 2))
 	  "bitcast <2 x i32*> %V to <2 x i64*>")
     ))
   
@@ -528,73 +529,74 @@
 (test misc-instructions
   (macrolet ((frob (x y z)
 	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
-    (frob (phi (integer 32) (0 +%-loop-header)) phi-instruction "phi i32 [ 0, %LoopHeader ]")
-    (frob (phi (integer 32) (0 +%-loop-header) (%nextindvar +%-loop))
+    (frob (phi (integer 32) (0 "%LoopHeader")) phi-instruction "phi i32 [ 0, %LoopHeader ]")
+    (frob (phi (integer 32) (0 "%LoopHeader") ("%nextindvar" "%Loop"))
 	  phi-instruction "phi i32 [ 0, %LoopHeader ], [ %nextindvar, %Loop ]")
     (frob (select ((integer 1) "true") ((integer 8) 17) ((integer 8) 42))
 	  select-instruction "select i1 true, i8 17, i8 42")
-    (frob (va-arg ((pointer (integer 8)) %ap2) (integer 32))
+    (frob (va-arg ((pointer (integer 8)) "%ap2") (integer 32))
 	  va-arg-instruction "va_arg i8* %ap2, i32")
     (frob (icmp :eq (integer 32) 4 5) icmp-instruction "icmp eq i32 4, 5")
-    (frob (icmp :ne (pointer (float 32 16)) *%x *%x) icmp-instruction "icmp ne float* %X, %X")
+    (frob (icmp :ne (pointer (float 32 16)) "%X" "%X") icmp-instruction "icmp ne float* %X, %X")
     (frob (fcmp :oeq (float 32 16) 4.0 5.0) fcmp-instruction "fcmp oeq float 4.0, 5.0")
-    (frob (call (integer 32) @test (((integer 32) %argc)))
+    (frob (call (integer 32) "@test" (((integer 32) "%argc")))
 	  call-instruction "call i32 @test(i32 %argc)")
     (frob (call (pointer (function (integer 32)
 				   ((pointer (integer 8)))
 				   :vararg-p t))
-		@printf
+		"@printf"
 		(((integer 32) 0) ((integer 32) 0)))
 	  call-instruction "call i32 (i8*, ...)* @printf(i32 0, i32 0)")
     (frob (call (pointer (function (integer 32)
 				   ((pointer (integer 8)))
 				   :vararg-p t))
-		@printf
-		(((pointer (integer 8)) %msg) ((integer 32) 12) ((integer 8) 42)))
+		"@printf"
+		(((pointer (integer 8)) "%msg") ((integer 32) 12) ((integer 8) 42)))
 	  call-instruction "call i32 (i8*, ...)* @printf(i8* %msg, i32 12, i8 42)")
-    (frob (call (pointer (function (integer 32) ((pointer (integer 8))) :vararg-p t)) @printf
-		(((pointer (integer 8)) (getelementptr ((pointer (array (integer 8) 14)) @.str)
-						       ((integer 32) 0) ((integer 32) 0) (:inbounds t)))))
+    (frob (call (pointer (function (integer 32) ((pointer (integer 8))) :vararg-p t)) "@printf"
+		(((pointer (integer 8))
+		  (getelementptr ((pointer (array (integer 8) 14)) "@.str")
+				 ((integer 32) 0) ((integer 32) 0) (:inbounds t)))))
 	  call-instruction "call i32 (i8*, ...)* @printf(i8* getelementptr inbounds
                                                        ([14 x i8]* @.str, i32 0, i32 0))")
-    (frob (call (integer 32) @foo nil (:tail :tail))
+    (frob (call (integer 32) "@foo" nil (:tail :tail))
 	  call-instruction "tail call i32 @foo()")
-    (frob (call (integer 32) @foo nil (:cconv :fastcc) (:tail :tail))
+    (frob (call (integer 32) "@foo" nil (:cconv :fastcc) (:tail :tail))
 	  call-instruction "tail call fastcc i32 @foo()")
-    (frob (call void %foo (((integer 8) 97 (:attrs :signext))))
+    (frob (call void "%foo" (((integer 8) 97 (:attrs :signext))))
 	  call-instruction "call void %foo(i8 97 signext)")
     ;; (frob nil ; types can be specified through local variables, that makes parsing
     ;; 	  ; context-sensitive
     ;; 	  call-instruction "call %struct.A @foo()")
-    (frob (call void @foo nil (:fun-attrs (:noreturn)))
+    (frob (call void "@foo" nil (:fun-attrs (:noreturn)))
 	  call-instruction "call void @foo() noreturn")
-    (frob (call (integer 32) @bar nil (:return-attrs (:zeroext)))
+    (frob (call (integer 32) "@bar" nil (:return-attrs (:zeroext)))
 	  call-instruction "call zeroext i32 @bar()")
     ))
 
 (test block-labels
-  (is (equal '%entry (cg-llvm-parse 'block-label "entry:")))
-  (is (equal '%entry (cg-llvm-parse 'block-label "\"entry\":"))))
+  (is (equal '"%entry" (cg-llvm-parse 'block-label "entry:")))
+  (is (equal '"%entry" (cg-llvm-parse 'block-label "\"entry\":"))))
 
 (test basic-blocks
   (macrolet ((frob (x y)
 	       `(is (equal ',x (cg-llvm-parse 'basic-block ,y)))))
     (frob (block (ret ((integer 32) 3))) "ret i32 3")
-    (frob (block (:label %end) (ret ((integer 32) 3))) "end: ret i32 3")
-    (frob (block (:label %entry)
-	    (= %addtmp (fadd (float 64 32) 4.0 5.0))
-	    (ret ((float 64 32) %addtmp)))
+    (frob (block (:label "%end") (ret ((integer 32) 3))) "end: ret i32 3")
+    (frob (block (:label "%entry")
+	    (= "%addtmp" (fadd (float 64 32) 4.0 5.0))
+	    (ret ((float 64 32) "%addtmp")))
 	  #?"entry:
   %addtmp = fadd double 4.000000e+00, 5.000000e+00
   ret double %addtmp")
-    (frob (block (:label %entry)
-	    (= %multmp (fmul (float 64 32) %a %a))
-	    (= %multmp1 (fmul (float 64 32) 2.0 %a))
-	    (= %multmp2 (fmul (float 64 32) %multmp1 %b))
-	    (= %addtmp (fadd (float 64 32) %multmp %multmp2))
-	    (= %multmp3 (fmul (float 64 32) %b %b))
-	    (= %addtmp4 (fadd (float 64 32) %addtmp %multmp3))
-	    (ret ((float 64 32) %addtmp4)))
+    (frob (block (:label "%entry")
+	    (= "%multmp" (fmul (float 64 32) "%a" "%a"))
+	    (= "%multmp1" (fmul (float 64 32) 2.0 "%a"))
+	    (= "%multmp2" (fmul (float 64 32) "%multmp1" "%b"))
+	    (= "%addtmp" (fadd (float 64 32) "%multmp" "%multmp2"))
+	    (= "%multmp3" (fmul (float 64 32) "%b" "%b"))
+	    (= "%addtmp4" (fadd (float 64 32) "%addtmp" "%multmp3"))
+	    (ret ((float 64 32) "%addtmp4")))
 	  #?"entry:
   %multmp = fmul double %a, %a
   %multmp1 = fmul double 2.000000e+00, %a
@@ -603,19 +605,19 @@
   %multmp3 = fmul double %b, %b
   %addtmp4 = fadd double %addtmp, %multmp3
   ret double %addtmp4")
-    (frob (block (:label %entry)
-	    (= %calltmp (call (float 64 32) @foo (((float 64 32) %a) ((float 64 32) 4.0))))
-	    (= %calltmp1 (call (float 64 32) @bar (((float 64 32) 31337.0))))
-	    (= %addtmp (fadd (float 64 32) %calltmp %calltmp1))
-	    (ret ((float 64 32) %addtmp)))
+    (frob (block (:label "%entry")
+	    (= "%calltmp" (call (float 64 32) "@foo" (((float 64 32) "%a") ((float 64 32) 4.0))))
+	    (= "%calltmp1" (call (float 64 32) "@bar" (((float 64 32) 31337.0))))
+	    (= "%addtmp" (fadd (float 64 32) "%calltmp" "%calltmp1"))
+	    (ret ((float 64 32) "%addtmp")))
 	  #?"entry:
   %calltmp = call double @foo(double %a, double 4.000000e+00)
   %calltmp1 = call double @bar(double 3.133700e+04)
   %addtmp = fadd double %calltmp, %calltmp1
   ret double %addtmp")
-    (frob (block (:label %entry)
-	    (= %calltmp (call (float 64 32) @cos (((float 64 32) 1.234))))
-	    (ret ((float 64 32) %calltmp)))
+    (frob (block (:label "%entry")
+	    (= "%calltmp" (call (float 64 32) "@cos" (((float 64 32) 1.234))))
+	    (ret ((float 64 32) "%calltmp")))
 	  #?"entry:
   %calltmp = call double @cos(double 1.234000e+00)
   ret double %calltmp")
@@ -624,43 +626,43 @@
 (test function-definitions
   (macrolet ((frob (x y)
 	       `(is (equal ',x (cg-llvm-parse 'function-definition ,y)))))
-    (frob (define (float 64 32) @ nil
-	    (:body ((block (:label %entry)
-		      (= %addtmp (fadd (float 64 32) 4.0 5.0))
-		      (ret ((float 64 32) %addtmp))))))
+    (frob (define (float 64 32) "@" nil
+	    (:body ((block (:label "%entry")
+		      (= "%addtmp" (fadd (float 64 32) 4.0 5.0))
+		      (ret ((float 64 32) "%addtmp"))))))
 	  "define double @\"\"() {
 entry:
         %addtmp = fadd double 4.000000e+00, 5.000000e+00
         ret double %addtmp
 }")
-    (frob (define (float 64 32) @ nil
+    (frob (define (float 64 32) "@" nil
 	    (:metadata (((meta-id dbg) (meta-id 0))
 			((meta-id asdf) (meta-id 100))))
-	    (:body ((block (:label %entry)
-		      (= %addtmp (fadd (float 64 32) 4.0 5.0))
-		      (ret ((float 64 32) %addtmp))))))
+	    (:body ((block (:label "%entry")
+		      (= "%addtmp" (fadd (float 64 32) 4.0 5.0))
+		      (ret ((float 64 32) "%addtmp"))))))
 	  "define double @\"\"() !dbg !0 !asdf !100 {
 entry:
         %addtmp = fadd double 4.000000e+00, 5.000000e+00
         ret double %addtmp
 }")
-    (frob (define (integer 32) @main nil (:fun-attrs ((:group 0)))
-			   (:body
-			    ((block
-				 (= %1
-				    (call (pointer (function (integer 32) ((pointer (integer 8))) :vararg-p t))
-					  @printf
-					  (((pointer (integer 8))
-					    (getelementptr ((pointer (array (integer 8) 14))
-							    @.str) ((integer 32) 0) ((integer 32) 0)
-							    (:inbounds t))))))
-			       (ret ((integer 32) 0))))))
+    (frob (define (integer 32) "@main" nil (:fun-attrs ((:group 0)))
+		  (:body
+		   ((block
+			(= "%1"
+			   (call (pointer (function (integer 32) ((pointer (integer 8))) :vararg-p t))
+				 "@printf"
+				 (((pointer (integer 8))
+				   (getelementptr ((pointer (array (integer 8) 14))
+						   "@.str") ((integer 32) 0) ((integer 32) 0)
+						   (:inbounds t))))))
+		      (ret ((integer 32) 0))))))
 	  "define i32 @main() #0 {
              %1 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([14 x i8]* @.str, i32 0, i32 0))
              ret i32 0
            }")
     ))
-  
+
 
 
 (test target-datalayout
@@ -680,15 +682,15 @@ entry:
 (test global-variable-definition
   (macrolet ((frob (x y)
 	       `(is (equal ',x (cg-llvm-parse 'global-variable-definition ,y)))))
-    (frob (:global-var *@g (integer 32) nil (:linkage :external))
+    (frob (:global-var "@G" (integer 32) nil (:linkage :external))
 	  "@G = external global i32")
-    (frob (:global-var *@g (integer 32) 0 (:thread-local :initialexec) (:align 4))
+    (frob (:global-var "@G" (integer 32) 0 (:thread-local :initialexec) (:align 4))
 	  "@G = thread_local(initialexec) global i32 0, align 4")
-    (frob (:global-var *@g (integer 32) 0 (:thread-local t) (:align 4))
+    (frob (:global-var "@G" (integer 32) 0 (:thread-local t) (:align 4))
 	  "@G = thread_local global i32 0, align 4")
-    (frob (:global-var *@g (float 32 16) 1.0 (:addrspace 5) (:constant t) (:section "foo") (:align 4))
+    (frob (:global-var "@G" (float 32 16) 1.0 (:addrspace 5) (:constant t) (:section "foo") (:align 4))
 	  "@G = addrspace(5) constant float 1.0, section \"foo\", align 4")
-    (frob (:global-var @.str (array (integer 8) 14)
+    (frob (:global-var "@.str" (array (integer 8) 14)
 		       (((integer 8) 72) ((integer 8) 101) ((integer 8) 108) ((integer 8) 108)
 			((integer 8) 111) ((integer 8) 32) ((integer 8) 119) ((integer 8) 111)
 			((integer 8) 114) ((integer 8) 108) ((integer 8) 100) ((integer 8) 33)
@@ -726,37 +728,37 @@ entry:
   (is (equal '((:group 1)) (cg-llvm-parse 'parameter-attrs "#1")))
   (macrolet ((frob (x y)
 	       `(is (equal ',x (cg-llvm-parse 'function-declaration ,y)))))
-    (frob (declare @printf
+    (frob (declare "@printf"
 		   (((pointer (integer 8))) :vararg)
 		   ((integer 32))
 		   (:fun-attrs ((:group 1))))
 	  "declare i32 @printf(i8*, ...) #1")
-    (frob (declare @printf
+    (frob (declare "@printf"
 		   (((pointer (integer 8)) (:attrs (:noalias :nocapture))) :vararg)
 		   ((integer 32)))
 	  "declare i32 @printf(i8* noalias nocapture, ...)")
-    (frob (declare @atoi
+    (frob (declare "@atoi"
 		   (((integer 8) (:attrs (:zeroext))))
 		   ((integer 32)))
 	  "declare i32 @atoi(i8 zeroext)")
-    (frob (declare @returns-signed-char
+    (frob (declare "@returns_signed_char"
 		   nil
 		   ((integer 8) (:attrs (:signext))))
 	  "declare signext i8 @returns_signed_char()")
-    (frob (declare @puts
+    (frob (declare "@puts"
 		   (((pointer (integer 8)) (:attrs (:nocapture))))
 		   ((integer 32))
 		   (:fun-attrs (:nounwind)))
 	  "declare i32 @puts(i8* nocapture) nounwind")
-    (frob (declare @foo
+    (frob (declare "@foo"
 		   (((pointer (integer 8))))
 		   (void))
 	  "declare void @foo(i8*)")
-    (frob (declare +-@get-pointer
+    (frob (declare "@getPointer"
 		   (((pointer (integer 8))))
 		   ((pointer (integer 8))))
 	  "declare i8* @getPointer(i8*)")
-    (frob (declare @llvm.invariant.group.barrier
+    (frob (declare "@llvm.invariant.group.barrier"
 		   (((pointer (integer 8))))
 		   ((pointer (integer 8))))
 	  "declare i8* @llvm.invariant.group.barrier(i8*)")
@@ -765,7 +767,7 @@ entry:
 (test constant-expressions
   (macrolet ((frob (x y)
 	       `(is (equal ',x (cg-llvm-parse 'constant-expression-value ,y)))))
-    (frob (getelementptr ((pointer (array (integer 8) 14)) @.str)
+    (frob (getelementptr ((pointer (array (integer 8) 14)) "@.str")
 			 ((integer 32) 0) ((integer 32) 0)
 			 (:inbounds t))
 	  "getelementptr inbounds ([14 x i8]* @.str, i32 0, i32 0)")))
@@ -779,10 +781,10 @@ entry:
 	  "!dbg !0 !asdf !100")
 
 (elt-test blockaddresss
-	  (blockaddress @foo %bar) "blockaddress(@foo, %bar )")
+	  (blockaddress "@foo" "%bar") "blockaddress(@foo, %bar )")
 	  
 (elt-test (instructions-with-metadata nonfinal-statement)
-	  (= %indvar.next (add (integer 64) %indvar 1 (:metadata (((meta-id dbg) (meta-id 21))))))
+	  (= "%indvar.next" (add (integer 64) "%indvar" 1 (:metadata (((meta-id dbg) (meta-id 21))))))
 	  "%indvar.next = add i64 %indvar, 1, !dbg !21")
 
 (elt-test llvm-comments
@@ -793,23 +795,23 @@ entry:
 	   (target-datalayout (:endianness :little) (:mangling :elf) (:integer 64 (:abi 64))
 			      (:float 80 (:abi 128)) (:native-integers 8 16 32 64) (:stack 128))
 	   (target-triple (:arch "x86_64") (:vendor "unknown") (:system "linux") (:env "gnu"))
-	   (:global-var @.str (array (integer 8) 13)
+	   (:global-var "@.str" (array (integer 8) 13)
 			(((integer 8) 72) ((integer 8) 101) ((integer 8) 108) ((integer 8) 108)
 			 ((integer 8) 111) ((integer 8) 32) ((integer 8) 119) ((integer 8) 111)
 			 ((integer 8) 114) ((integer 8) 108) ((integer 8) 100) ((integer 8) 33) ((integer 8) 0))
 			(:linkage :private) (:unnamed-addr t) (:constant t) (:align 1))
-	   (define (integer 32) @main nil (:fun-attrs ((:group 0)))
+	   (define (integer 32) "@main" nil (:fun-attrs ((:group 0)))
 		   (:body
-		    ((block (:label %entry)
-		       (= %retval (alloca (integer 32) (:align 4)))
-		       (store ((integer 32) 0) ((pointer (integer 32)) %retval))
-		       (= %call
-			  (call (pointer (function (integer 32) ((pointer (integer 8))) :vararg-p t)) @printf
-				(((pointer (integer 8)) (getelementptr ((pointer (array (integer 8) 13)) @.str)
+		    ((block (:label "%entry")
+		       (= "%retval" (alloca (integer 32) (:align 4)))
+		       (store ((integer 32) 0) ((pointer (integer 32)) "%retval"))
+		       (= "%call"
+			  (call (pointer (function (integer 32) ((pointer (integer 8))) :vararg-p t)) "@printf"
+				(((pointer (integer 8)) (getelementptr ((pointer (array (integer 8) 13)) "@.str")
 								       ((integer 32) 0) ((integer 32) 0)
 								       (:inbounds t))))))
 		       (ret ((integer 32) 0))))))
-	   (declare @printf
+	   (declare "@printf"
 		    (((pointer (integer 8))) :vararg)
 		    ((integer 32))
 		    (:fun-attrs ((:group 1))))
