@@ -89,6 +89,50 @@
 
 
 ;;;;FIXME::wtf is going on here?
+;;;switch <intty> <value>, label <defaultdest> [ <intty> <val>, label <dest> ... ]
+;;;;is it a coincidence it has this pattern x[x*] ?
+(define-cg-llvm-rule %switch-branch ()
+  (let* ((case-value (fail-parse-if-not
+		      (llvm-typep '(integer *)
+				  (car it))
+		      (wh instr-arg)		 
+		      ;;(wh integer-constant-type)
+		      ;;(wh instr-arg-value)
+		      ))
+	 (dest (fail-parse-if-not
+		(llvm-typep 'label
+			    (car it))
+		(progn (v white-comma)
+		       (v instr-arg)))))
+    `(,case-value ,dest)))
+(define-instruction-rule switch
+  (let* ((value (fail-parse-if-not
+		 (llvm-typep '(integer *)
+			     (car it))
+		 (wh instr-arg)		 
+		 ;;(wh integer-constant-type)
+		 ;;(wh instr-arg-value)
+		 ))
+	 (default-dest (fail-parse-if-not
+			(llvm-typep 'label
+				    (car it))
+			(progn (v white-comma)
+			       (v instr-arg)))))
+    (v wh?)
+    (v #\[)
+    (cap result
+	 (times
+	  %switch-branch
+	  :from 0))
+    
+    (v wh?)
+    (v #\])
+
+    `((,value ,default-dest) ,@(recap? result))
+    
+    #+nil
+    (v some-custom-magic-???)))
+#+nil
 (define-simple-instruction-rule switch
     ((value (llvm-typep '(integer *) (car it)))
      (defaultdest (llvm-typep 'label (car it))))
