@@ -906,7 +906,7 @@
     (let ((final-statement (v final-statement)))
       `(,@nonfinal-statements ,final-statement))))
 
-#+nil
+;;;;FIXME::put into a test file?
 (define-plural-rule any-statements any-statement whitespace)
 
 (define-cg-llvm-rule any-statement ()
