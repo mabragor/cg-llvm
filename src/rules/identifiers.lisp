@@ -20,8 +20,8 @@
 
 (define-cg-llvm-rule double-hex-escaped-char ()
   (v #\\)
-  (code-char (parse-number:parse-number (text (times hex-digit :exactly 2))
-					:radix 16)))
+  (code-char (parse-integer (text (times hex-digit :exactly 2))
+			    :radix 16)))
 
 (define-cg-llvm-rule llvm-string ()
   (text (progm #\"

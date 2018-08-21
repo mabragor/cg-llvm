@@ -40,17 +40,27 @@
   (|| "+" "-"))
 
 (define-cg-llvm-rule decimal-float ()
-  (parse-number:parse-number
-   (text (? sign)
+  (let ((text (text (? sign)
 	 (times ns-dec-digit)
 	 (v #\.)
 	 (times ns-dec-digit)
 	 (? (list (v #\e)
-		  (v sign)
+		  (? sign)
 		  (postimes ns-dec-digit))))))
+    (handler-case 
+	(parse-number:parse-number text)
+      (error () `(%decimal-float ,text)))))
 
 ;; TODO : hexadecimal float ???
 (define-cg-llvm-rule hexadecimal-float ()
+  (let ((text (text (? sign)
+		    (v #\0)
+		    (v #\x)
+		    (times hex-digit))))
+    (handler-case 
+	(parse-integer text :radix 16)
+      (error () `(%hexadecimal-float ,text))))
+  #+nil
   (fail-parse "Hexadecimal float is not implemented yet."))
 
 (define-cg-llvm-rule llvm-float ()

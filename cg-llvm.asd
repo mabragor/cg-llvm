@@ -16,8 +16,8 @@
    #:optima
    #:quasiquote-2.0
    #:parse-number
-   ;;added by terminal625
-   #:alexandria)
+
+   )
   :pathname "src/"
   :serial t
   :components
