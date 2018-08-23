@@ -38,3 +38,14 @@
 	(mapcar (lambda (arg)
 		  `(prog1-v ,arg (format t "debug||:: ~s" ',arg)))
 		args)))
+
+(defun princify (arg)
+  (with-output-to-string (str)
+    (princ arg str)))
+
+(defmacro interpol (&rest args)
+  `(text ,@ (mapcar (lambda (form)
+		      (if (stringp form)
+			  form
+			  `(princify ,form)))
+		    args)))

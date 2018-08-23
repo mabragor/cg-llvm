@@ -1,7 +1,7 @@
 (in-package #:cg-llvm)
 
 (cl-interpol:enable-interpol-syntax)
-(quasiquote-2.0:enable-quasiquote-2.0)
+(quasiquote-2.0:disable-quasiquote-2.0)
 
 ;; OK, let's sketch the syntax for the function declaration and definition
 
@@ -120,7 +120,14 @@
      (destringify-symbol (|| ,@(mapcar (lambda (x)
 					 `(descend-with-rule 'string ,(stringify-symbol x)))
 				       (symbol-value (or known-var
-							 (intern #?"KNOWN-$(name)S")))))
+							 (intern ;#"KNOWN-$(name)S"
+								 (interpol
+								  "KNOWN-"
+								  name
+								  "S"
+								  )
+
+								 )))))
 			 "KEYWORD")))
 
 (define-kwd-rule linkage-type)
@@ -296,7 +303,9 @@
   `(destructuring-bind (rule-name instr-name)
        (if (symbolp ,name-var)
 	   (list
-	    (intern #?"$((string ,name-var))-INSTRUCTION")
+	    (intern (interpol ;#"$((string ,name-var))-INSTRUCTION"
+		     (string ,name-var)
+		     "-INSTRUCTION"))
 	    ,name-var)
 	   (list
 	    (car ,name-var)
@@ -307,8 +316,14 @@
 (defmacro define-op-rule (name &body body)
   (with-rule-names (name)
     (let ((body-rule-name (if (symbolp name)
-			      (intern #?"$((string name))-INSTRUCTION-BODY")
-			      (intern #?"$((string (car name)))-BODY"))))
+			      (intern (interpol ;#"$((string name))-INSTRUCTION-BODY"
+				       (string name)
+				       "-INSTRUCTION-BODY"
+				       ))
+			      (intern (interpol ;#"$((string (car name)))-BODY"
+				       (string (car name))
+				       "-BODY"
+				       )))))
       `(progn (define-cg-llvm-rule ,body-rule-name ()
 		,@body)
 	      (define-cg-llvm-rule ,rule-name ()
