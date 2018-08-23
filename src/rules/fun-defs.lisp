@@ -83,11 +83,6 @@
 		     ``,!m(inject-kwd-if-nonnil ,x))
 		   names)))
 
-(defmacro splice-kwd-if-nonnil (name)
-  ``,@(if ,name
-	  (list ,(intern (string name) "KEYWORD")
-		,name)))
-
 (defmacro inject-if-nonnil (smth)
   ``,@(if ,smth
 	  (list ,smth)))
