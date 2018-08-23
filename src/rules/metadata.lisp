@@ -131,4 +131,4 @@
 	   (node (progn (v wh?)
 			(v metadata-node))))
       `(= ,id ,node
-	  ,!m(inject-kwd-if-nonnil distinct)))))
+	  ,@(%%inject-kwd-if-nonnil distinct)))))

@@ -226,7 +226,7 @@
 			 (prog1 (v geteltptr-indices)
 			   (v wh?)
 			   (v #\))))))
-    `(,type ,@indices ,!m(inject-kwd-if-nonnil inbounds))))
+    `(,type ,@indices ,@(%%inject-kwd-if-nonnil inbounds))))
 
 
 (define-instruction-alternative (special constexpr)

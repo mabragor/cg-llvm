@@ -73,6 +73,16 @@
 	 (fail-parse-format "Assertion ~a is not satisfied by: ~a" ',cond it)
 	 it)))
 
+(defun %inject-kwd-if-nonnil (name)
+  (if name
+      (list (list (intern (string name) "KEYWORD")
+		  name))))
+
+(defmacro %%inject-kwd-if-nonnil (name)
+  `(if ,name
+       (list (list (intern (string ',name) "KEYWORD")
+		   ,name))))
+
 (defmacro inject-kwd-if-nonnil (name)
   ``,@(if ,name
 	  (list (list ,(intern (string name) "KEYWORD")
@@ -80,7 +90,7 @@
 
 (defmacro inject-kwds-if-nonnil (&rest names)
   ``,@`(,,@(mapcar (lambda (x)
-		     ``,!m(inject-kwd-if-nonnil ,x))
+		     ``,@(%%inject-kwd-if-nonnil ,x))
 		   names)))
 
 (defmacro inject-if-nonnil (smth)
@@ -288,7 +298,7 @@
 
 
 (defun return-type-lisp-form (type attrs)
-  `(,(emit-lisp-repr type) ,!m(inject-kwd-if-nonnil attrs)))
+  `(,(emit-lisp-repr type) ,@(%%inject-kwd-if-nonnil attrs)))
 
 (defmacro with-rule-names ((name-var) &body body)
   `(destructuring-bind (rule-name instr-name)
@@ -413,9 +423,9 @@
 	       (old-name (progn (v whitespace)
 				(v llvm-identifier))))
 	  `(alias ,name ,old-name ,(emit-lisp-repr type)
-		  ,!m(inject-kwd-if-nonnil linkage)
-		  ,!m(inject-kwd-if-nonnil visibility)
-		  ,!m(inject-kwd-if-nonnil dll-storage-class)
+		  ,@(%%inject-kwd-if-nonnil linkage)
+		  ,@(%%inject-kwd-if-nonnil visibility)
+		  ,@(%%inject-kwd-if-nonnil dll-storage-class)
 		  ,!m(inject-if-nonnil thread-local)
 		  ,!m(inject-if-nonnil unnamed-addr)))))))
 
