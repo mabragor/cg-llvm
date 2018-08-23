@@ -78,10 +78,11 @@
        (list (list (intern (string ',name) "KEYWORD")
 		   ,name))))
 
-(defmacro inject-kwds-if-nonnil (&rest names)
-  ``,@`(,,@(mapcar (lambda (x)
-		     ``,@(%%inject-kwd-if-nonnil ,x))
-		   names)))
+(defmacro %%inject-kwds-if-nonnil (&rest names)
+  (cons 'append
+	(mapcar (lambda (x)
+		  `(%%inject-kwd-if-nonnil ,x))
+		names)))
 
 (defmacro %%inject-if-nonnil (smth)
   `(if ,smth
@@ -346,13 +347,14 @@
 	 (prologue (?wh prologue)))
     `(,fname ,args
 	     ,(return-type-lisp-form return-type return-attrs)
-	     ,!m(inject-kwds-if-nonnil linkage visibility dll-storage-class
-				       cconv)
-	     ,@(%%inject-if-nonnil unnamed-addr)
-	     ,!m(inject-kwds-if-nonnil fun-attrs align gc prefix prologue))))
-		
+	     ,@(append (%%inject-kwds-if-nonnil
+			linkage visibility dll-storage-class
+			cconv)
+		       (%%inject-if-nonnil unnamed-addr)
+		       (%%inject-kwds-if-nonnil fun-attrs align gc prefix prologue)))))
+
 ;; Let's move to alias definitions
-  
+
 ;; @<Name> = [Linkage] [Visibility] [DLLStorageClass] [ThreadLocal] [unnamed_addr] alias <AliaseeTy> @<Aliasee>
 
 ;; (alias new-name type old-name

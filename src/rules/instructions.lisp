@@ -408,10 +408,10 @@
 			   (v whitespace)
 			   (v integer))))
 	 `((:atomic t) ,type ,ptr
-	   ,!m(inject-kwds-if-nonnil ordering
-				     align
-				     volatile
-				     singlethread))))))
+	   ,@(%%inject-kwds-if-nonnil ordering
+				      align
+				      volatile
+				      singlethread))))))
 
 (defmacro define-non-atomic-load-store-instruction (name type-getter)
   (let ((rule-name (intern #?"NON-ATOMIC-$((string name))-INSTRUCTION")))
@@ -422,7 +422,7 @@
 			      (v whitespace)
 			      (v integer)))))
 	 `(,type ,ptr
-		 ,!m(inject-kwds-if-nonnil align volatile))))))
+		 ,@(%%inject-kwds-if-nonnil align volatile))))))
 
 
 (define-atomic-load-store-instruction load (emit-lisp-repr (wh llvm-type)))
@@ -441,7 +441,7 @@
 				    t))))
 	(ordering (wh (whitelist-kwd-expr '(:acquire :release :acq-rel :seq-cst)
 					  (v ordering)))))
-    `(,!m(inject-kwds-if-nonnil singlethread ordering))))
+    `(,@(%%inject-kwds-if-nonnil singlethread ordering))))
 
 (define-instruction-rule cmpxchg
   (let* ((weak (? (wh (progn (v "weak")
@@ -462,7 +462,7 @@
 	 (success-ord (wh ordering))
 	 (failure-ord (wh ordering)))
     ;; TODO : constraints on orderings
-    `(,ptr ,cmp ,new ,!m(inject-kwds-if-nonnil success-ord failure-ord
+    `(,ptr ,cmp ,new ,@(%%inject-kwds-if-nonnil success-ord failure-ord
 					       weak volatile singlethread))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -485,7 +485,7 @@
 	 (singlethread (?wh (progn (v "singlethread")
 				   t)))
 	 (ordering (wh ordering)))
-    `(,op ,ptr ,val ,!m(inject-kwds-if-nonnil ordering volatile singlethread))))
+    `(,op ,ptr ,val ,@(%%inject-kwds-if-nonnil ordering volatile singlethread))))
 
 (define-cg-llvm-rule vector-getelementptr-body ()
   (let* ((ptrval (fail-parse-if-not (llvm-typep '(vector ***) (car it))
@@ -810,7 +810,7 @@
 				    (whitelist-kwd-expr '(:noreturn :nounwind :readonly :readnone) x))
 				  (v fun-attrs)))))
       `(call ,type ,fnptrval ,args
-	     ,!m(inject-kwds-if-nonnil cconv return-attrs ftype fun-attrs tail)))))
+	     ,@(%%inject-kwds-if-nonnil cconv return-attrs ftype fun-attrs tail)))))
 
 (define-cg-llvm-rule usual-funcall-arg ()
   (let ((instr-arg (v instr-arg))
@@ -964,11 +964,11 @@
 	 (metadata (?wh? fundef-metadata))
 	 (body (wh? function-body)))
     `(,type ,fname ,args
-	    ,!m(inject-kwds-if-nonnil linkage visibility dll-storage-class
-				      cconv unnamed-addr return-attrs
-				      fun-attrs section align comdat gc
-				      prefix prologue personality metadata
-				      body))))
+	    ,@(%%inject-kwds-if-nonnil linkage visibility dll-storage-class
+				       cconv unnamed-addr return-attrs
+				       fun-attrs section align comdat gc
+				       prefix prologue personality metadata
+				       body))))
 
 (define-cg-llvm-rule global-variable-definition ()
   (let ((name (v global-identifier)))
@@ -1009,11 +1009,11 @@
 			    (? whitespace)
 			    (v align)))))
       `(:global-var ,name ,type ,value
-		    ,!m(inject-kwds-if-nonnil linkage visibility dll-storage-class
-					      unnamed-addr addrspace
-					      externally-initialized
-					      constant
-					      section comdat)
+		    ,@(%%inject-kwds-if-nonnil linkage visibility dll-storage-class
+					       unnamed-addr addrspace
+					       externally-initialized
+					       constant
+					       section comdat)
 		    ,!m(inject-stuff-if-nonnil thread-local align)
 		    ))))
 
