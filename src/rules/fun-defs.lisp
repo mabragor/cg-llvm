@@ -88,10 +88,11 @@
   `(if ,smth
        (list ,smth)))
 
-(defmacro inject-stuff-if-nonnil (&rest stuff)
-  ``,@`(,,@(mapcar (lambda (x)
-		     ``,@(%%inject-if-nonnil ,x))
-		   stuff)))
+(defmacro %%inject-stuff-if-nonnil (&rest stuff)
+  (cons 'append
+	(mapcar (lambda (x)
+		  `(%%inject-if-nonnil ,x))
+		stuff)))
 
 
 (defmacro define-plural-rule (name single delim)

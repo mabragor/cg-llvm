@@ -1009,12 +1009,13 @@
 			    (? whitespace)
 			    (v align)))))
       `(:global-var ,name ,type ,value
-		    ,@(%%inject-kwds-if-nonnil linkage visibility dll-storage-class
-					       unnamed-addr addrspace
-					       externally-initialized
-					       constant
-					       section comdat)
-		    ,!m(inject-stuff-if-nonnil thread-local align)
+		    ,@(append
+		       (%%inject-kwds-if-nonnil linkage visibility dll-storage-class
+						unnamed-addr addrspace
+						externally-initialized
+						constant
+						section comdat)
+		       (%%inject-stuff-if-nonnil thread-local align))
 		    ))))
 
 (define-cg-llvm-rule long-abstract-attr ()
