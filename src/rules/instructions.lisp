@@ -168,9 +168,9 @@
 	  `((,(emit-lisp-repr function-type) ,function-val)
 	    ,normal-label ,exception-label
 	    (:args ,@args)
-	    ,!m(inject-kwd-if-nonnil cconv)
-	    ,!m(inject-kwd-if-nonnil return-attrs)
-	    ,!m(inject-kwd-if-nonnil fun-attrs)))))))
+	    ,@(%%inject-kwd-if-nonnil cconv)
+	    ,@(%%inject-kwd-if-nonnil return-attrs)
+	    ,@(%%inject-kwd-if-nonnil fun-attrs)))))))
 		     
 ;; The check for correct type of resume instruction is at semantic level -- the whole body
 ;; of the function should be parsed for that
@@ -256,7 +256,7 @@
 (define-integer-binop-definer define-integer-binop-rule
     ;;integer-overflow
     (destructuring-bind (nuw nsw) (unordered-simple-keywords nuw nsw)
-      `(,!m(inject-if-nonnil nuw) ,!m(inject-if-nonnil nsw))))
+      `(,@(%%inject-if-nonnil nuw) ,@(%%inject-if-nonnil nsw))))
 (define-integer-binop-definer define-exact-integer-binop-rule
     ;;exact
     (remove-if-not #'identity (unordered-simple-keywords exact)))
@@ -375,9 +375,9 @@
 			 (v whitespace)
 			 (v integer)))))
     `(,type
-      ,!m(inject-kwd-if-nonnil nelts)
-      ,!m(inject-kwd-if-nonnil align)
-      ,!m(inject-kwd-if-nonnil inalloca))))
+      ,@(%%inject-kwd-if-nonnil nelts)
+      ,@(%%inject-kwd-if-nonnil align)
+      ,@(%%inject-kwd-if-nonnil inalloca))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter known-orderings '(unordered monotonic acquire release acq-rel seq-cst)))
@@ -529,7 +529,7 @@
 	 (body (|| vector-getelementptr-body
 		   scalar-getelementptr-body))
 	 )
-    `(,type ,@body ,!m(inject-kwd-if-nonnil inbounds))))
+    `(,type ,@body ,@(%%inject-kwd-if-nonnil inbounds))))
 
 (define-instruction-alternative lvalue-conversion
   trunc-to zext-to sext-to fptrunc-to fpext-to fptoui-to fptosi-to
@@ -826,7 +826,7 @@
   (|| vararg-sign
       (let* ((arg (v long-defun-arg))   ; arg in defun must have a name
 	     (attrs (?wh parameter-attrs)))
-	`(,@arg ,!m(inject-kwd-if-nonnil attrs)))))
+	`(,@arg ,@(%%inject-kwd-if-nonnil attrs)))))
 
 (define-plural-rule %defun-args defun-arg white-comma)
 
@@ -853,7 +853,7 @@
       (let* ((type (emit-lisp-repr (v llvm-type)))
 	     (attrs (?wh (v parameter-attrs)))
 	     (id (? (wh? local-identifier))))
-	`(,type ,!m(inject-if-nonnil id) ,!m(inject-kwd-if-nonnil attrs)))))
+	`(,type ,@(%%inject-if-nonnil id) ,@(%%inject-kwd-if-nonnil attrs)))))
 
 (define-plural-rule %declfun-args declfun-arg white-comma)
 
@@ -921,7 +921,7 @@
   (let ((label (? (prog1 (v block-label)
 		    (v whitespace)))))
     (let ((basic-block-body (v basic-block-body)))
-      `(block ,!m(inject-kwd-if-nonnil label)
+      `(block ,@(%%inject-kwd-if-nonnil label)
 	       ,@basic-block-body))))
 
 (define-plural-rule basic-blocks basic-block whitespace)

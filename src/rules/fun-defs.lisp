@@ -73,33 +73,23 @@
 	 (fail-parse-format "Assertion ~a is not satisfied by: ~a" ',cond it)
 	 it)))
 
-(defun %inject-kwd-if-nonnil (name)
-  (if name
-      (list (list (intern (string name) "KEYWORD")
-		  name))))
-
 (defmacro %%inject-kwd-if-nonnil (name)
   `(if ,name
        (list (list (intern (string ',name) "KEYWORD")
 		   ,name))))
-
-(defmacro inject-kwd-if-nonnil (name)
-  ``,@(if ,name
-	  (list (list ,(intern (string name) "KEYWORD")
-		      ,name))))
 
 (defmacro inject-kwds-if-nonnil (&rest names)
   ``,@`(,,@(mapcar (lambda (x)
 		     ``,@(%%inject-kwd-if-nonnil ,x))
 		   names)))
 
-(defmacro inject-if-nonnil (smth)
-  ``,@(if ,smth
-	  (list ,smth)))
+(defmacro %%inject-if-nonnil (smth)
+  `(if ,smth
+       (list ,smth)))
 
 (defmacro inject-stuff-if-nonnil (&rest stuff)
   ``,@`(,,@(mapcar (lambda (x)
-		     ``,!m(inject-if-nonnil ,x))
+		     ``,@(%%inject-if-nonnil ,x))
 		   stuff)))
 
 
@@ -358,7 +348,7 @@
 	     ,(return-type-lisp-form return-type return-attrs)
 	     ,!m(inject-kwds-if-nonnil linkage visibility dll-storage-class
 				       cconv)
-	     ,!m(inject-if-nonnil unnamed-addr)
+	     ,@(%%inject-if-nonnil unnamed-addr)
 	     ,!m(inject-kwds-if-nonnil fun-attrs align gc prefix prologue))))
 		
 ;; Let's move to alias definitions
@@ -426,8 +416,8 @@
 		  ,@(%%inject-kwd-if-nonnil linkage)
 		  ,@(%%inject-kwd-if-nonnil visibility)
 		  ,@(%%inject-kwd-if-nonnil dll-storage-class)
-		  ,!m(inject-if-nonnil thread-local)
-		  ,!m(inject-if-nonnil unnamed-addr)))))))
+		  ,@(%%inject-if-nonnil thread-local)
+		  ,@(%%inject-if-nonnil unnamed-addr)))))))
 
 ;;; Let's move to comdats
 
