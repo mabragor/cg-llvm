@@ -1,4 +1,4 @@
-;;;; package.lisp
+(in-package #:cl-user)
 
 (defpackage #:cg-llvm
   (:use
