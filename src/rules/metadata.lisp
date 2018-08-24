@@ -1,9 +1,6 @@
 
 (in-package #:cg-llvm)
 
-(quasiquote-2.0:enable-quasiquote-2.0)
-
-
 (define-cg-llvm-rule metadata-node-value (type)
   (if (and type (not (llvm-typep 'metadata type)))
       (fail-parse "METADATA value should have METADATA type"))
