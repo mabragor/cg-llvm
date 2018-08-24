@@ -4,9 +4,24 @@
 (quasiquote-2.0:enable-quasiquote-2.0)
 
 (defmacro define-constant-rules (name typecheck errinfo &body value-rule-body)
-  (let ((type-rule-name (intern #?"$(name)-CONSTANT-TYPE"))
-	(value-rule-name (intern #?"$(name)-CONSTANT-VALUE"))
-	(rule-name (intern #?"$(name)-CONSTANT")))
+  (let ((type-rule-name
+	 (intern
+	  ;;#"$(name)-CONSTANT-TYPE"
+	  (interpol       
+	   name
+	   "-CONSTANT-TYPE")))
+	(value-rule-name
+	 (intern
+	  ;;#"$(name)-CONSTANT-VALUE"
+	  (interpol
+	   name
+	   "-CONSTANT-VALUE")))
+	(rule-name
+	 (intern
+	  ;;#"$(name)-CONSTANT"
+	  (interpol
+	   name
+	   "-CONSTANT"))))
     `(progn (define-cg-llvm-rule ,type-rule-name ()
 	      (let ((type (emit-lisp-repr (v llvm-type))))
 		(if (not ,typecheck)

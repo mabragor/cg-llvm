@@ -194,12 +194,25 @@
     `((let ((type (emit-lisp-repr (wh llvm-type))))
 	(if (not (or (llvm-typep '(,type ***) type)
 		     (llvm-typep '(vector (,type ***) *) type)))
-	    (fail-parse-format ,#?"$((string name)) instruction expects <type> to be $((string type)) \
-                                      or VECTOR OF $((string type))S, but got: ~a"
-			       type))
+	    (fail-parse-format
+	     ,(progn
+	       ;;$((string name)) instruction expects <type> to be $((string type)) \
+	       ;; or VECTOR OF $((string type))S, but got: ~a
+	       (interpol
+		(string name)
+		" instruction expects <type> to be "
+		(string type)
+		"~% or VECTOR OF "
+		(string type)
+		"S, but got: ~a"))
+	     type))
 	(macrolet ((parse-arg ()
 		     `(|| (if (llvm-typep '(,,type ***) type)
-			      (descend-with-rule ',,(intern #?"$((string type))-CONSTANT-VALUE") type)
+			      (descend-with-rule ',,(intern
+						     ;;"$((string type))-CONSTANT-VALUE"
+						     (interpol
+						      (string type)
+						      "-CONSTANT-VALUE")) type)
 			      (descend-with-rule 'vector-constant-value type))
 			  llvm-identifier)))
 	  (let ((arg1 (wh (parse-arg))))
@@ -212,13 +225,28 @@
 	     (val2 (prog1-v (progn-v wh? #\, wh? llvm-constant) wh? #\))))
 	(if (not (or (llvm-typep '(,type ***) (car val1))
 		     (llvm-typep '(vector (,type ***) *) (car val1))))
-	    (fail-parse-format ,#?"$((string name)) constexpr expects <type> to be $((string type)) \
-                                      or VECTOR OF $((string type))S, but got: ~a"
-			       (car val1)))
+	    (fail-parse-format
+	     ,(progn
+	       ;;;$((string name)) constexpr expects <type> to be $((string type))
+	       ;;	       or VECTOR OF $((string type))S, but got: ~a
+	       (interpol
+		(string name)
+		" constexpr expects <type> to be "
+		(string type)
+		"~% or VECTOR OF"
+		(string type)
+		"S, but got: ~a"))
+	     (car val1)))
 	(if (not (llvm-same-typep (car val1) (car val2)))
-	    (fail-parse-format ,#?"$((string name)) constexpr expects types of its arguments to coincide \
-                                      but got: ~a and ~a"
-			       (car val1) (car val2)))
+	    (fail-parse-format
+	     ,(progn
+	       ;;$((string name)) constexpr expects types of its arguments to coincide
+	       ;;but got: ~a and ~a
+	       (interpol
+		(string name)
+		" constexpr expects types of its arguments to coincide~% but got: ~a and ~a"))
+	     (car val1)
+	     (car val2)))
 	`(,val1 ,val2 ,@prefix-kwds)))))
 
 (defmacro unordered-simple-keywords (&rest kwds)
@@ -244,7 +272,10 @@
 
 (defmacro define-integer-binop-definer (name &optional prefix-code)
   `(defmacro ,name (name)
-     (let ((constexpr-name (intern #?"$((string name))-CONSTEXPR")))
+     (let ((constexpr-name (intern ;;#"$((string name))-CONSTEXPR"
+			    (interpol
+			     (string name)
+			     "-CONSTEXPR"))))
        (with-rule-names (name)
 	 `(progn (define-instruction-rule ,name
 		   (let ((prefix-kwds ,,prefix-code))
@@ -263,7 +294,7 @@
 (define-integer-binop-definer define-simple-integer-binop-rule)
 
 (defmacro define-float-binop-rule (name &key (type 'float))
-  (let ((constexpr-name (intern (format nil #?"~a-CONSTEXPR" name))))
+  (let ((constexpr-name (intern (format nil "~a-CONSTEXPR" name))))
     (with-rule-names (name)
       `(progn (define-instruction-rule ,name
 		(with-fast-math-flags-prefix
@@ -396,7 +427,11 @@
        ,@body)))
 
 (defmacro define-atomic-load-store-instruction (name type-getter)
-  (let ((rule-name (intern #?"ATOMIC-$((string name))-INSTRUCTION")))
+  (let ((rule-name (intern ;;#"ATOMIC-$((string name))-INSTRUCTION"
+		    (interpol
+		     "ATOMIC-"
+		     (string name)
+		     "-INSTRUCTION"))))
     `(define-load-store-instruction (,rule-name ,name) ((wh "atomic"))
        ,type-getter
        (let ((singlethread (? (wh (progn (v "singlethread")
@@ -414,7 +449,11 @@
 				      singlethread))))))
 
 (defmacro define-non-atomic-load-store-instruction (name type-getter)
-  (let ((rule-name (intern #?"NON-ATOMIC-$((string name))-INSTRUCTION")))
+  (let ((rule-name (intern ;;#"NON-ATOMIC-$((string name))-INSTRUCTION"
+		    (interpol
+		     "NON-ATOMIC-"
+		     (string name)
+		     "-INSTRUCTION"))))
     `(define-load-store-instruction (,rule-name ,name) ()
 	 ,type-getter
        (let ((align (? (progn (v white-comma)
@@ -571,7 +610,10 @@
 		  0))))
 
 (defmacro define-cast-instruction (name &body constraints)
-  (let ((rule-name (intern #?"$((string name))-TO-INSTRUCTION")))
+  (let ((rule-name (intern ;;#"$((string name))-TO-INSTRUCTION"
+		    (interpol
+		     (string name)
+		     "-TO-INSTRUCTION"))))
     `(define-instruction-rule (,rule-name ,name)
        (destructuring-bind (type1 value) (wh (v instr-arg))
 	 (v whitespace)
@@ -583,7 +625,13 @@
 
 
 (defmacro define-simple-based (type1 type2)
-  `(defmacro ,(intern #?"$((string type1))->$((string type2))-BASED") (&optional condition)
+  `(defmacro ,(intern ;;#"$((string type1))->$((string type2))-BASED"
+	       (interpol
+		(string type1)
+		"->"
+		(string type2)
+		"-BASED"))
+       (&optional condition)
      `(or (and (llvm-typep '(,,type1 ***) type1)
 	       (llvm-typep '(,,type2 ***) type1)
 	       ,@(if condition `((,condition type1 type2))))
@@ -733,7 +781,10 @@
   (any-of-kwds known-fcmp-ops))
 
 (defmacro define-cmp-rule (name typecheck errinfo)
-  (let ((macro-name (intern #?"$((string name))-KWDS")))
+  (let ((macro-name (intern ;;#"$((string name))-KWDS"
+		     (interpol
+		      (string name)
+		      "-KWDS"))))
     `(define-instruction-rule ,name
        (let ((cond (wh (,macro-name)))
 	     (type (emit-lisp-repr (wh llvm-type))))

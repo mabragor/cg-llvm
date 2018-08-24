@@ -5,7 +5,11 @@
 
 
 (defmacro define-cast-constexpr (name &body constraints)
-  (let ((rule-name (intern #?"$((string name))-TO-CONSTEXPR")))
+  (let ((rule-name (intern ;;#"$((string name))-TO-CONSTEXPR"
+		    (interpol
+		     (string name)
+		     "-TO-CONSTEXPR"
+		     ))))
     `(define-op-rule (,rule-name ,name)
        (v #\()
        (? whitespace)
@@ -81,8 +85,14 @@
 
 
 (defmacro define-cmp-constexpr (name typecheck &rest errinfo)
-  (let ((macro-name (intern #?"$((string name))-KWDS"))
-	(constexpr-name (intern #?"$((string name))-CONSTEXPR")))
+  (let ((macro-name (intern ;;#"$((string name))-KWDS"
+		     (interpol
+		      (string name)
+		      "-KWDS")))
+	(constexpr-name (intern ;;#"$((string name))-CONSTEXPR"
+			 (interpol
+			  (string name)
+			  "-CONSTEXPR"))))
     `(define-op-rule (,constexpr-name ,name)
        (let* ((cond (wh (,macro-name)))
 	      (val1 (progn (v wh?)

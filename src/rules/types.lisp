@@ -83,7 +83,10 @@
   `(integer ,(slot-value obj 'nbits)))
 
 (defmethod emit-text-repr ((obj llvm-integer))
-  #?"i$((slot-value obj 'nbits))")
+  ;;#"i$((slot-value obj 'nbits))"
+  (interpol
+   "i"
+   (slot-value obj 'nbits)))
 
 (defclass llvm-float (llvm-first-class-type)
   ((nbits :initarg :nbits)
@@ -134,8 +137,16 @@
 (defmethod emit-text-repr ((obj llvm-pointer))
   (with-slots (pointee address-space) obj
     (if (equal 0 address-space)
-	#?"$((emit-text-repr pointee))*"
-	#?"$((emit-text-repr pointee)) addrspace($(address-space))*")))
+	;;#"$((emit-text-repr pointee))*"
+	(interpol
+	 (emit-text-repr pointee)
+	 "*")
+	;;#"$((emit-text-repr pointee)) addrspace($(address-space))*"
+	(interpol
+	 (emit-text-repr pointee)
+	 " addrspace("
+	 address-space
+	 ")*"))))
 
 
 (defun coerce-to-llvm-type (smth)
@@ -176,7 +187,13 @@
 
 (defmethod emit-text-repr ((obj llvm-vector))
   (with-slots (num-elts elt-type) obj
-    #?"<$(num-elts) x $((emit-text-repr elt-type))>"))
+    ;;#"<$(num-elts) x $((emit-text-repr elt-type))>"
+    (interpol
+     "<"
+     num-elts
+     " x "
+     (emit-text-repr elt-type)
+     ">")))
 
 (defclass llvm-label (llvm-first-class-type) ())
 (defclass llvm-metadata (llvm-first-class-type) ())
@@ -203,7 +220,14 @@
 
 (defmethod emit-text-repr ((obj llvm-array))
   (with-slots (num-elts elt-type) obj
-    #?"[$(num-elts) x $((emit-text-repr elt-type))]"))
+    ;;#"[$(num-elts) x $((emit-text-repr elt-type))]"
+    (interpol
+     "["
+     num-elts
+     " x "
+     (emit-text-repr elt-type)
+     "]")
+    ))
 
 (defun llvm-sizey-type-p (type)
   t)
