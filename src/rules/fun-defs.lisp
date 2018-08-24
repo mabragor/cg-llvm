@@ -118,13 +118,13 @@
 					 `(descend-with-rule 'string ,(stringify-symbol x)))
 				       (symbol-value (or known-var
 							 (intern ;#"KNOWN-$(name)S"
-								 (interpol
-								  "KNOWN-"
-								  name
-								  "S"
-								  )
+							  (interpol
+							   "KNOWN-"
+							   name
+							   "S"
+							   )
 
-								 )))))
+							  )))))
 			 "KEYWORD")))
 
 (define-kwd-rule linkage-type)
@@ -339,7 +339,7 @@
        (if metadata
 	   (append body (list (list :metadata metadata)))
 	   body))))
-	       
+
 
 (define-op-rule (function-declaration declare)
   (let* ((linkage (?wh linkage-type))

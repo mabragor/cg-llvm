@@ -29,7 +29,7 @@
 	    (define-cg-llvm-rule ,rule-name ()
 	      (let ((type (v ,type-rule-name)))
 		(list type (wh (descend-with-rule ',value-rule-name type))))))))
-	    
+
 
 (defmacro define-typeguarding-constant-rules (name typecheck errinfo &body value-rule-body)
   `(define-constant-rules ,name ,typecheck ,errinfo
@@ -40,7 +40,7 @@
 (define-typeguarding-constant-rules boolean
     (llvm-typep '(integer 1) type)
     ((literal-string "Boolean must really be integer of 1 bit."))
-    (text (|| "true" "false")))
+  (text (|| "true" "false")))
 
 (define-typeguarding-constant-rules integer
     (llvm-typep '(integer *) type)
@@ -53,12 +53,12 @@
 
 (define-cg-llvm-rule decimal-float ()
   (let ((text (text (? sign)
-	 (times ns-dec-digit)
-	 (v #\.)
-	 (times ns-dec-digit)
-	 (? (list (v #\e)
-		  (? sign)
-		  (postimes ns-dec-digit))))))
+		    (times ns-dec-digit)
+		    (v #\.)
+		    (times ns-dec-digit)
+		    (? (list (v #\e)
+			     (? sign)
+			     (postimes ns-dec-digit))))))
     (handler-case 
 	(parse-number:parse-number text)
       (error () `(%decimal-float ,text)))))
@@ -143,7 +143,7 @@
 (define-cg-llvm-rule llvm-undef-value ()
   (v "undef")
   :undef)
-  
+
 (define-cg-llvm-rule llvm-undef ()
   `(,(emit-lisp-repr (v llvm-type))
      ,(wh llvm-undef-value)))

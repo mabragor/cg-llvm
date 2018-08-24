@@ -49,7 +49,7 @@
 				     (mash-sym-names x appendix))
 				 alternatives)))
 	  `(define-cg-llvm-rule ,rule-name () (|| ,@alt-names))))))
-	
+
 
 (defmacro define-lvalue-instruction-alternative (name)
   `(define-instruction-alternative ,name ,(mash-sym-names 'lvalue name) ,(mash-sym-names 'nolvalue name)))
@@ -171,11 +171,11 @@
 	    ,@(%%inject-kwd-if-nonnil cconv)
 	    ,@(%%inject-kwd-if-nonnil return-attrs)
 	    ,@(%%inject-kwd-if-nonnil fun-attrs)))))))
-		     
+
 ;; The check for correct type of resume instruction is at semantic level -- the whole body
 ;; of the function should be parsed for that
 (define-simple-instruction-rule resume (x))
-	
+
 (define-simple-instruction-rule unreachable ())
 
 (define-instruction-alternative lvalue-binary
@@ -433,7 +433,7 @@
 		     (string name)
 		     "-INSTRUCTION"))))
     `(define-load-store-instruction (,rule-name ,name) ((wh "atomic"))
-       ,type-getter
+	 ,type-getter
        (let ((singlethread (? (wh (progn (v "singlethread")
 					 t))))
 	     (ordering (wh (blacklist-kwd-expr '(:release :acq-rel)
@@ -502,7 +502,7 @@
 	 (failure-ord (wh ordering)))
     ;; TODO : constraints on orderings
     `(,ptr ,cmp ,new ,@(%%inject-kwds-if-nonnil success-ord failure-ord
-					       weak volatile singlethread))))
+						weak volatile singlethread))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter known-atomicrmw-ops '(xchg add sub and nand or xor max min umax umin)))
@@ -675,7 +675,7 @@
 (defun rough-check-bitcast-type (label type)
   (let ((llvm-type (parse-lisp-repr type)))
     (if (or (not (and (firstclass-type-p llvm-type)
-		  (not (aggregate-type-p llvm-type))))
+		      (not (aggregate-type-p llvm-type))))
 	    (typep llvm-type 'llvm-label)
 	    (typep llvm-type 'llvm-metadata))
 	(fail-parse-format "~a type must be first-class, non-aggregate type, but got: ~a"
@@ -698,8 +698,8 @@
 
 
 (define-cast-instruction bitcast (bitcast-constraints))
-	
-	
+
+
 
 (define-simple-based pointer pointer)
 
@@ -791,7 +791,7 @@
 	   (v white-comma)
 	   (let ((val2 (v instr-arg-value type)))
 	     `(,cond ,type ,val1 ,val2)))))))
-	
+
 (define-cmp-rule icmp
     (or (llvm-typep '(integer ***) type)
 	(llvm-typep '(vector (integer ***) *) type)
@@ -970,7 +970,7 @@
 		    (v whitespace)))))
     (let ((basic-block-body (v basic-block-body)))
       `(block ,@(%%inject-kwd-if-nonnil label)
-	       ,@basic-block-body))))
+	 ,@basic-block-body))))
 
 (define-plural-rule basic-blocks basic-block whitespace)
 

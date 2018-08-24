@@ -11,8 +11,7 @@
 
 (cl-interpol:enable-interpol-syntax)
 
-(def-suite cg-llvm)
-(in-suite cg-llvm)
+(in-suite* cg-llvm)
 
 (defun run-tests ()
   (let ((results (run 'cg-llvm)))

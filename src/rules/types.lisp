@@ -28,7 +28,7 @@
   (make-instance 'typed-value
 		 :type (coerce-to-llvm-type type)
 		 :value value))
-  
+
 
 (defclass llvm-no-value (llvm-type)
   ())
@@ -238,7 +238,7 @@
     (if (not (llvm-sizey-type-p type))
 	(error "Array elt type should have a size, but got/deduced type ~a doesn't" type))
     (make-instance 'llvm-array :num-elts n :elt-type type)))
-  
+
 (defclass llvm-struct (llvm-aggregate-type)
   ((elt-types :initarg :elt-types)
    (packed-p :initarg :packed-p)))
@@ -289,7 +289,7 @@
   (v #\;)
   (times (!! (|| #\newline #\return)))
   #\space)
-  
+
 
 (define-cg-llvm-rule ns-dec-digit ()
   (character-ranges (#\0 #\9)))
