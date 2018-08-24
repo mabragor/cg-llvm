@@ -1,7 +1,5 @@
 (in-package #:cg-llvm)
 
-(quasiquote-2.0:enable-quasiquote-2.0)
-
 (defmacro define-constant-rules (name typecheck errinfo &body value-rule-body)
   (let ((type-rule-name
 	 (intern

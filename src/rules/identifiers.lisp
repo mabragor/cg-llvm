@@ -1,7 +1,5 @@
 (in-package #:cg-llvm)
 
-(quasiquote-2.0:enable-quasiquote-2.0)
-
 (define-cg-llvm-rule named-identifier-body ()
   (text (list (|| alpha-char #\- #\$ #\. #\_)
 	      (times (|| alphanumeric-char #\- #\$ #\. #\_)))))
