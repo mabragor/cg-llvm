@@ -1,28 +1,4 @@
-
 (in-package #:cg-llvm)
-
-(quasiquote-2.0:enable-quasiquote-2.0)
-
-
-(defmacro define-simple-instruction-rule (name (&rest args) &body body)
-  `(define-instruction-rule ,name
-     (,@(if args
-	    `(let* (,(if (symbolp (car args))
-			 `(,(car args) (wh instr-arg))
-			 `(,(caar args) (fail-parse-if-not ,(cadar args) (wh instr-arg))))
-		    ,@(mapcar (lambda (x)
-				(if (symbolp x)
-				    `(,x (progn (v white-comma)
-						(v instr-arg)))
-				    `(,(car x) (fail-parse-if-not ,(cadr x)
-								  (progn (v white-comma)
-									 (v instr-arg))))))
-			      (cdr args))))
-	    `(progn))
-	,@(or body
-	      `(`(,,@(mapcar (lambda (x)
-			       ``(quasiquote-2.0:inject ,(if (symbolp x) x (car x))))
-			     args)))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun mash-sym-names (&rest syms)
@@ -206,12 +182,12 @@
 		"S, but got: ~a"))
 	     type))
 	(macrolet ((parse-arg ()
-		     `(|| (if (llvm-typep '(,,type ***) type)
-			      (descend-with-rule ',,(intern
-						     ;;"$((string type))-CONSTANT-VALUE"
-						     (interpol
-						      (string type)
-						      "-CONSTANT-VALUE")) type)
+		     `(|| (if (llvm-typep '(,',type ***) type)
+			      (descend-with-rule ',',(intern
+						      ;;"$((string type))-CONSTANT-VALUE"
+						      (interpol
+						       (string type)
+						       "-CONSTANT-VALUE")) type)
 			      (descend-with-rule 'vector-constant-value type))
 			  llvm-identifier)))
 	  (let ((arg1 (wh (parse-arg))))
@@ -277,10 +253,10 @@
 			     "-CONSTEXPR"))))
        (with-rule-names (name)
 	 `(progn (define-instruction-rule ,name
-		   (let ((prefix-kwds ,,prefix-code))
+		   (let ((prefix-kwds ,',prefix-code))
 		     ,@(binop-instruction-body instr-name 'integer)))
 		 (define-op-rule (,constexpr-name ,instr-name)
-		   (let ((prefix-kwds ,,prefix-code))
+		   (let ((prefix-kwds ,',prefix-code))
 		     ,@(binop-constexpr-body instr-name 'integer))))))))
 
 (define-integer-binop-definer define-integer-binop-rule
@@ -556,8 +532,6 @@
 	(fail-parse "Geteltptr index is not an integer"))
     (let ((what (wh (|| integer llvm-identifier))))
       (list type what))))
-		    
-    
 
 (define-instruction-rule getelementptr
   (let* ((inbounds (?wh (progn (v "inbounds")
@@ -565,8 +539,7 @@
 	 (type (wh (prog1 (v llvm-type)
 		     (v white-comma))))
 	 (body (|| vector-getelementptr-body
-		   scalar-getelementptr-body))
-	 )
+		   scalar-getelementptr-body)))
     `(,type ,@body ,@(%%inject-kwd-if-nonnil inbounds))))
 
 (define-instruction-alternative lvalue-conversion
@@ -631,11 +604,11 @@
 		(string type2)
 		"-BASED"))
        (&optional condition)
-     `(or (and (llvm-typep '(,,type1 ***) type1)
-	       (llvm-typep '(,,type2 ***) type1)
+     `(or (and (llvm-typep '(,',type1 ***) type1)
+	       (llvm-typep '(,',type2 ***) type1)
 	       ,@(if condition `((,condition type1 type2))))
-	  (and (llvm-typep '(vector (,,type1 ***) *) type1)
-	       (llvm-typep '(vector (,,type2 *) *) type2)
+	  (and (llvm-typep '(vector (,',type1 ***) *) type1)
+	       (llvm-typep '(vector (,',type2 *) *) type2)
 	       (have-same-size type1 type2)
 	       ,@(if condition `((,condition (cadr type1) (cadr type2))))))))
 

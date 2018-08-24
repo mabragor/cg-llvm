@@ -1,7 +1,5 @@
 (in-package #:cg-llvm)
 
-(quasiquote-2.0:disable-quasiquote-2.0)
-
 ;; OK, let's sketch the syntax for the function declaration and definition
 
 ;; (declare function-name (&rest args-with-optional-param-attrs ???)
@@ -264,19 +262,19 @@
 (defmacro define-python-rule (name subrule)
   (destructuring-bind (rule-name cmd-name) (if (atom name) (list name name) name)
     `(define-cg-llvm-rule ,rule-name ()
-       `(,,(intern (string cmd-name) (literal-string "KEYWORD"))
-	   ,(progn-v (descend-with-rule 'string ,(stringify-symbol cmd-name))
-		     whitespace
-		     ,subrule)))))
+       `(,',(intern (string cmd-name) (literal-string "KEYWORD"))
+	    ,(progn-v (descend-with-rule 'string ,(stringify-symbol cmd-name))
+		      whitespace
+		      ,subrule)))))
 
 (defmacro define-algol-rule (name subrule)
   (destructuring-bind (rule-name cmd-name) (if (atom name) (list name name) name)
     `(define-cg-llvm-rule ,rule-name ()
-       `(,,(intern (string cmd-name) (literal-string "KEYWORD"))
-	   ,(progn-v (descend-with-rule 'string ,(stringify-symbol cmd-name))
-		     "("
-		     (prog1-v ,subrule
-			      ")"))))))
+       `(,',(intern (string cmd-name) (literal-string "KEYWORD"))
+	    ,(progn-v (descend-with-rule 'string ,(stringify-symbol cmd-name))
+		      "("
+		      (prog1-v ,subrule
+			       ")"))))))
 
 
 (define-python-rule align pos-integer)
