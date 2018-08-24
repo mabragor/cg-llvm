@@ -12,7 +12,6 @@
    #:cg-common-ground
    #:esrap-liquid
    #:optima
-   #:quasiquote-2.0
    #:parse-number
    )
   :pathname "src/"
@@ -30,7 +29,6 @@
      (:file "identifiers")
      (:file "constants")
      (:file "metadata")
-     (:file "quasiquote-2.0")
      (:file "instructions")
      (:file "constant-expressions")
      (:file "high-level-structure")

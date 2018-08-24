@@ -1,5 +1,30 @@
 (in-package #:cg-llvm)
 
+(defmacro define-simple-instruction-rule (name (&rest args) &body body)
+  `(define-instruction-rule ,name
+     ,(append
+       (if args
+	   `(let* (,(if (symbolp (car args))
+			`(,(car args) (wh instr-arg))
+			`(,(caar args) (fail-parse-if-not ,(cadar args) (wh instr-arg))))
+		   ,@(mapcar (lambda (x)
+			       (if (symbolp x)
+				   `(,x (progn (v white-comma)
+					       (v instr-arg)))
+				   `(,(car x) (fail-parse-if-not
+					       ,(cadr x)
+					       (progn (v white-comma)
+						      (v instr-arg))))))
+			     (cdr args))))
+	   `(progn))
+       (or body
+	   `((list
+	      ,@(mapcar (lambda (x)
+			  (if (symbolp x)
+			      x
+			      (car x)))
+			args)))))))
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun mash-sym-names (&rest syms)
     (intern (joinl "-" (mapcar #'string syms))))
