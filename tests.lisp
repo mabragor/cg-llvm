@@ -10,8 +10,6 @@
 (in-package :cg-llvm-tests)
 
 (cl-interpol:enable-interpol-syntax)
-;;;(enable-read-macro-tokens)
-(quasiquote-2.0:enable-quasiquote-2.0)
 
 (def-suite cg-llvm)
 (in-suite cg-llvm)
@@ -455,8 +453,8 @@
 
 (defmacro with-frob1 (name &body body)
   `(macrolet ((frob1 (x y)
-		`(frob (,,name ,@x)
-		       ,,(intern #?"$((string name))-INSTRUCTION")
+		`(frob (,',name ,@x)
+		       ,',(intern #?"$((string name))-INSTRUCTION")
 		       ,(concatenate 'string ,(cg-llvm::stringify-symbol name) " " y))))
      ,@body))
 
