@@ -1,6 +1,5 @@
 (in-package #:cg-llvm)
 
-(cl-interpol:enable-interpol-syntax)
 (quasiquote-2.0:disable-quasiquote-2.0)
 
 ;; OK, let's sketch the syntax for the function declaration and definition

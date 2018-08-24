@@ -1,7 +1,5 @@
-
 (in-package #:cg-llvm)
 
-(cl-interpol:enable-interpol-syntax)
 (quasiquote-2.0:enable-quasiquote-2.0)
 
 (define-cg-llvm-rule named-identifier-body ()
@@ -14,7 +12,7 @@
 (defun try-destringify-symbol (str)
   (handler-case (destringify-symbol str)
     (error () str)))
-  
+
 (define-cg-llvm-rule hex-digit ()
   (character-ranges (#\0 #\9) (#\a #\f) (#\A #\F)))
 
@@ -29,7 +27,7 @@
 			     (|| double-hex-escaped-char
 				 (descend-with-rule 'character nil))))
 	       #\")))
-  
+
 (define-cg-llvm-rule identifier-body ()
   (|| named-identifier-body
       llvm-string

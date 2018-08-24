@@ -1,7 +1,6 @@
 
 (in-package #:cg-llvm)
 
-(cl-interpol:enable-interpol-syntax)
 (quasiquote-2.0:enable-quasiquote-2.0)
 
 

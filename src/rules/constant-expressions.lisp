@@ -1,8 +1,6 @@
 (in-package #:cg-llvm)
 
-(cl-interpol:enable-interpol-syntax)
 (quasiquote-2.0:enable-quasiquote-2.0)
-
 
 (defmacro define-cast-constexpr (name &body constraints)
   (let ((rule-name (intern ;;#"$((string name))-TO-CONSTEXPR"
