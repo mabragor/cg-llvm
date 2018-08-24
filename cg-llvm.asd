@@ -7,16 +7,13 @@
   :version "0.1"
   :depends-on
   (#:cl-trivial-templates
-   #:cl-ppcre
    #:cl-interpol
    #:iterate
    #:cg-common-ground
-   #:lol-re
    #:esrap-liquid
    #:optima
    #:quasiquote-2.0
    #:parse-number
-
    )
   :pathname "src/"
   :serial t

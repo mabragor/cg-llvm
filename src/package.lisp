@@ -5,7 +5,6 @@
    #:cl
    #:cg-common-ground
    #:iterate
-   #:lol-re
    #:esrap-liquid
    #:optima
    )
