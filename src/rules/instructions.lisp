@@ -34,7 +34,7 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun any-of-kwds (kwd-var)
     `(|| ,@(mapcar (lambda (x)
-		     `(progn (descend-with-rule 'string ,(stringify-symbol x))
+		     `(progn (descend-with-rule 'string ,(%stringify-symbol x))
 			     ,(keywordify x)))
 		   kwd-var))))
 
@@ -251,7 +251,7 @@
 
 (defmacro unordered-simple-keywords (&rest kwds)
   `(let ((kwds (times (wh (|| ,@(mapcar (lambda (x)
-					  `(progn (descend-with-rule 'string ,(stringify-symbol x))
+					  `(progn (descend-with-rule 'string ,(%stringify-symbol x))
 						  ,(keywordify x)))
 					kwds)))
 		      :upto ,(length kwds))))
