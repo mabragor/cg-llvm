@@ -48,3 +48,7 @@
 			  form
 			  `(princify ,form)))
 		    args)))
+
+(defun keywordify (x)
+  (intern (string x)
+	  "KEYWORD"))

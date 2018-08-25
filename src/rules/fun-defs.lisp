@@ -72,7 +72,7 @@
 
 (defmacro %%inject-kwd-if-nonnil (name)
   `(if ,name
-       (list (list (intern (string ',name) "KEYWORD")
+       (list (list ,(keywordify name)
 		   ,name))))
 
 (defmacro %%inject-kwds-if-nonnil (&rest names)
@@ -112,6 +112,7 @@
       weak-odr
       external)))
 
+;;;;return a keyword after matching a particular string
 (defmacro define-kwd-rule (name &optional known-var)
   (let ((known-words
 	 (symbol-value (or known-var
@@ -120,14 +121,12 @@
 			     "KNOWN-"
 			     name
 			     "S"
-			     )
-
-			    )))))
+			     ))))))
     `(define-cg-llvm-rule ,name ()
-       (destringify-symbol (|| ,@(mapcar (lambda (x)
-					   `(descend-with-rule 'string ,(stringify-symbol x)))
-					 known-words))
-			   "KEYWORD"))))
+       (|| ,@(mapcar (lambda (x)
+		       `(progn (descend-with-rule 'string ,(stringify-symbol x))
+			       ,(keywordify x)))
+		     known-words)))))
 
 (define-kwd-rule linkage-type)
 
@@ -264,7 +263,7 @@
 (defmacro define-python-rule (name subrule)
   (destructuring-bind (rule-name cmd-name) (if (atom name) (list name name) name)
     `(define-cg-llvm-rule ,rule-name ()
-       `(,',(intern (string cmd-name) (literal-string "KEYWORD"))
+       `(,',(keywordify cmd-name)
 	    ,(progn-v (descend-with-rule 'string ,(stringify-symbol cmd-name))
 		      whitespace
 		      ,subrule)))))
@@ -272,7 +271,7 @@
 (defmacro define-algol-rule (name subrule)
   (destructuring-bind (rule-name cmd-name) (if (atom name) (list name name) name)
     `(define-cg-llvm-rule ,rule-name ()
-       `(,',(intern (string cmd-name) (literal-string "KEYWORD"))
+       `(,',(keywordify cmd-name)
 	    ,(progn-v (descend-with-rule 'string ,(stringify-symbol cmd-name))
 		      "("
 		      (prog1-v ,subrule
