@@ -137,10 +137,6 @@
   (defparameter known-dll-storage-classes '(dllimport dllexport)))
 (define-kwd-rule dll-storage-class known-dll-storage-classes)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter known-cconvs '(ccc fastcc coldcc webkit-jscc anyregcc preserve-mostcc preserve-allcc))
-  (defparameter known-cons-cconvs '((cc pos-integer))))
-
 (defmacro define-consy-kwd-rule (name known-var known-cons-var)
   (let ((g!-name (gensym (string name))))
     `(progn
@@ -148,7 +144,7 @@
        (define-cg-llvm-rule ,name ()
 	 (|| (descend-with-rule ',g!-name)
 	     ,@(mapcar (lambda (x)
-			 (let ((string (stringify-symbol (car x))))
+			 (let ((string (%stringify-symbol (car x))))
 			   `(progn
 			      (descend-with-rule 'string
 						 ,string)
@@ -157,15 +153,10 @@
 					   (descend-with-rule ',(cadr x)))))))
 		       (symbol-value known-cons-var)))))))
 
-(define-consy-kwd-rule cconv known-cconvs known-cons-cconvs)
-
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter known-parameter-attrs '(zeroext signext inreg byval
-					inalloca sret noalias nocapture
-					nest returned nonull))
-  (defparameter known-cons-parameter-attrs '((align pos-integer)))
-  (defparameter known-algol-parameter-attrs '((dereferenceable pos-integer))))
-
+  (defparameter known-cconvs '(ccc fastcc coldcc webkit_jscc anyregcc preserve_mostcc preserve_allcc))
+  (defparameter known-cons-cconvs '((cc pos-integer))))
+(define-consy-kwd-rule cconv known-cconvs known-cons-cconvs)
 
 (defmacro define-algol-consy-kwd-rule (name known-var known-cons-var known-algol-var)
   (let ((g!-name (gensym (string name))))
@@ -174,15 +165,19 @@
        (define-cg-llvm-rule ,name ()
 	 (|| (descend-with-rule ',g!-name)
 	     ,@(mapcar (lambda (x)
-			 (let ((string (stringify-symbol (car x))))
+			 (let ((string (%stringify-symbol (car x))))
 			   `(progn
 			      (descend-with-rule 'string
 						 ,string)
 			      (list ,(keywordify (string-upcase string))
 				    (progm "(" (descend-with-rule ',(cadr x)) ")")))))
 		       (symbol-value known-algol-var)))))))
-
-
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defparameter known-parameter-attrs '(zeroext signext inreg byval
+					inalloca sret noalias nocapture
+					nest returned nonull))
+  (defparameter known-cons-parameter-attrs '((align pos-integer)))
+  (defparameter known-algol-parameter-attrs '((dereferenceable pos-integer))))
 (define-algol-consy-kwd-rule %parameter-attr
     known-parameter-attrs 
   known-cons-parameter-attrs
