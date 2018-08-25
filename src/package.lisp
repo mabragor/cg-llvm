@@ -3,7 +3,7 @@
 (defpackage #:cg-llvm
   (:use
    #:cl
-   #:cg-common-ground
+   ;;#:cg-common-ground
    #:iterate
    #:esrap-liquid
    #:optima
@@ -52,3 +52,28 @@
 (defun keywordify (x)
   (intern (string x)
 	  "KEYWORD"))
+
+(defun %stringify-symbol (x)
+  (string-downcase (string x)))
+
+(defun stringify-symbol (x)
+  (cg-common-ground:stringify-symbol x))
+
+(defun joinl (joinee lst)
+  (format nil (concatenate 'string "~{~a~^" joinee "~}") lst))
+(defun join (joinee &rest lst)
+  (joinl joinee lst))
+
+(defun parse-out-keywords (kwd-lst lambda-list)
+  "Return list (KWD1 KWD2 ... KWDn . OTHER-ARGS) collecting all keyword-looking pairs of arguments in lambda list"
+  (let ((kwds (make-array (length kwd-lst) :initial-element nil)))
+    (iter (generate elt in lambda-list)
+	  (if (keywordp (next elt))
+	      (setf (elt kwds (position elt kwd-lst :test #'eq)) (next elt))
+	      (collect elt into res))
+	  (finally (return (nconc (iter (for kwd in-vector kwds)
+					(collect kwd))
+				  res))))))
+
+(defun underscorize (name)
+  (format nil "~{~a~^_~}" (cl-ppcre:split "-" (string-downcase name))))

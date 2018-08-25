@@ -633,8 +633,8 @@ entry:
         ret double %addtmp
 }")
     (frob (define (float 64 32) "@" nil
-	    (:metadata (((meta-id dbg) (meta-id 0))
-			((meta-id asdf) (meta-id 100))))
+	    (:metadata (((meta-id "dbg") (meta-id 0))
+			((meta-id "asdf") (meta-id 100))))
 	    (:body ((block (:label "%entry")
 		      (= "%addtmp" (fadd (float 64 32) 4.0 5.0))
 		      (ret ((float 64 32) "%addtmp"))))))
@@ -774,14 +774,15 @@ entry:
 	  (meta-node (meta-id 0) (meta-id 1) (meta-id 2)) "metadata !{!0, !1, !2}")
 
 (elt-test fundef-metadatas
-	  (((meta-id dbg) (meta-id 0)) ((meta-id asdf) (meta-id 100)))
+	  (((meta-id "dbg") (meta-id 0)) ((meta-id "asdf") (meta-id 100)))
 	  "!dbg !0 !asdf !100")
 
 (elt-test blockaddresss
 	  (blockaddress "@foo" "%bar") "blockaddress(@foo, %bar )")
 	  
 (elt-test (instructions-with-metadata nonfinal-statement)
-	  (= "%indvar.next" (add (integer 64) "%indvar" 1 (:metadata (((meta-id dbg) (meta-id 21))))))
+	  (= "%indvar.next" (add (integer 64) "%indvar" 1 (:metadata (((meta-id "dbg")
+								       (meta-id 21))))))
 	  "%indvar.next = add i64 %indvar, 1, !dbg !21")
 
 (elt-test llvm-comments
@@ -820,7 +821,7 @@ entry:
 		       "no-frame-pointer-elim-non-leaf" ("no-infs-fp-math" "false")
 		       ("no-nans-fp-math" "false") ("stack-protector-buffer-size" "8")
 		       ("unsafe-fp-math" "false") ("use-soft-float" "false"))
-	   (= (meta-id llvm.ident) (meta-node (meta-id 0)))
+	   (= (meta-id "llvm.ident") (meta-node (meta-id 0)))
 	   (= (meta-id 0) (meta-node (meta-str "clang version 3.6.2 (branches/release_36 255700)"))))
 	  "; ModuleID = 'hello-world.c'
 target datalayout = \"e-m:e-i64:64-f80:128-n8:16:32:64-S128\"
