@@ -410,9 +410,13 @@
       ,@(%%inject-kwd-if-nonnil align)
       ,@(%%inject-kwd-if-nonnil inalloca))))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter known-orderings '(unordered monotonic acquire release acq_rel seq_cst)))
-(define-kwd-rule ordering)
+(define-kwd-rule ordering
+    (unordered
+     monotonic
+     acquire
+     release
+     acq_rel
+     seq_cst))
 
 (defmacro define-load-store-instruction (name pre-body type-getter &body body)
   `(define-instruction-rule ,name

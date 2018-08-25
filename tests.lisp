@@ -3,11 +3,22 @@
 (defpackage :cg-llvm-tests
   (:use :cl :cg-llvm :fiveam :iterate ;;:cl-read-macro-tokens :defmacro-enhance
 	:cg-llvm-symbols)
-  (:import-from #:cg-common-ground #:pairs)
   (:shadowing-import-from #:cg-llvm #:join)
   (:export #:run-tests))
 
 (in-package :cg-llvm-tests)
+
+(defun pairs (lst)
+  (assert (evenp (length lst)))
+  (let (tmp res)
+    (iter (for i from 0)
+	  (for elt in lst)
+	  (push elt tmp)
+	  (when (oddp i)
+	    (push (nreverse tmp) res)
+	    (setf tmp nil)))
+    (nreverse res)))
+
 
 (cl-interpol:enable-interpol-syntax)
 

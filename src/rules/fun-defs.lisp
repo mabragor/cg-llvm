@@ -99,43 +99,34 @@
 
 
 ;;;;return a keyword after matching a particular string
-(defmacro define-kwd-rule (name &optional known-var)
-  (let ((known-words
-	 (symbol-value (or known-var
-			   (intern ;#"KNOWN-$(name)S"
-			    (interpol
-			     "KNOWN-"
-			     name
-			     "S"
-			     ))))))
-    `(define-cg-llvm-rule ,name ()
-       (|| ,@(mapcar (lambda (x)
-		       `(progn (descend-with-rule 'string ,(%stringify-symbol x))
-			       ,(keywordify x)))
-		     known-words)))))
+(defmacro define-kwd-rule (name &optional known-words)
+  `(define-cg-llvm-rule ,name ()
+     (|| ,@(mapcar (lambda (x)
+		     `(progn (descend-with-rule 'string ,(%stringify-symbol x))
+			     ,(keywordify x)))
+		   known-words))))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter known-linkage-types
-    '(private
-      internal
-      available-externally
-      linkonce
-      weak
-      common
-      appending
-      extern-weak
-      linkonce-odr
-      weak-odr
-      external)))
-(define-kwd-rule linkage-type)
+(define-kwd-rule linkage-type
+    (private
+     internal
+     available-externally
+     linkonce
+     weak
+     common
+     appending
+     extern-weak
+     linkonce-odr
+     weak-odr
+     external))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter known-visibility-styles '(default hidden protected)))
-(define-kwd-rule visibility-style)
+(define-kwd-rule visibility-style
+    (default
+     hidden
+     protected))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter known-dll-storage-classes '(dllimport dllexport)))
-(define-kwd-rule dll-storage-class known-dll-storage-classes)
+(define-kwd-rule dll-storage-class
+    (dllimport
+     dllexport))
 
 (defmacro define-consy-kwd-rule (name known-var known-cons-var)
   (let ((g!-name (gensym (string name))))
@@ -151,12 +142,17 @@
 			      (list ,(keywordify (string-upcase string))
 				    (progn (descend-with-rule 'whitespace)
 					   (descend-with-rule ',(cadr x)))))))
-		       (symbol-value known-cons-var)))))))
+		       known-cons-var))))))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter known-cconvs '(ccc fastcc coldcc webkit_jscc anyregcc preserve_mostcc preserve_allcc))
-  (defparameter known-cons-cconvs '((cc pos-integer))))
-(define-consy-kwd-rule cconv known-cconvs known-cons-cconvs)
+(define-consy-kwd-rule cconv
+    (ccc
+     fastcc
+     coldcc
+     webkit_jscc
+     anyregcc
+     preserve_mostcc
+     preserve_allcc)
+  ((cc pos-integer)))
 
 (defmacro define-algol-consy-kwd-rule (name known-var known-cons-var known-algol-var)
   (let ((g!-name (gensym (string name))))
@@ -171,17 +167,22 @@
 						 ,string)
 			      (list ,(keywordify (string-upcase string))
 				    (progm "(" (descend-with-rule ',(cadr x)) ")")))))
-		       (symbol-value known-algol-var)))))))
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter known-parameter-attrs '(zeroext signext inreg byval
-					inalloca sret noalias nocapture
-					nest returned nonull))
-  (defparameter known-cons-parameter-attrs '((align pos-integer)))
-  (defparameter known-algol-parameter-attrs '((dereferenceable pos-integer))))
+		       known-algol-var))))))
+
 (define-algol-consy-kwd-rule %parameter-attr
-    known-parameter-attrs 
-  known-cons-parameter-attrs
-  known-algol-parameter-attrs)
+    (zeroext
+     signext
+     inreg
+     byval
+     inalloca
+     sret
+     noalias
+     nocapture
+     nest
+     returned
+     nonull)
+  ((align pos-integer))
+  ((dereferenceable pos-integer)))
 
 (define-cg-llvm-rule parameter-attr ()
   (|| `(:group ,(progn
@@ -191,41 +192,37 @@
 
 (define-plural-rule parameter-attrs parameter-attr whitespace)
 
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter known-fun-attrs
-    '(alwaysinline
-      builtin
-      cold
-      inlinehint
-      jumptable
-      minsize
-      naked
-      nobuiltin
-      noduplicate
-      noimplicitfloat
-      noinline
-      nonlazybind
-      noredzone
-      noreturn
-      nounwind
-      optnone
-      optsize
-      readnone
-      readonly
-      returns-twice
-      sanitize-address
-      sanitize-memory
-      sanitize-thread
-      ssp
-      sspreq
-      sspstrong
-      thunk
-      uwtable))
-  (defparameter known-cons-fun-attrs '())
-  (defparameter known-algol-fun-attrs '((alignstack pos-integer))))
-
-(define-algol-consy-kwd-rule %fun-attr known-fun-attrs known-cons-fun-attrs known-algol-fun-attrs)
+(define-algol-consy-kwd-rule %fun-attr
+    (alwaysinline
+     builtin
+     cold
+     inlinehint
+     jumptable
+     minsize
+     naked
+     nobuiltin
+     noduplicate
+     noimplicitfloat
+     noinline
+     nonlazybind
+     noredzone
+     noreturn
+     nounwind
+     optnone
+     optsize
+     readnone
+     readonly
+     returns-twice
+     sanitize-address
+     sanitize-memory
+     sanitize-thread
+     ssp
+     sspreq
+     sspstrong
+     thunk
+     uwtable)
+  ()
+  ((alignstack pos-integer)))
 
 (define-cg-llvm-rule fun-attr ()
   (|| `(:group ,(progn
@@ -372,14 +369,12 @@
 ;;   (:visibility visibility)
 ;;   ...)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter known-tls-models
-    '(localdynamic
-      initialexec
-      localexec
-      generaldynamic
-      )))
-(define-kwd-rule tls-model known-tls-models)
+(define-kwd-rule tls-model
+    (localdynamic
+     initialexec
+     localexec
+     generaldynamic
+     ))
 
 (define-algol-rule (%thread-local thread_local) tls-model)
 
@@ -433,14 +428,12 @@
 
 ;;; Let's move to comdats
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter known-selection-kinds
-    '(any
-      exactmatch
-      largest
-      noduplicates
-      samesize)))
-(define-kwd-rule selection-kind)
+(define-kwd-rule selection-kind
+    (any
+     exactmatch
+     largest
+     noduplicates
+     samesize))
 
 (define-cg-llvm-rule comdat-toplevel ()
   (let ((name (progn (v "$")
