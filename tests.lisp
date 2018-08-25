@@ -362,8 +362,8 @@
 
 
 (test thread-local
-  (is (equal '(:thread-local t) (cg-llvm-parse 'thread-local "thread_local")))
-  (is (equal '(:thread-local :initialexec) (cg-llvm-parse 'thread-local "thread_local(initialexec)")))
+  (is (equal '(:thread_local t) (cg-llvm-parse 'thread-local "thread_local")))
+  (is (equal '(:thread_local :initialexec) (cg-llvm-parse 'thread-local "thread_local(initialexec)")))
   (signals error (cg-llvm-parse 'thread-local "thread_local(adsf)")))
 
 (test aliases
@@ -374,7 +374,7 @@
 	    (:linkage :private)
 	    (:visibility :default)
 	    (:dll-storage-class :dllimport)
-	    (:thread-local :localexec)
+	    (:thread_local :localexec)
 	    (:unnamed-addr t))
 	  "@foo = private default dllimport thread_local(localexec) unnamed_addr alias i16 @bar")))
 
@@ -454,7 +454,7 @@
   `(macrolet ((frob1 (x y)
 		`(frob (,',name ,@x)
 		       ,',(intern #?"$((string name))-INSTRUCTION")
-		       ,(concatenate 'string ,(cg-llvm::stringify-symbol name) " " y))))
+		       ,(concatenate 'string ,(cg-llvm::%stringify-symbol name) " " y))))
      ,@body))
 
 (test simple-memory-instructions
@@ -681,9 +681,9 @@ entry:
 	       `(is (equal ',x (cg-llvm-parse 'global-variable-definition ,y)))))
     (frob (:global-var "@G" (integer 32) nil (:linkage :external))
 	  "@G = external global i32")
-    (frob (:global-var "@G" (integer 32) 0 (:thread-local :initialexec) (:align 4))
+    (frob (:global-var "@G" (integer 32) 0 (:thread_local :initialexec) (:align 4))
 	  "@G = thread_local(initialexec) global i32 0, align 4")
-    (frob (:global-var "@G" (integer 32) 0 (:thread-local t) (:align 4))
+    (frob (:global-var "@G" (integer 32) 0 (:thread_local t) (:align 4))
 	  "@G = thread_local global i32 0, align 4")
     (frob (:global-var "@G" (float 32 16) 1.0 (:addrspace 5) (:constant t) (:section "foo") (:align 4))
 	  "@G = addrspace(5) constant float 1.0, section \"foo\", align 4")

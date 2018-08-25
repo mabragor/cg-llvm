@@ -3,7 +3,6 @@
 (defpackage #:cg-llvm
   (:use
    #:cl
-   ;;#:cg-common-ground
    #:iterate
    #:esrap-liquid
    #:optima
@@ -56,6 +55,7 @@
 (defun %stringify-symbol (x)
   (string-downcase (string x)))
 
+#+nil
 (defun stringify-symbol (x)
   (cg-common-ground:stringify-symbol x))
 

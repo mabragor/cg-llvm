@@ -1,15 +1,11 @@
-;;;; cg-llvm.asd
-
 (asdf:defsystem #:cg-llvm
   :description "Parse and generate LLVM IR, without using fantastic C++ API, purely in CL."
   :author "Alexandr Popolitov <popolit@gmail.com>"
   :license "MIT"
   :version "0.1"
   :depends-on
-  (#:cl-trivial-templates
-   #:cl-interpol
+  (#:cl-interpol
    #:iterate
-   #:cg-common-ground
    #:esrap-liquid
    #:optima
    #:parse-number

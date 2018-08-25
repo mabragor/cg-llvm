@@ -260,7 +260,7 @@
   (destructuring-bind (rule-name cmd-name) (if (atom name) (list name name) name)
     `(define-cg-llvm-rule ,rule-name ()
        `(,',(keywordify cmd-name)
-	    ,(progn-v (descend-with-rule 'string ,(stringify-symbol cmd-name))
+	    ,(progn-v (descend-with-rule 'string ,(%stringify-symbol cmd-name))
 		      whitespace
 		      ,subrule)))))
 
@@ -268,7 +268,7 @@
   (destructuring-bind (rule-name cmd-name) (if (atom name) (list name name) name)
     `(define-cg-llvm-rule ,rule-name ()
        `(,',(keywordify cmd-name)
-	    ,(progn-v (descend-with-rule 'string ,(stringify-symbol cmd-name))
+	    ,(progn-v (descend-with-rule 'string ,(%stringify-symbol cmd-name))
 		      "("
 		      (prog1-v ,subrule
 			       ")"))))))
@@ -381,12 +381,12 @@
       )))
 (define-kwd-rule tls-model known-tls-models)
 
-(define-algol-rule (%thread-local thread-local) tls-model)
+(define-algol-rule (%thread-local thread_local) tls-model)
 
 (define-cg-llvm-rule thread-local ()
   (|| %thread-local
       (progn (v "thread_local")
-	     '(:thread-local t))))
+	     '(:thread_local t))))
 
 (defun whitelist-kwd-expr (allowed-kwds expr)
   (if (find expr allowed-kwds :test #'eq)
