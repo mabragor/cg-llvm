@@ -324,15 +324,18 @@
 
 (define-plural-rule instruction-metadata fundef-metadata-entry white-comma)
 
+(defmacro with-metadata (&body body)
+  `(let ((body (progn-v ,@body))
+	 (metadata (? (progn
+			(v white-comma)
+			(v instruction-metadata)))))
+     (if metadata
+	 (append body (list (list :metadata metadata)))
+	 body)))
+
 (defmacro define-instruction-rule (name &body body)
   `(define-op-rule ,name
-     (let ((body (progn-v ,@body))
-	   (metadata (? (progn
-			  (v white-comma)
-			  (v instruction-metadata)))))
-       (if metadata
-	   (append body (list (list :metadata metadata)))
-	   body))))
+     (with-metadata ,@body)))
 
 
 (define-op-rule (function-declaration declare)
