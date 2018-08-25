@@ -66,9 +66,9 @@
 ;;;;expand? wtf?
 (defmacro fail-parse-if-not (cond expr)
   `(let ((it ,expr))
-     (if (not ,cond)
-	 (fail-parse-format "Assertion ~a is not satisfied by: ~a" ',cond it)
-	 it)))
+     (if ,cond
+	 it
+	 (fail-parse-format "Assertion ~a is not satisfied by: ~a" ',cond it))))
 
 (defmacro %%inject-kwd-if-nonnil (name)
   `(if ,name
@@ -113,19 +113,21 @@
       external)))
 
 (defmacro define-kwd-rule (name &optional known-var)
-  `(define-cg-llvm-rule ,name ()
-     (destringify-symbol (|| ,@(mapcar (lambda (x)
-					 `(descend-with-rule 'string ,(stringify-symbol x)))
-				       (symbol-value (or known-var
-							 (intern ;#"KNOWN-$(name)S"
-							  (interpol
-							   "KNOWN-"
-							   name
-							   "S"
-							   )
+  (let ((known-words
+	 (symbol-value (or known-var
+			   (intern ;#"KNOWN-$(name)S"
+			    (interpol
+			     "KNOWN-"
+			     name
+			     "S"
+			     )
 
-							  )))))
-			 "KEYWORD")))
+			    )))))
+    `(define-cg-llvm-rule ,name ()
+       (destringify-symbol (|| ,@(mapcar (lambda (x)
+					   `(descend-with-rule 'string ,(stringify-symbol x)))
+					 known-words))
+			   "KEYWORD"))))
 
 (define-kwd-rule linkage-type)
 
