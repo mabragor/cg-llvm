@@ -705,7 +705,7 @@
 (define-cast-instruction addrspacecast (pointer->pointer-based have-different-addrspaces))
 
 (define-instruction-alternative lvalue-other
-  icmp fcmp phi select call va-arg landingpad)
+  icmp fcmp phi select call va_arg landingpad)
 
 (define-cg-llvm-rule nolvalue-other-instruction ()
   (fail-parse "There are no such instructions"))
@@ -760,7 +760,7 @@
 			       (car val2)))))
   `(,cond ,val1 ,val2))
 
-(define-simple-instruction-rule va-arg ((va-list (llvm-typep '(pointer ***) (car it))))
+(define-simple-instruction-rule va_arg ((va-list (llvm-typep '(pointer ***) (car it))))
   (v white-comma)
   (let ((type (emit-lisp-repr (v llvm-type))))
     `(,va-list ,type)))

@@ -326,7 +326,7 @@
       `(progn (define-cg-llvm-rule ,body-rule-name ()
 		,@body)
 	      (define-cg-llvm-rule ,rule-name ()
-		(descend-with-rule 'string ,(stringify-symbol instr-name))
+		(descend-with-rule 'string ,(%stringify-symbol instr-name))
 		(cons ',instr-name
 		      (v ,body-rule-name)))))))
 
