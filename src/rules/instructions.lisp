@@ -35,7 +35,7 @@
   (defun any-of-kwds (kwd-var)
     `(|| ,@(mapcar (lambda (x)
 		     `(progn (descend-with-rule 'string ,(stringify-symbol x))
-			     ,(intern (string x) "KEYWORD")))
+			     ,(keywordify x)))
 		   kwd-var))))
 
 (defmacro define-instruction-alternative (name &body alternatives)
@@ -252,7 +252,7 @@
 (defmacro unordered-simple-keywords (&rest kwds)
   `(let ((kwds (times (wh (|| ,@(mapcar (lambda (x)
 					  `(progn (descend-with-rule 'string ,(stringify-symbol x))
-						  ,(intern (string x) "KEYWORD")))
+						  ,(keywordify x)))
 					kwds)))
 		      :upto ,(length kwds))))
      ;; (format t "kwds are: ~a~%" kwds)
@@ -260,7 +260,7 @@
 	       (if (find x kwds :test #'eq)
 		   `(,x t)))
 	     (list ,@(mapcar (lambda (x)
-			       (intern (string x) "KEYWORD"))
+			       (keywordify x))
 			     kwds)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)

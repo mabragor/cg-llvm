@@ -151,11 +151,13 @@
        (define-cg-llvm-rule ,name ()
 	 (|| (descend-with-rule ',g!-name)
 	     ,@(mapcar (lambda (x)
-			 `(list (destringify-symbol (descend-with-rule 'string
-								       ,(stringify-symbol (car x)))
-						    "KEYWORD")
-				(progn (descend-with-rule 'whitespace)
-				       (descend-with-rule ',(cadr x)))))
+			 (let ((string (stringify-symbol (car x))))
+			   `(progn
+			      (descend-with-rule 'string
+						 ,string)
+			      (list ,(keywordify (string-upcase string))
+				    (progn (descend-with-rule 'whitespace)
+					   (descend-with-rule ',(cadr x)))))))
 		       (symbol-value known-cons-var)))))))
 
 (define-consy-kwd-rule cconv known-cconvs known-cons-cconvs)
@@ -175,10 +177,12 @@
        (define-cg-llvm-rule ,name ()
 	 (|| (descend-with-rule ',g!-name)
 	     ,@(mapcar (lambda (x)
-			 `(list (destringify-symbol (descend-with-rule 'string
-								       ,(stringify-symbol (car x)))
-						    (literal-string "KEYWORD"))
-				(progm "(" (descend-with-rule ',(cadr x)) ")")))
+			 (let ((string (stringify-symbol (car x))))
+			   `(progn
+			      (descend-with-rule 'string
+						 ,string)
+			      (list ,(keywordify (string-upcase string))
+				    (progm "(" (descend-with-rule ',(cadr x)) ")")))))
 		       (symbol-value known-algol-var)))))))
 
 
