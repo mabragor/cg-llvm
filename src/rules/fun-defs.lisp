@@ -98,6 +98,22 @@
 	   (times (progn-v ,delim ,single)))))
 
 
+;;;;return a keyword after matching a particular string
+(defmacro define-kwd-rule (name &optional known-var)
+  (let ((known-words
+	 (symbol-value (or known-var
+			   (intern ;#"KNOWN-$(name)S"
+			    (interpol
+			     "KNOWN-"
+			     name
+			     "S"
+			     ))))))
+    `(define-cg-llvm-rule ,name ()
+       (|| ,@(mapcar (lambda (x)
+		       `(progn (descend-with-rule 'string ,(%stringify-symbol x))
+			       ,(keywordify x)))
+		     known-words)))))
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter known-linkage-types
     '(private
@@ -111,33 +127,14 @@
       linkonce-odr
       weak-odr
       external)))
-
-;;;;return a keyword after matching a particular string
-(defmacro define-kwd-rule (name &optional known-var)
-  (let ((known-words
-	 (symbol-value (or known-var
-			   (intern ;#"KNOWN-$(name)S"
-			    (interpol
-			     "KNOWN-"
-			     name
-			     "S"
-			     ))))))
-    `(define-cg-llvm-rule ,name ()
-       (|| ,@(mapcar (lambda (x)
-		       `(progn (descend-with-rule 'string ,(stringify-symbol x))
-			       ,(keywordify x)))
-		     known-words)))))
-
 (define-kwd-rule linkage-type)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter known-visibility-styles '(default hidden protected)))
-
 (define-kwd-rule visibility-style)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter known-dll-storage-classes '(dllimport dllexport)))
-
 (define-kwd-rule dll-storage-class known-dll-storage-classes)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)

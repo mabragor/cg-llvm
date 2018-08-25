@@ -411,8 +411,7 @@
       ,@(%%inject-kwd-if-nonnil inalloca))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter known-orderings '(unordered monotonic acquire release acq-rel seq-cst)))
-
+  (defparameter known-orderings '(unordered monotonic acquire release acq_rel seq_cst)))
 (define-kwd-rule ordering)
 
 (defmacro define-load-store-instruction (name pre-body type-getter &body body)
@@ -436,7 +435,7 @@
 	 ,type-getter
        (let ((singlethread (? (wh (progn (v "singlethread")
 					 t))))
-	     (ordering (wh (blacklist-kwd-expr '(:release :acq-rel)
+	     (ordering (wh (blacklist-kwd-expr '(:release :acq_rel)
 					       (v ordering))))
 	     (align (progn (v white-comma)
 			   (v "align")
@@ -478,7 +477,7 @@
 (define-instruction-rule fence
   (let ((singlethread (? (wh (progn (v "singlethread")
 				    t))))
-	(ordering (wh (whitelist-kwd-expr '(:acquire :release :acq-rel :seq-cst)
+	(ordering (wh (whitelist-kwd-expr '(:acquire :release :acq_rel :seq_cst)
 					  (v ordering)))))
     `(,@(%%inject-kwds-if-nonnil singlethread ordering))))
 

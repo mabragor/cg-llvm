@@ -474,12 +474,12 @@
       (frob1 (((integer 32) 3) ((pointer (integer 32)) "%ptr")) "i32 3, i32* %ptr"))
     (with-frob1 fence
       (frob1 ((:ordering :acquire)) "acquire")
-      (frob1 ((:singlethread t) (:ordering :seq-cst)) "singlethread seq_cst"))
+      (frob1 ((:singlethread t) (:ordering :seq_cst)) "singlethread seq_cst"))
     (with-frob1 cmpxchg
       (frob1 (((pointer (integer 32)) "%ptr")
 	      ((integer 32) "%cmp")
 	      ((integer 32) "%squared")
-	      (:success-ord :acq-rel) (:failure-ord :monotonic))
+	      (:success-ord :acq_rel) (:failure-ord :monotonic))
 	     "i32* %ptr, i32 %cmp, i32 %squared acq_rel monotonic"))
     (with-frob1 atomicrmw
       (frob1 (:add ((pointer (integer 32)) "%ptr") ((integer 32) 1) (:ordering :acquire))
