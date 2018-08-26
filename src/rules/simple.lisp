@@ -120,3 +120,9 @@
 	  (prog1-v (progn-v ,@body)
 		   (? whitespace)
 		   (v "}"))))
+
+(defmacro ?wh-p (&body body)
+  `(? (progn-v
+       whitespace
+       ,@body
+       (quote t))))

@@ -425,8 +425,9 @@
 (define-simple-instruction-rule insertvalue ((val (or (llvm-typep '(struct ***) (car it))
 						      (llvm-typep '(array ***) (car it))))
 					     elt)
-  (v white-comma)
-  (let ((indices (v indices)))
+  (nest
+   (progn (v white-comma))
+    (let- (indices (v indices)))
     ;; TODO : check that elt has same type as elt of val
     `(,val ,elt ,@indices)))
 
@@ -444,6 +445,7 @@
 
 (define-lvalue-instruction-alternative memory)
 
+;;;;<result> = alloca [inalloca] <type> [, <ty> <NumElements>] [, align <alignment>] [, addrspace(<num>)]     ; yields type addrspace(num)*:result
 (define-instruction-rule alloca
   (let ((inalloca (? (wh (progn (v "inalloca")
 				t))))
@@ -462,8 +464,7 @@
 (defmacro define-load-store-instruction (name pre-body type-getter &body body)
   `(define-instruction-rule ,name
      ,@pre-body
-     (let ((volatile (? (wh (progn (v "volatile")
-				   t))))
+     (let ((volatile (?wh-p "volatile"))
 	   (type ,type-getter)
 	   (ptr (progn (v white-comma)
 		       (fail-parse-if-not (llvm-typep '(pointer ***) (car it))
@@ -478,8 +479,7 @@
 		     "-INSTRUCTION"))))
     `(define-load-store-instruction (,rule-name ,name) ((wh "atomic"))
 	 ,type-getter
-       (let ((singlethread (? (wh (progn (v "singlethread")
-					 t))))
+       (let ((singlethread (?wh-p "singlethread"))
 	     (ordering (wh (blacklist-kwd-expr '(:release :acq_rel)
 					       (v ordering))))
 	     (align (progn (v white-comma)
@@ -520,17 +520,14 @@
   atomic-store non-atomic-store)
 
 (define-instruction-rule fence
-  (let ((singlethread (? (wh (progn (v "singlethread")
-				    t))))
+  (let ((singlethread (?wh-p "singlethread"))
 	(ordering (wh (whitelist-kwd-expr '(:acquire :release :acq_rel :seq_cst)
 					  (v ordering)))))
     `(,@(%%inject-kwds-if-nonnil singlethread ordering))))
-
+;;;;cmpxchg [weak] [volatile] <ty>* <pointer>, <ty> <cmp>, <ty> <new> [syncscope("<target-scope>")] <success ordering> <failure ordering> ; yields  { ty, i1 }
 (define-instruction-rule cmpxchg
-  (let* ((weak (? (wh (progn (v "weak")
-			     t))))
-	 (volatile (? (wh (progn (v "volatile")
-				 t))))
+  (let* ((weak (?wh-p "weak") )
+	 (volatile (?wh-p "volatile"))
 	 (ptr (wh (fail-parse-if-not (and (llvm-typep '(pointer (integer ***) ***) (car it))
 					  (>= (bit-length (cadar it)) 8))
 				     (v instr-arg))))
@@ -540,8 +537,7 @@
 	 (new (progn (v white-comma)
 		     (fail-parse-if-not (llvm-same-typep (car it) (car cmp))
 					(v instr-arg))))
-	 (singlethread (? (wh (progn (v "singlethread")
-				     t))))
+	 (singlethread (?wh-p "singlethread"))
 	 (success-ord (wh ordering))
 	 (failure-ord (wh ordering)))
     ;; TODO : constraints on orderings
@@ -555,8 +551,7 @@
   (any-of-kwds known-atomicrmw-ops))
 
 (define-instruction-rule atomicrmw
-  (let* ((volatile (?wh (progn (v "volatile")
-			       t)))
+  (let* ((volatile (?wh-p "volatile"))
 	 (op (wh (atomicrmw-kwds)))
 	 (ptr (wh (fail-parse-if-not (and (llvm-typep '(pointer (integer ***) ***) (car it))
 					  (<= 8 (bit-length (cadar it))))
@@ -565,8 +560,7 @@
 		     (fail-parse-if-not
 		      (llvm-same-typep (cadar ptr) (car it))
 		      (v instr-arg))))
-	 (singlethread (?wh (progn (v "singlethread")
-				   t)))
+	 (singlethread (?wh-p "singlethread"))
 	 (ordering (wh ordering)))
     `(,op ,ptr ,val ,@(%%inject-kwds-if-nonnil ordering volatile singlethread))))
 
@@ -603,8 +597,7 @@
       (list type what))))
 
 (define-instruction-rule getelementptr
-  (let* ((inbounds (?wh (progn (v "inbounds")
-			       t)))
+  (let* ((inbounds (?wh-p "inbounds"))
 	 (type (wh (prog1 (v llvm-type)
 		     (v white-comma))))
 	 (body (|| vector-getelementptr-body
@@ -1037,8 +1030,7 @@
 	 (visibility (?wh visibility-style))
 	 (dll-storage-class (?wh dll-storage-class))
 	 (cconv (?wh cconv))
-	 (unnamed-addr (?wh (progn (v "unnamed_addr")
-				   t)))
+	 (unnamed-addr (?wh-p "unnamed_addr"))
 	 (type (wh (emit-lisp-repr (v llvm-type))))
 	 (return-attrs (?wh parameter-attrs))
 	 (fname (wh llvm-identifier))
@@ -1083,8 +1075,7 @@
       	   (visibility (?wh visibility-style))
 	   (dll-storage-class (?wh dll-storage-class))
 	   (thread-local (?wh thread-local))
-	   (unnamed-addr (?wh (progn (v "unnamed_addr")
-				     t)))
+	   (unnamed-addr (?wh-p "unnamed_addr"))
 	   (addrspace (?wh (let ((it (v addr-space)))
 			     (if (equal 0 it)
 				 nil
