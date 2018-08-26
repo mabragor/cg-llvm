@@ -173,6 +173,8 @@
 	     ,contentcheck)
 	 content))))
 
+;;;;FIXME::remove typechecking for structures, arrays, Vectors
+;;;;postpone for later.
 (define-complex-constant-rules structure
     "{" "}" (llvm-typep '(struct ***) type) "Structure" "structure"
     (if (not (equal (length (cadr type)) (length content)))

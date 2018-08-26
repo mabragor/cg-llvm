@@ -1069,7 +1069,7 @@
 	   (type (emit-lisp-repr (wh? llvm-type)))
 	   ;;FIXME:: llvm-constant-expression or llvm-constant-value?
 	   (value (flet ((descend ()
-			  (?wh (descend-with-rule 'llvm-constant-or-expression-value? type))))
+			  (?wh (v llvm-constant-or-expression-value?))))
 		    (if (eq :external linkage)
 			(? (descend))
 			(descend))))
