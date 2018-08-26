@@ -72,7 +72,8 @@
 
 (define-lvalue-instruction-alternative terminator)
 
-(define-simple-instruction-rule (valued-return ret) ((x (firstclass-type-p (car it)))))
+(define-simple-instruction-rule (valued-return ret)
+    ((x (firstclass-type-p (car it)))))
 
 (define-instruction-rule (nonvalued-return ret)
   (wh "void")

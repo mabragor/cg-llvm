@@ -48,37 +48,6 @@
      type)
   (v integer))
 
-(define-cg-llvm-rule sign ()
-  (|| "+" "-"))
-
-(define-cg-llvm-rule decimal-float ()
-  (let ((text (text (? sign)
-		    (times ns-dec-digit)
-		    (v #\.)
-		    (times ns-dec-digit)
-		    (? (list (v #\e)
-			     (? sign)
-			     (postimes ns-dec-digit))))))
-    (handler-case 
-	(parse-number:parse-number text)
-      (error () `(%decimal-float ,text)))))
-
-;; TODO : hexadecimal float ???
-(define-cg-llvm-rule hexadecimal-float ()
-  (let ((text (text (? sign)
-		    (v #\0)
-		    (v #\x)
-		    (times hex-digit))))
-    (handler-case 
-	(parse-integer text :radix 16)
-      (error () `(%hexadecimal-float ,text))))
-  #+nil
-  (fail-parse "Hexadecimal float is not implemented yet."))
-
-(define-cg-llvm-rule llvm-float ()
-  (|| decimal-float
-      hexadecimal-float))
-
 (define-typeguarding-constant-rules float
     (llvm-typep '(float ***) type)
     ((literal-string "Float constant must be of float type but got ~a.") type)

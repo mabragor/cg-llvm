@@ -10,12 +10,6 @@
 (define-cg-llvm-rule unnamed-identifier-body ()
   (text (list (postimes (character-ranges (#\0 #\9))))))
 
-(define-cg-llvm-rule llvm-comment ()
-  ;; we just totally ignore comments, replacing them with single space (C-style)
-  (v #\;)
-  (times (!! (|| #\newline #\return)))
-  #\space)
-
 (define-cg-llvm-rule double-hex-escaped-char ()
   (v #\\)
   (code-char (parse-integer (text (times hex-digit :exactly 2))

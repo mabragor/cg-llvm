@@ -205,13 +205,15 @@
   '(:unnamed-addr t))
 
 (define-cg-llvm-rule section ()
-  (v "section")
-  (v whitespace)
-  (v #\")
-  (cap a alphanumeric-word)
-  (v #\")
+  (progn-v
+   "section"
+   whitespace
+   #\"
+   (cap a alphanumeric-word)
+   #\")
   (recap a))
 
+;;;;Example: x y
 (defmacro define-python-rule (name subrule)
   (destructuring-bind (rule-name cmd-name) (if (atom name) (list name name) name)
     `(define-cg-llvm-rule ,rule-name ()
@@ -220,6 +222,7 @@
 		      whitespace
 		      ,subrule)))))
 
+;;;;Example: x(y)
 (defmacro define-algol-rule (name subrule)
   (destructuring-bind (rule-name cmd-name) (if (atom name) (list name name) name)
     `(define-cg-llvm-rule ,rule-name ()
@@ -232,9 +235,9 @@
 
 (define-python-rule align pos-integer)
 (define-algol-rule comdat
-    (progn
-      (v "$")
-      (v alphanumeric-word)))
+    (progn-v
+     "$"
+     alphanumeric-word))
 (define-python-rule (gc-name gc)
     (progm
      #\"
