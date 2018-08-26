@@ -46,8 +46,10 @@
 
 
 (defmacro define-lvalue-instruction-alternative (name)
-  `(define-instruction-alternative ,name ,(mash-sym-names 'lvalue name)
-				   ,(mash-sym-names 'nolvalue name)))
+  `(define-instruction-alternative
+       ,name
+     ,(mash-sym-names 'lvalue name)
+     ,(mash-sym-names 'nolvalue name)))
 
 
 (define-instruction-alternative llvm
@@ -1107,15 +1109,16 @@
 (define-plural-rule abstract-attrs abstract-attr whitespace)
 
 (define-op-rule (attribute-group attributes)
-  (let ((id (progn (? whitespace)
-		   (v #\#)
-		   (v pos-integer))))
-    (? whitespace)
-    (v #\=)
-    (? whitespace)    
-    (let ((attrs (white-{}
+  (nest
+   (progn (? whitespace))
+   (progn (v #\#))
+   (let- (id (v pos-integer)))
+   (progn (? whitespace))
+   (progn (v #\=))
+   (progn (? whitespace))    
+   (let- (attrs (white-{}
 		   abstract-attrs)))
-      `(,id ,@attrs))))
+   `(,id ,@attrs)))
 
 (define-op-rule (blockaddress blockaddress)
   (v wh?)

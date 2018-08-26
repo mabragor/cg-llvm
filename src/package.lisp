@@ -89,3 +89,16 @@
     `(macrolet ((,sym ()
 		  ,@body))
        (,sym))))
+
+(defun %nest (things)
+  (reduce #'(lambda (outer inner) `(,@outer ,inner))
+            things :from-end t))
+
+(defmacro nest (&rest things)
+    "Macro to keep code nesting and indentation under control." ;; Thanks to mbaringer
+    (%nest things))
+
+(defmacro let- (&rest bindings)
+  `(let ,(butlast bindings)
+     ,(car (last bindings))))
+
