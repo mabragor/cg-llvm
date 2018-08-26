@@ -56,14 +56,6 @@
      weak-odr
      external))
 
-(define-kwd-rule visibility-style
-    (default
-     hidden
-     protected))
-
-(define-kwd-rule dll-storage-class
-    (dllimport
-     dllexport))
 
 (defmacro define-consy-kwd-rule (name known-var known-cons-var)
   (let ((g!-name (gensym (string name))))
@@ -81,6 +73,13 @@
 					   (descend-with-rule ',(cadr x)))))))
 		       known-cons-var))))))
 
+(define-cg-llvm-rule cc_<n> ()
+  (progm
+   "<"
+   pos-integer
+   ">"))
+
+;;;;C calling convention
 (define-consy-kwd-rule cconv
     (ccc
      fastcc
@@ -88,8 +87,40 @@
      webkit_jscc
      anyregcc
      preserve_mostcc
-     preserve_allcc)
-  ((cc pos-integer)))
+     preserve_allcc
+
+     cxx_fast_tlscc
+     swiftcc)
+  ((cc pos-integer)
+   (cc cc_<n>)))
+
+(define-kwd-rule visibility-style
+    (default
+     hidden
+     protected))
+
+(define-kwd-rule dll-storage-class
+    (dllimport
+     dllexport))
+
+;;;;Thread Local Storage Models
+(define-kwd-rule tls-model
+    (localdynamic
+     initialexec
+     localexec
+     generaldynamic))
+
+(define-kwd-rule |PreemptionSpecifier|
+    (dso_preemptable
+     dso_local))
+
+(define-kwd-rule ordering
+    (unordered
+     monotonic
+     acquire
+     release
+     acq_rel
+     seq_cst))
 
 (defmacro define-algol-consy-kwd-rule (name known-var known-cons-var known-algol-var)
   (let ((g!-name (gensym (string name))))
@@ -299,13 +330,6 @@
 ;;   (:linkage linkage)
 ;;   (:visibility visibility)
 ;;   ...)
-
-(define-kwd-rule tls-model
-    (localdynamic
-     initialexec
-     localexec
-     generaldynamic
-     ))
 
 (define-algol-rule (%thread-local thread_local) tls-model)
 

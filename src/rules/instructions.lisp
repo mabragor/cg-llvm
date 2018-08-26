@@ -410,14 +410,6 @@
       ,@(%%inject-kwd-if-nonnil align)
       ,@(%%inject-kwd-if-nonnil inalloca))))
 
-(define-kwd-rule ordering
-    (unordered
-     monotonic
-     acquire
-     release
-     acq_rel
-     seq_cst))
-
 (defmacro define-load-store-instruction (name pre-body type-getter &body body)
   `(define-instruction-rule ,name
      ,@pre-body
@@ -1024,10 +1016,6 @@
 				       fun-attrs section align comdat gc
 				       prefix prologue personality metadata
 				       body))))
-
-(define-cg-llvm-rule |PreemptionSpecifier| ()
-  (|| "dso_preemptable"
-      "dso_local"))
 
 ;;;;@<GlobalVarName> = [Linkage] [PreemptionSpecifier] [Visibility]
 ;;;;                   [DLLStorageClass] [ThreadLocal]
