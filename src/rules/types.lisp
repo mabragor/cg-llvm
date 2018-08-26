@@ -504,6 +504,7 @@
 
 
 ;; parsing of s-exp grammar
+;;;;FIXME:: add 'named and llvm-named-type?
 
 (defun parse-lisp-repr (expr)
   (match expr
@@ -522,8 +523,12 @@
     ('label (make-instance 'llvm-label))
     ('metadata (make-instance 'llvm-metadata))
     ((list 'array elt-type num-elts) (llvm-array num-elts (parse-lisp-repr elt-type)))
-    ((list 'struct elt-types :packed-p packed-p) (apply #'llvm-struct (append (list :packed-p packed-p)
-									      (mapcar #'parse-lisp-repr elt-types))))
+    ((list 'struct elt-types :packed-p packed-p)
+     (apply #'llvm-struct (append (list :packed-p packed-p)
+				  (mapcar #'parse-lisp-repr elt-types))))
+    ((list 'named local-identifier)
+     (make-instance 'llvm-named-type
+		    :name local-identifier))
     ('opaque (make-instance 'llvm-opaque-struct))
     (otherwise (error "Do not know how to parse form ~a" expr))))
 
