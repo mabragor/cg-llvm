@@ -129,15 +129,12 @@
 
 (define-plural-rule llvm-constants llvm-constant white-comma)
 
-(defmacro define-complex-constant-rules (name lb rb typecheck errstr1 errstr2 contentcheck)
+(defmacro define-complex-constant-rules (name parens typecheck errstr1 errstr2 contentcheck)
   (let ((errstr (join "" errstr1 " constant must be of "
 		      errstr2 " type, but got ~a")))
     `(define-constant-rules ,name ,typecheck (,errstr type)
-       (let ((content (progm (progn (descend-with-rule 'string ,lb)
-				    (? whitespace))
-			     llvm-constants
-			     (progn (? whitespace)
-				    (descend-with-rule 'string ,rb)))))
+       (let ((content (,parens
+		       llvm-constants)))
 	 (if type
 	     ,contentcheck)
 	 content))))
@@ -145,7 +142,7 @@
 ;;;;FIXME::remove typechecking for structures, arrays, Vectors
 ;;;;postpone for later.
 (define-complex-constant-rules structure
-    "{" "}" (llvm-typep '(struct ***) type) "Structure" "structure"
+    white-{} (llvm-typep '(struct ***) type) "Structure" "structure"
     (if (not (equal (length (cadr type)) (length content)))
 	(fail-parse "Number of elements of type and content do not match.")
 	(iter (for theor-subtype in (cadr type))
@@ -154,7 +151,7 @@
 		  (fail-parse "Type of structure field does not match declared one.")))))
 
 (define-complex-constant-rules array
-    "[" "]" (llvm-typep '(array ***) type) "Array" "array"
+    white-[] (llvm-typep '(array ***) type) "Array" "array"
     (if (not (equal (caddr type) (length content)))
 	(fail-parse "Number of elements of type and content do not match.")
 	(iter (for (expr-subtype nil) in content)
@@ -162,7 +159,7 @@
 		  (fail-parse "Type of array element does not match declared one.")))))
 
 (define-complex-constant-rules vector
-    "<" ">" (llvm-typep '(vector ***) type) "Vector" "vector"
+    white-<> (llvm-typep '(vector ***) type) "Vector" "vector"
     (if (not (equal (caddr type) (length content)))
 	(fail-parse "Number of elements of type and content do not match.")
 	(iter (for (expr-subtype nil) in content)

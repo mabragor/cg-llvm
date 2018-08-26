@@ -123,15 +123,12 @@
 			(progn (v white-comma)
 			       (v instr-arg)))))
     (v wh?)
-    (v #\[)
-    (cap result
-	 (times
-	  %switch-branch
-	  :from 0))
+    (white-[]
+      (cap result
+	   (times
+	    %switch-branch
+	    :from 0)))
     
-    (v wh?)
-    (v #\])
-
     `((,value ,default-dest) ,@(recap? result))
     
     #+nil
@@ -722,15 +719,12 @@
 
 (define-cg-llvm-rule phi-arg (type)
   (let (c!-1)
-    (v #\[)
-    (v whitespace)
-    (setf c!-1
-	  (|| (descend-with-rule 'llvm-constant-value type)
-	      llvm-identifier))
-    (v white-comma)
-    (cap b llvm-identifier)
-    (v whitespace)
-    (v #\])
+    (white-[]
+      (setf c!-1
+	    (|| (descend-with-rule 'llvm-constant-value type)
+		llvm-identifier))
+      (v white-comma)
+      (cap b llvm-identifier))
     `(,c!-1 ,(recap b))))
 
 (define-instruction-rule phi

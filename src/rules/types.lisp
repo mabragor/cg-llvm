@@ -359,16 +359,14 @@
 (define-cg-llvm-rule simple-int ()
   (parse-integer (text (postimes ns-dec-digit))))
 
+(define-cg-llvm-rule white-x-white ()
+  (with-whitespace #\x))
+
 (define-cg-llvm-rule vector ()
-  (v #\<)
-  (? whitespace)
-  (cap nelts simple-int)
-  (? whitespace)
-  (v #\x)
-  (? whitespace)
-  (cap type llvm-type)
-  (? whitespace)
-  (v #\>)
+  (white-<>
+    (cap nelts simple-int)
+    white-x-white
+    (cap type llvm-type))
   (llvm-vector (recap nelts)
 	       (recap type)))
 
@@ -380,15 +378,11 @@
   (make-instance 'llvm-metadata))
 
 (define-cg-llvm-rule array ()
-  (v #\[)
-  (? whitespace)
-  (cap nelts simple-int)
-  (? whitespace)
-  (v #\x)
-  (? whitespace)
-  (cap type llvm-type)
-  (? whitespace)
-  (v #\])
+  (white-[]
+    (cap nelts simple-int)
+    white-x-white
+    (cap type llvm-type))
+  
   (llvm-array (recap nelts)
 	      (recap type)))
 
@@ -404,22 +398,15 @@
 
 
 (define-cg-llvm-rule nonpacked-literal-struct ()
-  (v #\{)
-  (? whitespace)
-  (cap a comma-separated-types)
-  (? whitespace)
-  (v #\})
-  (apply #'llvm-struct (recap a)))
+  (apply #'llvm-struct
+	 (white-{}
+	   comma-separated-types)))
 
 (define-cg-llvm-rule packed-literal-struct ()
-  (v "<")
-  (v "{")
-  (? whitespace)
-  (cap a comma-separated-types)
-  (? whitespace)
-  (v "}")
-  (v ">")
-  (apply #'llvm-struct `(:packed-p t ,@(recap a))))
+  (apply #'llvm-struct
+	 `(:packed-p t ,@(white-<>
+			  (white-{}
+			    comma-separated-types)))))
 
 (define-cg-llvm-rule literal-struct ()
   (|| nonpacked-literal-struct

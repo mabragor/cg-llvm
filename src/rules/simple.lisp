@@ -55,10 +55,13 @@
   (defmacro ?wh? (x)
     `(? (progn-v (? whitespace) ,x))))
 
+(defmacro with-whitespace (&body body)
+  `(progm (? whitespace)
+	  (progn-v ,@body)
+	  (? whitespace)))
+
 (define-cg-llvm-rule white-comma ()
-  (progm (? whitespace)
-	 (v #\,)
-	 (? whitespace)))
+  (with-whitespace #\,))
 
 ;;;;Numbers
 (progn
