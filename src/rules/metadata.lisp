@@ -21,11 +21,23 @@
   (v #\!)
   (v #\{)
   (v wh?)
-  (cap a metadata-node-operands)
+  (? (cap a metadata-node-operands))
   (v #\})
-  `(meta-node ,@(recap a)))
+  `(meta-node ,@(recap? a)))
 
 (define-cg-llvm-rule specialized-metadata ()
+  (v "!")
+  (cap named (v identifier-body))
+  (v wh?)
+  (v "(")
+  (v wh?)
+  (cap result (list :specialized-metadata
+		    (recap named)
+		    (v metadata-node-operands)))
+  (v wh?)
+  (v ")")
+  (recap result)
+  #+nil
   (fail-parse "Specialized metadata not implemented yet"))
 
 (defmacro define-specialized-metadata (name &body field-specs)
@@ -112,18 +124,35 @@
 
 (define-plural-rule metadata-node-operands metadata-node-operand white-comma)
 
-(define-cg-llvm-rule metadata-node-operand ()
+(define-cg-llvm-rule toplevel-metadata-node-operand ()
   ;; TODO : maybe this will turn out to be not exactly correct
   ;; but this is the best I can get for now from LLVM language reference manual.
-  (v llvm-constant))
+  (||
+   metadata-node
+   specialized-metadata
+   llvm-constant))
+
+(define-cg-llvm-rule metadata-node-operand ()
+  (||
+   (progn (cap name (v identifier-body))
+	  (v ":")
+	  (v whitespace)
+	  (list
+	   :metadata-argument
+	   (recap name)
+	   (|| toplevel-metadata-node-operand
+	       identifier-body)))
+   toplevel-metadata-node-operand
+  ;;;;FIXME recap name
+   ))
 
 (define-cg-llvm-rule metadata-entry ()
   (let* ((id (v metadata-identifier)))
     (v wh?)
     (v #\=)
-    (let* ((distinct (?wh? (progn (v "distinct")
-				  t)))
-	   (node (progn (v wh?)
-			(v metadata-node))))
-      `(= ,id ,node
-	  ,@(%%inject-kwd-if-nonnil distinct)))))
+    (let ((distinct (?wh? (progn (v "distinct")
+				 t))))
+      (let ((node (progn (v wh?)
+			 (v toplevel-metadata-node-operand))))
+	`(= ,id ,node
+	    ,@(%%inject-kwd-if-nonnil distinct))))))
