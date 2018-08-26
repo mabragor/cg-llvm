@@ -236,15 +236,6 @@
   (v "unnamed_addr")
   '(:unnamed-addr t))
 
-(define-cg-llvm-rule alpha-char ()
-  (character-ranges (#\a #\z) (#\A #\Z)))
-
-(define-cg-llvm-rule alphanumeric-char ()
-  (character-ranges (#\0 #\9) (#\a #\z) (#\A #\Z)))
-
-(define-cg-llvm-rule alphanumeric-word ()
-  (text (postimes alphanumeric-char)))
-
 (define-cg-llvm-rule section ()
   (v "section")
   (v whitespace)

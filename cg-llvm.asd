@@ -19,7 +19,7 @@
     "rules"
     :serial t
     :components
-    (
+    ((:file "simple")
      (:file "types")
      (:file "fun-defs")
      (:file "identifiers")
