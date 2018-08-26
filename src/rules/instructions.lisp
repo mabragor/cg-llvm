@@ -222,35 +222,39 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun binop-instruction-body (name type)
-    `((let ((type (emit-lisp-repr (wh llvm-type))))
-	(if (not (or (llvm-typep '(,type ***) type)
-		     (llvm-typep '(vector (,type ***) *) type)))
-	    (fail-parse-format
-	     ,(progn
-	       ;;$((string name)) instruction expects <type> to be $((string type)) \
-	       ;; or VECTOR OF $((string type))S, but got: ~a
-	       (interpol
-		(string name)
-		" instruction expects <type> to be "
-		(string type)
-		"~% or VECTOR OF "
-		(string type)
-		"S, but got: ~a"))
-	     type))
-	(macrolet ((parse-arg ()
-		     `(|| (if (llvm-typep '(,',type ***) type)
-			      (descend-with-rule ',',(intern
-						      ;;"$((string type))-CONSTANT-VALUE"
-						      (interpol
-						       (string type)
-						       "-CONSTANT-VALUE")) type)
-			      (descend-with-rule 'vector-constant-value type))
-			  llvm-identifier)))
-	  (let ((arg1 (wh (parse-arg))))
-	    (v white-comma)
-	    (let ((arg2 (parse-arg)))
-	      `(,type ,arg1 ,arg2 ,@prefix-kwds)
-	      ))))))
+    (let ((fail (progn
+		  ;;$((string name)) instruction expects <type> to be $((string type)) \
+		  ;; or VECTOR OF $((string type))S, but got: ~a
+		  (interpol
+		   (string name)
+		   " instruction expects <type> to be "
+		   (string type)
+		   "~% or VECTOR OF "
+		   (string type)
+		   "S, but got: ~a")))
+	  (constant-value-symbol (intern
+				  ;;"$((string type))-CONSTANT-VALUE"
+				  (interpol
+				   (string type)
+				   "-CONSTANT-VALUE"))))
+      `((nest
+	 (progn (v whitespace))
+	 (let- (type (emit-lisp-repr (v llvm-type))))
+	 (flet ((parse-arg ()
+		  (|| (if (llvm-typep '(,type ***) type)
+			  (descend-with-rule ',constant-value-symbol type)
+			  (descend-with-rule 'vector-constant-value type))
+		      llvm-identifier))))
+	 (progn (if (not (or (llvm-typep '(,type ***) type)
+			     (llvm-typep '(vector (,type ***) *) type)))
+		    (fail-parse-format
+		     ,fail
+		     type)))
+	 (progn (v whitespace))
+	 (let- (arg1 (parse-arg)))
+	 (progn (v white-comma))
+	 (let- (arg2 (parse-arg)))
+	 `(,type ,arg1 ,arg2 ,@prefix-kwds)))))
   (defun binop-constexpr-body (name type)
     `((let* ((val1 (progn-v wh? #\( wh? llvm-constant))
 	     (val2 (prog1-v (progn-v wh? #\, wh? llvm-constant) wh? #\))))
