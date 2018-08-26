@@ -751,14 +751,14 @@
 (define-lvalue-instruction-alternative other)
 
 (define-cg-llvm-rule phi-arg (type)
-  (let (c!-1)
-    (white-[]
-      (setf c!-1
-	    (|| (descend-with-rule 'llvm-constant-value type)
-		llvm-identifier))
-      (v white-comma)
-      (cap b llvm-identifier))
-    `(,c!-1 ,(recap b))))
+  (white-[]
+    (cap a
+	 (|| (descend-with-rule 'llvm-constant-value type)
+	     llvm-identifier))
+    (v white-comma)
+    (cap b llvm-identifier))
+  `(,(recap a)
+     ,(recap b)))
 
 (define-instruction-rule phi
   (let ((type (emit-lisp-repr (wh llvm-type))))
@@ -801,9 +801,34 @@
     `(,va-list ,type)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter known-icmp-ops '(eq ne ugt uge ult ule sgt sge slt sle))
-  (defparameter known-fcmp-ops '(false oeq ogt oge olt ole one ord
-				 ueq ugt uge ult ule une uno true)))
+  (defparameter known-icmp-ops
+    '(eq
+      ne
+      ugt
+      uge
+      ult
+      ule
+      sgt
+      sge
+      slt
+      sle))
+  (defparameter known-fcmp-ops
+    '(false
+      oeq
+      ogt
+      oge
+      olt
+      ole
+      one
+      ord
+      ueq
+      ugt
+      uge
+      ult
+      ule
+      une
+      uno
+      true)))
 
 (defmacro icmp-kwds ()
   (any-of-kwds known-icmp-ops))
