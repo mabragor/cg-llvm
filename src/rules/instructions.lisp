@@ -300,10 +300,12 @@
 	 `(,val1 ,val2 ,@prefix-kwds))))))
 
 (defmacro unordered-simple-keywords (&rest kwds)
-  `(let ((kwds (times (wh (|| ,@(mapcar (lambda (x)
-					  `(progn (descend-with-rule 'string ,(%stringify-symbol x))
-						  ,(keywordify x)))
-					kwds)))
+  `(let ((kwds (times (progn
+			(v whitespace)
+			(|| ,@(mapcar (lambda (x)
+					`(progn (descend-with-rule 'string ,(%stringify-symbol x))
+						,(keywordify x)))
+				      kwds)))
 		      :upto ,(length kwds))))
      ;; (format t "kwds are: ~a~%" kwds)
      (mapcar (lambda (x)
@@ -413,10 +415,7 @@
       (fail-parse "V1 and V2 must have same subtype"))
   `(,v1 ,v2 ,mask))
 
-(define-cg-llvm-rule indices ()
-  (cons (descend-with-rule 'integer-constant-value nil)
-	(times (progn (v white-comma)
-		      (descend-with-rule 'integer-constant-value nil)))))
+(define-plural-rule indices integer white-comma)
 
 (define-simple-instruction-rule extractvalue ((val (or (llvm-typep '(struct ***) (car it))
 						       (llvm-typep '(array ***) (car it)))))
