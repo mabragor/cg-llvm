@@ -98,43 +98,48 @@
 ;;;switch <intty> <value>, label <defaultdest> [ <intty> <val>, label <dest> ... ]
 ;;;;is it a coincidence it has this pattern x[x*] ?
 (define-cg-llvm-rule %switch-branch ()
-  (let* ((case-value (fail-parse-if-not
+  (nest
+   (progn (v whitespace))
+   (let- (case-value (fail-parse-if-not
 		      (llvm-typep '(integer *)
 				  (car it))
-		      (wh instr-arg)		 
+		      (v instr-arg)		 
 		      ;;(wh integer-constant-type)
 		      ;;(wh instr-arg-value)
-		      ))
-	 (dest (fail-parse-if-not
-		(llvm-typep 'label
-			    (car it))
-		(progn (v white-comma)
-		       (v instr-arg)))))
-    `(,case-value ,dest)))
+		      )))
+   (progn (v white-comma))
+   (let-
+    (dest (fail-parse-if-not
+	   (llvm-typep 'label
+		       (car it))
+	   (v instr-arg))))
+   `(,case-value ,dest)))
 (define-instruction-rule switch
-  (let* ((value (fail-parse-if-not
+  (nest
+   (progn (v whitespace))
+   (let- (value (fail-parse-if-not
 		 (llvm-typep '(integer *)
 			     (car it))
-		 (wh instr-arg)		 
+		 (v instr-arg)		 
 		 ;;(wh integer-constant-type)
 		 ;;(wh instr-arg-value)
-		 ))
-	 (default-dest (fail-parse-if-not
+		 )))
+   (progn (v white-comma))
+   (let- (default-dest (fail-parse-if-not
 			(llvm-typep 'label
 				    (car it))
-			(progn (v white-comma)
-			       (v instr-arg)))))
-    (v wh?)
-    (white-[]
-      (cap result
-	   (times
-	    %switch-branch
-	    :from 0)))
+			(v instr-arg))))
+   (progn (? whitespace))
+   (progn
+     (white-[]
+       (cap result
+	    (times
+	     %switch-branch
+	     :from 0)))) 
+   `((,value ,default-dest) ,@(recap? result)))
     
-    `((,value ,default-dest) ,@(recap? result))
-    
-    #+nil
-    (v some-custom-magic-???)))
+  #+nil
+  (v some-custom-magic-???))
 #+nil
 (define-simple-instruction-rule switch
     ((value (llvm-typep '(integer *) (car it)))
@@ -152,28 +157,43 @@
 
 ;;;;FIXME::wtf is going on here?
 (define-instruction-rule invoke
-  (let* ((cconv (?wh cconv))
-	 (return-attrs (?wh (whitelist-kwd-expr '(:zeroext :signext :inreg)
-						(v parameter-attrs))))
-	 (function-type (fail-parse-if-not (ptr-to-function-type-p it)
-					   (wh llvm-type))))
-    ;; TODO : this is not correct -- there are more possible things to be INVOKED
-    (let* ((function-val (wh llvm-variable))
-	   (args (wh? funcall-args))
-	   (fun-attrs (?wh (whitelist-kwd-expr '(:noreturn :nounwind :readonly :readnone)
-					       (v fun-attrs)))))
-      (wh "to")
-      (let ((normal-label (fail-parse-if-not (llvm-typep 'label it)
-					     (wh llvm-variable))))
-	(wh "unwind")
-	(let ((exception-label (fail-parse-if-not (llvm-typep 'label it)
-						  (wh llvm-variable))))
-	  `((,(emit-lisp-repr function-type) ,function-val)
-	    ,normal-label ,exception-label
-	    (:args ,@args)
-	    ,@(%%inject-kwd-if-nonnil cconv)
-	    ,@(%%inject-kwd-if-nonnil return-attrs)
-	    ,@(%%inject-kwd-if-nonnil fun-attrs)))))))
+  (nest
+   (progn (v wh?))
+   (let- (cconv (? cconv)))
+   (progn (v wh?))
+   (let- (return-attrs (? (whitelist-kwd-expr
+			   '(:zeroext :signext :inreg)
+			   (v parameter-attrs)))))
+   (progn (v whitespace))
+   (let- (function-type (fail-parse-if-not (ptr-to-function-type-p it)
+					   (v llvm-type)))
+	 ;; TODO : this is not correct -- there are more possible things to be INVOKED
+	 )
+   (progn (v whitespace))
+   (let- (function-val (v llvm-variable)))
+   (progn (v wh?))
+   (let- (args (? funcall-args)))
+   (let- (fun-attrs (?wh (whitelist-kwd-expr '(:noreturn :nounwind :readonly :readnone)
+					     (v fun-attrs)))))
+   (progn (v whitespace))
+   (progn (v "to"))
+   (progn (v whitespace))
+   
+   (let- (normal-label (fail-parse-if-not (llvm-typep 'label it)
+					  (v llvm-variable))))
+   (progn (v whitespace))
+   (progn (v "unwind"))
+   (progn (v whitespace))
+   
+   (let- (exception-label (fail-parse-if-not (llvm-typep 'label it)
+					     (v llvm-variable))))
+   
+   `((,(emit-lisp-repr function-type) ,function-val)
+     ,normal-label ,exception-label
+     (:args ,@args)
+     ,@(%%inject-kwd-if-nonnil cconv)
+     ,@(%%inject-kwd-if-nonnil return-attrs)
+     ,@(%%inject-kwd-if-nonnil fun-attrs))))
 
 ;; The check for correct type of resume instruction is at semantic level -- the whole body
 ;; of the function should be parsed for that
