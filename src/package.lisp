@@ -77,3 +77,9 @@
 
 (defun underscorize (name)
   (format nil "~{~a~^_~}" (cl-ppcre:split "-" (string-downcase name))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun mash-sym-names (&rest syms)
+    (intern (joinl "-" (mapcar #'string syms))))
+  (defun append-instruction-to-sym (sym)
+    (mash-sym-names sym 'instruction)))

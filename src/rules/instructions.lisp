@@ -26,12 +26,6 @@
 			args)))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun mash-sym-names (&rest syms)
-    (intern (joinl "-" (mapcar #'string syms))))
-  (defun append-instruction-to-sym (sym)
-    (mash-sym-names sym 'instruction)))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
   (defun any-of-kwds (kwd-var)
     `(|| ,@(mapcar (lambda (x)
 		     `(progn (descend-with-rule 'string ,(%stringify-symbol x))
@@ -52,19 +46,28 @@
 
 
 (defmacro define-lvalue-instruction-alternative (name)
-  `(define-instruction-alternative ,name ,(mash-sym-names 'lvalue name) ,(mash-sym-names 'nolvalue name)))
+  `(define-instruction-alternative ,name ,(mash-sym-names 'lvalue name)
+				   ,(mash-sym-names 'nolvalue name)))
 
 
 (define-instruction-alternative llvm
-  terminator binary bitwise-binary aggregate
-  memory conversion other)
+  terminator
+  binary
+  bitwise-binary
+  aggregate
+  memory
+  conversion
+  other)
 
-
-(define-instruction-alternative lvalue-terminator invoke)
+(define-instruction-alternative lvalue-terminator
+  invoke)
 
 (define-instruction-alternative nolvalue-terminator
-  ret br switch
-  indirectbr resume
+  ret
+  br
+  switch
+  indirectbr
+  resume
   unreachable)
 
 (define-lvalue-instruction-alternative terminator)
@@ -179,15 +182,23 @@
 (define-simple-instruction-rule unreachable ())
 
 (define-instruction-alternative lvalue-binary
-  add fadd sub fsub mul fmul
-  udiv sdiv fdiv
-  urem srem frem)
+  add
+  fadd
+  sub
+  fsub
+  mul
+  fmul
+  udiv
+  sdiv
+  fdiv
+  urem
+  srem
+  frem)
 
 (define-cg-llvm-rule nolvalue-binary-instruction ()
   (fail-parse "There are no such instructions"))
 
 (define-lvalue-instruction-alternative binary)
-
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun binop-instruction-body (name type)
