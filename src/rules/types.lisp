@@ -308,9 +308,7 @@
 
 (define-cg-llvm-rule function-argtypes ()
   (cons (v function-argtype)
-	(times (progn (? whitespace)
-		      (v #\,)
-		      (? whitespace)
+	(times (progn (v white-comma)
 		      (v function-argtype)))))
 
 (define-cg-llvm-rule function-type ()
@@ -320,11 +318,11 @@
 	    (typep ret-type 'llvm-metadata))
 	(fail-parse "Got label or metadata type as function return type"))
     (? whitespace)
-    (v "(")
-    (cap a function-argtypes)
-    (v ")")
+    
     (multiple-value-bind (param-types vararg-p)
-	(parse-function-argtypes (recap a))
+	(parse-function-argtypes
+	 (white-paren
+	   function-argtypes))
       (make-instance 'llvm-function-type
 		     :ret-type ret-type
 		     :param-types param-types
@@ -343,12 +341,9 @@
   (make-instance 'llvm-x86-mmx))
 
 (define-cg-llvm-rule addr-space ()
-  (|| (progn (v "addrspace(")
-	     (? whitespace)
-	     (cap a simple-int)
-	     (? whitespace)
-	     (v ")")
-	     (recap a))
+  (|| (progn (v "addrspace")
+	     (white-paren
+	       simple-int))
       0))
 ;;;FIXME:: what Why is there a zero? what does it do?
 
@@ -417,11 +412,13 @@
   (apply #'llvm-struct (recap a)))
 
 (define-cg-llvm-rule packed-literal-struct ()
-  (v "<{")
+  (v "<")
+  (v "{")
   (? whitespace)
   (cap a comma-separated-types)
   (? whitespace)
-  (v "}>")
+  (v "}")
+  (v ">")
   (apply #'llvm-struct `(:packed-p t ,@(recap a))))
 
 (define-cg-llvm-rule literal-struct ()

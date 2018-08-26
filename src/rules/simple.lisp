@@ -89,3 +89,31 @@
   (define-cg-llvm-rule llvm-float ()
     (|| decimal-float
 	hexadecimal-float)))
+
+(defmacro white-paren (&body body)
+  `(progn (v "(")
+	  (? whitespace)
+	  (prog1-v (progn-v ,@body)
+		   (? whitespace)
+		   (v ")"))))
+
+(defmacro white-[] (&body body)
+  `(progn (v "[")
+	  (? whitespace)
+	  (prog1-v (progn-v ,@body)
+		   (? whitespace)
+		   (v "]"))))
+
+(defmacro white-<> (&body body)
+  `(progn (v "<")
+	  (? whitespace)
+	  (prog1-v (progn-v ,@body)
+		   (? whitespace)
+		   (v ">"))))
+
+(defmacro white-{} (&body body)
+  `(progn (v "{")
+	  (? whitespace)
+	  (prog1-v (progn-v ,@body)
+		   (? whitespace)
+		   (v "}"))))
