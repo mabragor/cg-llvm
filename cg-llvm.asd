@@ -27,7 +27,7 @@
      (:file "metadata")
      (:file "instructions")
      (:file "constant-expressions")
-     (:file "high-level-structure")
+     (:file "module-structure")
      ))))
 
 (defsystem :cg-llvm-tests
