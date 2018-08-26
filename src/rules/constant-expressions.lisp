@@ -7,6 +7,7 @@
 		     "-TO-CONSTEXPR"
 		     ))))
     `(define-op-rule (,rule-name ,name)
+       (? whitespace)
        (v #\()
        (? whitespace)
        (destructuring-bind (type1 value) (v llvm-constant)
@@ -151,7 +152,7 @@
 		 (llvm-typep '(array ***)
 			     (car val))))
 	(fail-parse-format "Type of EXTRACTVALUE constexpr should be aggregate, but got ~a" (car val)))
-    white-comma
+    (v white-comma)
     (let* ((indices (prog1 (v indices)
 		      (v wh?)
 		      (v #\)))))

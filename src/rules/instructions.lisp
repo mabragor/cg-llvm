@@ -1025,11 +1025,30 @@
 				       prefix prologue personality metadata
 				       body))))
 
+(define-cg-llvm-rule |PreemptionSpecifier| ()
+  (|| "dso_preemptable"
+      "dso_local"))
+
+;;;;@<GlobalVarName> = [Linkage] [PreemptionSpecifier] [Visibility]
+;;;;                   [DLLStorageClass] [ThreadLocal]
+;;;;                   [(unnamed_addr|local_unnamed_addr)] [AddrSpace]
+;;;;                   [ExternallyInitialized]
+;;;;                   <global | constant> <Type> [<InitializerConstant>]
+;;;;                   [, section "name"] [, comdat [($name)]]
+;;;;                   [, align <Alignment>] (, !name !N)*
+
+;;;;FIXME:: add local_unnamed_addr and PreemptionSpecifier
+
+(define-cg-llvm-rule llvm-constant-or-expression-value? (&optional type)
+  (|| (v llvm-constant-value type)
+      constant-expression-value))
+
 (define-cg-llvm-rule global-variable-definition ()
   (let ((name (v global-identifier)))
     (v whitespace)
     (v #\=)
     (let* ((linkage (?wh linkage-type))
+	   (preemption-specifier (?wh |PreemptionSpecifier|))
       	   (visibility (?wh visibility-style))
 	   (dll-storage-class (?wh dll-storage-class))
 	   (thread-local (?wh thread-local))
@@ -1048,9 +1067,12 @@
 				(progn (v "constant")
 				       t))))
 	   (type (emit-lisp-repr (wh? llvm-type)))
-	   (value (if (eq :external linkage)
-	   	      (? (?wh (descend-with-rule 'llvm-constant-value type)))
-	   	      (?wh (descend-with-rule 'llvm-constant-value type))))
+	   ;;FIXME:: llvm-constant-expression or llvm-constant-value?
+	   (value (flet ((descend ()
+			  (?wh (descend-with-rule 'llvm-constant-or-expression-value? type))))
+		    (if (eq :external linkage)
+			(? (descend))
+			(descend))))
 	   (section (? (progn (? whitespace)
 			      (v #\,)
 			      (? whitespace)
@@ -1065,11 +1087,14 @@
 			    (v align)))))
       `(:global-var ,name ,type ,value
 		    ,@(append
-		       (%%inject-kwds-if-nonnil linkage visibility dll-storage-class
-						unnamed-addr addrspace
-						externally-initialized
-						constant
-						section comdat)
+		       (%%inject-kwds-if-nonnil
+			linkage
+			preemption-specifier
+			visibility dll-storage-class
+			unnamed-addr addrspace
+			externally-initialized
+			constant
+			section comdat)
 		       (%%inject-stuff-if-nonnil thread-local align))
 		    ))))
 

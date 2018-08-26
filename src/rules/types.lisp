@@ -449,8 +449,9 @@
   (|| opaque-struct
       literal-struct))
 
+;;;;FIXME::what is the proper name?
 (define-cg-llvm-rule struct-declaration ()
-  (cap a llvm-ident)
+  (cap a (v llvm-identifier))
   (v whitespace)
   (v "=")
   (v whitespace)
@@ -458,7 +459,8 @@
   (v whitespace)
   (cap b struct)
   (list (recap a)
-	(recap b)))
+	(emit-lisp-repr
+	       (recap b))))
 
 (defclass llvm-named-type (llvm-type)
   ((name :initarg :name :initform "You should specify the name of the named type")))

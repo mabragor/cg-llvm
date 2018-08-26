@@ -12,7 +12,8 @@
   (|| global-variable-definition
       function-declaration
       function-definition
-      symbol-table-entry))
+      symbol-table-entry
+      struct-declaration))
 
 (define-plural-rule llvm-elements llvm-element (? whitespace))
 
