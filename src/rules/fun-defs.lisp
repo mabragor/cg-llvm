@@ -498,14 +498,15 @@
 (define-cg-llvm-rule mangling-layout ()
   (v #\:)
   (list :mangling
-	(|| (progn (v #\e)
-		   :elf)
-	    (progn (v #\m)
-		   :mips)
-	    (progn (v #\o)
-		   :mach-o)
-	    (progn (v #\w)
-		   :windows-coff))))
+	(etouq
+	  `(||
+	    ,@(mapcar
+	       (lambda (x)
+		 `(progn-v ,@x))
+	       '((#\e :elf)
+		 (#\m :mips)
+		 (#\o :mach-o)
+		 (#\w :windows-coff)))))))
 
 (define-plural-rule integer-sizes pos-integer #\:)
 
