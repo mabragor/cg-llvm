@@ -503,10 +503,10 @@
 	    ,@(mapcar
 	       (lambda (x)
 		 `(progn-v ,@x))
-	       '((#\e :elf)
-		 (#\m :mips)
-		 (#\o :mach-o)
-		 (#\w :windows-coff)))))))
+	       '((#\e ':elf)
+		 (#\m ':mips)
+		 (#\o ':mach-o)
+		 (#\w ':windows-coff)))))))
 
 (define-plural-rule integer-sizes pos-integer #\:)
 
