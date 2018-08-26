@@ -853,12 +853,8 @@
 	    (ftype (?wh (fail-parse-if-not (llvm-typep '(pointer (function ***) ***) it)
 					   (emit-lisp-repr (v llvm-type)))))
 	    (fnptrval (wh llvm-identifier))
-	    (args (wh? (progn (v #\()
-			      (v wh?)
-			      (cap thing (? funcall-args))
-			      (v wh?)
-			      (v #\))
-			      (recap thing))))
+	    (args (wh? (white-paren
+			 (? funcall-args))))
 	    (fun-attrs (?wh (mapcar (lambda (x)
 				      (whitelist-kwd-expr '(:noreturn :nounwind :readonly :readnone) x))
 				    (v fun-attrs)))))
@@ -884,13 +880,11 @@
 (define-plural-rule %defun-args defun-arg white-comma)
 
 (define-cg-llvm-rule defun-args ()
-  (v #\()
-  (? whitespace)
-  (let ((args (? %defun-args)))
+  (white-paren
+    (cap args (? %defun-args))
     ;; TODO : here we check for vararg special syntax
-    (? whitespace)
-    (v #\))
-    args))
+    )
+  (recap? args))
 
 (define-cg-llvm-rule short-defun-arg ()
   `(,(emit-lisp-repr (v llvm-type))))
@@ -911,23 +905,29 @@
 (define-plural-rule %declfun-args declfun-arg white-comma)
 
 (define-cg-llvm-rule declfun-args ()
-  (v #\()
-  (? whitespace)
-  (let ((args (? %declfun-args)))
+  (white-paren
+    (cap args (? %declfun-args))
     ;; TODO : here we check for vararg special syntax
-    (? whitespace)
-    (v #\))
-    args))
+    )
+  (recap? args))
 
 ;;; Let's write something that is able to parse whole basic block of instructions
 
 (define-instruction-alternative lvalue-nonterminator
-  lvalue-other lvalue-conversion lvalue-memory lvalue-aggregate
-  lvalue-bitwise-binary lvalue-binary)
+  lvalue-other
+  lvalue-conversion
+  lvalue-memory
+  lvalue-aggregate
+  lvalue-bitwise-binary
+  lvalue-binary)
 
 (define-instruction-alternative nolvalue-nonterminator
-  nolvalue-other nolvalue-conversion nolvalue-memory
-  nolvalue-aggregate nolvalue-bitwise-binary nolvalue-binary)
+  nolvalue-other
+  nolvalue-conversion
+  nolvalue-memory
+  nolvalue-aggregate
+  nolvalue-bitwise-binary
+  nolvalue-binary)
 
 (define-cg-llvm-rule block-label ()
   (text (list (literal-char #\%)
@@ -980,15 +980,12 @@
 (define-plural-rule basic-blocks basic-block whitespace)
 
 (define-cg-llvm-rule function-body ()
-  (progm (progn (v #\{)
-		(? whitespace))
-	 (? basic-blocks)
-	 (progn (? whitespace)
-		(v #\}))))
+  (white-{}
+    (? basic-blocks)))
 
 (define-cg-llvm-rule fundef-metadata-entry ()
-  ;; TODO : in future the syntax of LLVM will likely become more flexible,
-  ;;        and hence this place would have to be changed.
+  ;; FIXME : in future the syntax of LLVM will likely become more flexible,
+  ;;         and hence this place would have to be changed.
   (list (v  metadata-identifier)
 	(progn (v whitespace)
 	       (v metadata-identifier))))
@@ -1067,18 +1064,15 @@
 		    (if (eq :external linkage)
 			(? (descend))
 			(descend))))
-	   (section (? (progn (? whitespace)
-			      (v #\,)
-			      (? whitespace)
-			      (v  section))))
-	   (comdat (? (progn (? whitespace)
-			     (v #\,)
-			     (? whitespace)
-			     (v comdat))))
-	   (align (? (progn (? whitespace)
-			    (v #\,)
-			    (? whitespace)
-			    (v align)))))
+	   (section (? (progn-v
+			white-comma
+			section)))
+	   (comdat (? (progn-v
+		       white-comma
+		       comdat)))
+	   (align (? (progn-v
+		      white-comma
+		      align))))
       `(:global-var ,name ,type ,value
 		    ,@(append
 		       (%%inject-kwds-if-nonnil
@@ -1113,26 +1107,21 @@
 (define-plural-rule abstract-attrs abstract-attr whitespace)
 
 (define-op-rule (attribute-group attributes)
-  (let* ((id (progn (? whitespace)
-		    (v #\#)
-		    (v pos-integer)))
-	 (attrs (progm (progn (? whitespace)
-			      (v #\=)
-			      (? whitespace)
-			      (v #\{)
-			      (? whitespace))
-		       abstract-attrs
-		       (progn (? whitespace)
-			      (v #\})))))
-    `(,id ,@attrs)))
+  (let ((id (progn (? whitespace)
+		   (v #\#)
+		   (v pos-integer))))
+    (? whitespace)
+    (v #\=)
+    (? whitespace)    
+    (let ((attrs (white-{}
+		   abstract-attrs)))
+      `(,id ,@attrs))))
 
 (define-op-rule (blockaddress blockaddress)
   (v wh?)
-  (v #\()
-  (cap a global-identifier)
-  (v white-comma)
-  (cap b local-identifier)
-  (v wh?)
-  (v #\))
+  (white-paren
+    (cap a global-identifier)
+    (v white-comma)
+    (cap b local-identifier))
   `(,(recap a) ,(recap b)))
 
