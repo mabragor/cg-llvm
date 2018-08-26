@@ -83,3 +83,9 @@
     (intern (joinl "-" (mapcar #'string syms))))
   (defun append-instruction-to-sym (sym)
     (mash-sym-names sym 'instruction)))
+
+(defmacro etouq (&body body)
+  (let ((sym (gensym)))
+    `(macrolet ((,sym ()
+		  ,@body))
+       (,sym))))
