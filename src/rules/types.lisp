@@ -41,9 +41,11 @@
     `(function ,(emit-lisp-repr ret-type) ,(mapcar #'emit-lisp-repr param-types)
 	       :vararg-p ,vararg-p)))
 
+#+nil
 (defmethod emit-text-repr ((obj llvm-void-type))
   "void")
 
+#+nil
 (defmethod emit-text-repr ((obj llvm-function-type))
   (with-slots (ret-type param-types vararg-p) obj
     (if (not vararg-p)

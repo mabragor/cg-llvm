@@ -1,8 +1,6 @@
 (in-package #:cg-llvm)
 
 (define-cg-llvm-rule metadata-node-value (type)
-  (if (and type (not (llvm-typep 'metadata type)))
-      (fail-parse "METADATA value should have METADATA type"))
   (fail-parse "METADATA-NODE-VALUE is not implemented yet"))
 
 

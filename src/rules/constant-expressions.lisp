@@ -14,9 +14,9 @@
 	 (v whitespace)
 	 (v "to")
 	 (v whitespace)
-	 (let ((type2 (emit-lisp-repr (prog1 (v llvm-type)
-					(? whitespace)
-					(v #\))))))
+	 (let ((type2 (prog1 (v llvm-type)
+			(? whitespace)
+			(v #\)))))
 	   ,@constraints
 	   `(,value ,type1 ,type2))))))
 
@@ -42,46 +42,14 @@
 (define-op-rule (select-constexpr select)
   (let* ((cond (?wh (progn (v #\()
 			   (v wh?)
-			   (let ((it (v llvm-constant)))
-			     (if (not (or (llvm-typep '(integer 1)
-						      (car it))
-					  (llvm-typep '(vector (integer 1) *)
-						      (car it))))
-				 (fail-parse "SELECT constexpr 'cond' argument should be byte(???)")
-				 it)))))
+			   (v llvm-constant))))
 	 (val1 (progn (v white-comma)
 		      (v llvm-constant)))
 	 (val2 (progn (v white-comma)
 		      (v llvm-constant))))
-    (if (llvm-typep '(integer *)
-		    (car cond))
-	(if (not (llvm-same-typep (car val1)
-				  (car val2)))
-	    (fail-parse-format
-	     "Different values of SELECT constexpr should be same type, but are: ~a ~a"
-	     (car val1)
-	     (car val2)))
-	(let ((nelts (caddar cond)))
-	  (if (not (and (llvm-typep '(vector ***)
-				    (car val1))
-			(llvm-typep '(vector ***)
-				    (car val2))
-			(llvm-same-typep (cadar val1)
-					 (cadar val2))
-			(equal nelts
-			       (caddar val1))
-			(equal nelts
-			       (caddar val2))))
-	      (fail-parse-format
-	       "Different values of SELECT constexpr should be same type, but are: ~a ~a"
-	       (car val1)
-	       (car val2)))))
     `(,cond ,val1 ,val2)))
 
-
-
-
-(defmacro define-cmp-constexpr (name typecheck &rest errinfo)
+(defmacro define-cmp-constexpr (name)
   (let ((macro-name (intern ;;#"$((string name))-KWDS"
 		     (interpol
 		      (string name)
@@ -100,40 +68,16 @@
 				  (v llvm-constant))
 		      (v wh?)
 		      (v #\)))))
-	 (if (not ,typecheck)
-	     (fail-parse-format ,@errinfo))
 	 `(,cond ,val1 ,val2)))))
 
-(define-cmp-constexpr icmp
-    (or (llvm-typep '(integer ***)
-		    (car val1))
-	(llvm-typep '(vector (integer ***) *)
-		    (car val1))
-	(llvm-typep '(pointer ***)
-		    (car val1))
-	(llvm-typep '(vector (pointer ***) *)
-		    (car val1)))
-  "Type of arguments of ICMP constexpr should be INTEGER or POINTER or~
-    VECTOR of INTEGERS or VECTOR of POINTERS")
-
-(define-cmp-constexpr fcmp
-    (or (llvm-typep '(float ***)
-		    (car val1))
-	(llvm-typep '(vector (float ***) *)
-		    (car val1)))
-  "Type of arguments of FCMP constexpr should be FLOAT or~
-    VECTOR of FLOATs")
+(define-cmp-constexpr icmp)
+(define-cmp-constexpr fcmp)
 
 (define-op-rule (insertvalue-constexpr insertvalue)
   (let ((val (progn (v wh?)
 		    (v #\()
 		    (v wh?)
 		    (v llvm-constant))))
-    (if (not (or (llvm-typep '(struct ***)
-			     (car val))
-		 (llvm-typep '(array ***)
-			     (car val))))
-	(fail-parse-format "Type of INSERTVALUE constexpr should be aggregate, but got ~a" (car val)))
     (v white-comma)
     (let* ((elt (v llvm-constant))
 	   (indices (prog1 (v indices)
@@ -147,11 +91,6 @@
 		    (v #\()
 		    (v wh?)
 		    (v llvm-constant))))
-    (if (not (or (llvm-typep '(struct ***)
-			     (car val))
-		 (llvm-typep '(array ***)
-			     (car val))))
-	(fail-parse-format "Type of EXTRACTVALUE constexpr should be aggregate, but got ~a" (car val)))
     (v white-comma)
     (let* ((indices (prog1 (v indices)
 		      (v wh?)
@@ -170,16 +109,6 @@
 			     (v llvm-constant))
 		 (v wh?)
 		 (v #\)))))
-    (if (not (and (llvm-typep '(vector ***)
-			      (car v1))
-		  (llvm-typep '(vector ***)
-			      (car v2))
-		  (llvm-typep '(vector (integer 32) *)
-			      (car mask))))
-	(fail-parse "Shuffle vector accepts two vectors and one i32 mask"))
-    (if (not (llvm-same-typep (cadar v1)
-			      (cadar v2)))
-	(fail-parse "V1 and V2 must have same subtype"))
     `(,v1 ,v2 ,mask)))
 
 (define-op-rule (extractelement-constexpr extractelement)
@@ -191,12 +120,6 @@
 			    (v llvm-constant))
 		(v wh?)
 		(v #\)))))
-    (if (not (llvm-typep '(vector ***)
-			 (car val)))
-	(fail-parse-format "EXTRACTELEMENT constexpr 1st arg is vector type, but got: ~a" (car val)))
-    (if (not (llvm-typep '(integer ***)
-			 (car idx)))
-	(fail-parse-format "EXTRACTELEMENT constexpr 2nd arg is integer type, but got: ~a" (car idx)))
     `(,val ,idx)))
 
 (define-op-rule (insertelement-constexpr insertelement)
@@ -210,15 +133,6 @@
 			    (v llvm-constant))
 		(v wh?)
 		(v #\)))))
-    (if (not (llvm-typep '(vector ***)
-			 (car val)))
-	(fail-parse-format "INSERTELEMENT constexpr 1st arg is vector type, but got: ~a" (car val)))
-    (if (not (llvm-typep '(integer ***)
-			 (car idx)))
-	(fail-parse-format "INSERTELEMENT constexpr 3rd arg is integer type, but got: ~a" (car idx)))
-    (if (not (llvm-same-typep (car elt)
-			      (cadar val)))
-	(fail-parse "ELT must be same type as subtype of VAL"))
     `(,val ,elt ,idx)))
 
 
@@ -249,6 +163,6 @@
       special-constexpr))
 
 (define-cg-llvm-rule constant-expression ()
-  `(,(emit-lisp-repr (v llvm-type))
+  `(,(v llvm-type)
      ,(wh constant-expression-value)))
 
