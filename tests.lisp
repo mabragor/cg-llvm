@@ -801,7 +801,6 @@ entry:
 	  (meta-id 0) "metadata !0"
 	  (meta-node (meta-id 0) (meta-id 1) (meta-id 2)) "metadata !{!0, !1, !2}")
 
-;;;;FIXME
 (elt-test fundef-metadatas
 	  (((meta-id "dbg") (meta-id 0)) ((meta-id "asdf") (meta-id 100)))
 	  "!dbg !0 !asdf !100")
@@ -809,7 +808,6 @@ entry:
 (elt-test blockaddresss
 	  (blockaddress "@foo" "%bar") "blockaddress(@foo, %bar )")
 
-;;;;FIXME
 (elt-test (instructions-with-metadata nonfinal-statement)
 	  (= "%indvar.next" (add (integer 64) "%indvar" 1 (:metadata (((meta-id "dbg")
 								       (meta-id 21))))))
