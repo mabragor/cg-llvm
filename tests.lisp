@@ -51,6 +51,7 @@
        (simple-tests ,name
 		     ,@cases))))
 
+;;;;FIXME
 (test basic
   (is (equal 'void (emit-lisp-repr (parse-fun-for-test 'llvm-type "void"))))
   (is (equal 24 (slot-value (parse-fun-for-test 'integer-type "i24") 'nbits)))
@@ -88,7 +89,7 @@
   (is (equal '(pointer (named "%struct.ST"))
 	     (emit-lisp-repr (parse-fun-for-test 'llvm-type "%struct.ST*")))))
     
-
+;;;;FIXME
 (test more-complicated
   (macrolet ((frob (theor expr)
 	       `(is (equal ',theor (emit-lisp-repr (parse-fun-for-test 'llvm-type ,expr))))))
@@ -126,7 +127,7 @@
     (frob (struct ((integer 8) (integer 32)) :packed-p t))
     (frob opaque)))
 
-
+#+nil
 (test emitting-of-text
   (macrolet ((frob (x &optional y)
 	       `(is (equal ,x (emit-text-repr (parse-fun-for-test 'llvm-type ,(or y x)))))))
@@ -330,6 +331,7 @@
 ;;   (frob-context #?"%tmpsel1 = select i1 true, i32 17, i32 42\n"
 ;; 		(select 'true 17 42)))
 
+;;;;FIXME
 (test complex-constants
   (is (equal '((array (integer 8) 3) (((integer 8) 1) ((integer 8) 2) ((integer 8) 3)))
 	     (parse-fun-for-test 'array-constant "[ 3 x i8 ] [ i8 1, i8 2, i8 3 ]")))
@@ -338,6 +340,7 @@
   (is (equal '((array (integer 8) 3) (((integer 8) 97) ((integer 8) 115) ((integer 8) 100) ((integer 8) 102)))
 	     (parse-fun-for-test 'string-constant "[ 3 x i8 ] c\"asdf\""))))
 
+;;;;FIXME
 (elt-test llvm-constants
 	  ((integer 8) 1) "i8 1"
 	  ((integer 32) 42) "i32 42"
@@ -404,7 +407,8 @@
 (elt-test inline-assemblys
   (asm "inline asm goes here") "module asm \"inline asm goes here\""
   (asm "more can go here") "module asm \"more can go here\"")
-  
+
+;;;;FIXME
 (elt-test terminator-instructions
   (ret ((integer 32) 5)) "ret i32 5"
   (ret :void) "ret void"
@@ -418,6 +422,7 @@
   "resume { i8*, i32 } %exn"
   (unreachable) "unreachable")
 
+;;;;FIXME
 (test parsing-binop-instructions
   (macrolet ((frob (x y z)
 	       `(is (equal ',x (parse-fun-for-test ',y ,z)))))
@@ -433,7 +438,8 @@
     (frob (shl (vector (integer 32) 2) (((integer 32) 1) ((integer 32) 1)) (((integer 32) 1) ((integer 32) 2)))
 	  shl-instruction "shl <2 x i32> < i32 1, i32 1>, < i32 1, i32 2>")
     ))
-  
+
+;;;;FIXME
 (test aggregate-instructions
   (macrolet ((frob (x y z)
 	       `(is (equal ',x (parse-fun-for-test ',y ,z)))))
@@ -520,7 +526,8 @@
     ;;   (frob1 nil "[10 x i32], [10 x i32]* @arr, i16 0, i16 0")
     ;;   (frob1 nil "i8, <4 x i8*> %ptrs, <4 x i64> %offsets"))
     ;; ))
-  
+
+;;;;FIXME
 (test conversion-instructions
   (macrolet ((frob (x y)
 	       `(is (equal ',x (parse-fun-for-test 'conversion-instruction ,y)))))
@@ -540,7 +547,7 @@
 	  "bitcast <2 x i32*> %V to <2 x i64*>")
     ))
   
-
+;;;;FIXME
 (test misc-instructions
   (macrolet ((frob (x y z)
 	       `(is (equal ',x (parse-fun-for-test ',y ,z)))))
@@ -593,6 +600,7 @@
   (is (equal '"%entry" (parse-fun-for-test 'block-label "entry:")))
   (is (equal '"%entry" (parse-fun-for-test 'block-label "\"entry\":"))))
 
+;;;;FIXME
 (test basic-blocks
   (macrolet ((frob (x y)
 	       `(is (equal ',x (parse-fun-for-test 'basic-block ,y)))))
@@ -638,6 +646,7 @@
   ret double %calltmp")
     ))
 
+;;;;FIXME
 (test function-definitions
   (macrolet ((frob (x y)
 	       `(is (equal ',x (parse-fun-for-test 'function-definition ,y)))))
@@ -693,7 +702,7 @@ entry:
   (target-triple (:ARCH "x86_64") (:VENDOR "pc") (:SYSTEM "linux"))
   "target triple = \"x86_64-pc-linux\"")
     
-
+;;;;FIXME
 (test global-variable-definition
   (macrolet ((frob (x y)
 	       `(is (equal ',x (parse-fun-for-test 'global-variable-definition ,y)))))
@@ -779,6 +788,7 @@ entry:
 	  "declare i8* @llvm.invariant.group.barrier(i8*)")
     ))
 
+;;;;FIXME
 (test constant-expressions
   (macrolet ((frob (x y)
 	       `(is (equal ',x (parse-fun-for-test 'constant-expression-value ,y)))))
@@ -791,13 +801,15 @@ entry:
 	  (meta-id 0) "metadata !0"
 	  (meta-node (meta-id 0) (meta-id 1) (meta-id 2)) "metadata !{!0, !1, !2}")
 
+;;;;FIXME
 (elt-test fundef-metadatas
 	  (((meta-id "dbg") (meta-id 0)) ((meta-id "asdf") (meta-id 100)))
 	  "!dbg !0 !asdf !100")
 
 (elt-test blockaddresss
 	  (blockaddress "@foo" "%bar") "blockaddress(@foo, %bar )")
-	  
+
+;;;;FIXME
 (elt-test (instructions-with-metadata nonfinal-statement)
 	  (= "%indvar.next" (add (integer 64) "%indvar" 1 (:metadata (((meta-id "dbg")
 								       (meta-id 21))))))

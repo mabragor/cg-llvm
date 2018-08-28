@@ -11,7 +11,10 @@
 (define-cg-llvm-rule metadata-identifier ()
   (v #\!)
   `(meta-id
-    ,(parse-integer (v identifier-body))))
+    ,(let ((uh (v identifier-body)))
+	  (handler-case 
+	      (parse-integer uh)
+	    (error () uh))))) ;;;;FIXME::better way to have integers and strings?
 
 (define-cg-llvm-rule metadata-node ()
   (v #\!)
