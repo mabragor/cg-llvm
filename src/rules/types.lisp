@@ -4,21 +4,54 @@
 
 (in-package #:cg-llvm)
 
-#+nil
+;#+nil
 (defgeneric emit-lisp-repr (obj)
   (:documentation "Emit cons-style representation of the object"))
+
+(defmethod emit-lisp-repr ((obj t))
+  obj)
 
 #+nil
 (defgeneric emit-text-repr (obj)
   (:documentation "Emit text-style representation of the object"))
 
-(defclass llvm-type ()
-  ())
-(defclass llvm-void-type (llvm-type) ())
-(defclass llvm-function-type (llvm-type)
-  ((ret-type :initarg :ret-type)
-   (param-types :initarg :param-types)
-   (vararg-p :initarg :vararg-p)))
+(progn
+  (defclass llvm-type ()
+    ())
+  (defclass llvm-void-type (llvm-type) ())
+  ;;#+nil
+  (defmethod emit-lisp-repr ((obj llvm-void-type))
+    'void)
+
+  #+nil
+  (defmethod emit-text-repr ((obj llvm-void-type))
+    "void"))
+
+(progn
+  (defclass llvm-function-type (llvm-type)
+    ((ret-type :initarg :ret-type)
+     (param-types :initarg :param-types)
+     (vararg-p :initarg :vararg-p)))
+
+  (defmethod emit-lisp-repr ((obj llvm-function-type))
+    (with-slots (ret-type param-types vararg-p) obj
+      `(function ,(emit-lisp-repr ret-type) ,(mapcar #'emit-lisp-repr param-types)
+		 :vararg-p ,vararg-p)))
+
+  #+nil
+  (defmethod emit-text-repr ((obj llvm-function-type))
+    (with-slots (ret-type param-types vararg-p) obj
+      (if (not vararg-p)
+	  (format nil "~a (~{~a~^, ~})" (emit-text-repr ret-type) (mapcar #'emit-text-repr param-types))
+	  (format nil "~a (~{~a, ~}...)" (emit-text-repr ret-type) (mapcar #'emit-text-repr param-types))))))
+
+
+(progn
+  (defclass llvm-named-type (llvm-type)
+    ((name :initarg :name :initform "You should specify the name of the named type")))
+
+  (defmethod emit-lisp-repr ((obj llvm-named-type))
+    `(named ,(emit-lisp-repr (slot-value obj 'name)))))
 
 (defclass typed-value ()
   ((type :initform (error "You should specify the LLVM type of the value")
@@ -28,28 +61,6 @@
 
 (defclass llvm-no-value (llvm-type)
   ())
-
-#+nil
-(defmethod emit-lisp-repr ((obj llvm-void-type))
-  'void)
-
-#+nil
-(defmethod emit-lisp-repr ((obj llvm-function-type))
-  (with-slots (ret-type param-types vararg-p) obj
-    `(function ,(emit-lisp-repr ret-type) ,(mapcar #'emit-lisp-repr param-types)
-	       :vararg-p ,vararg-p)))
-
-
-#+nil
-(defmethod emit-text-repr ((obj llvm-void-type))
-  "void")
-
-#+nil
-(defmethod emit-text-repr ((obj llvm-function-type))
-  (with-slots (ret-type param-types vararg-p) obj
-    (if (not vararg-p)
-	(format nil "~a (~{~a~^, ~})" (emit-text-repr ret-type) (mapcar #'emit-text-repr param-types))
-	(format nil "~a (~{~a, ~}...)" (emit-text-repr ret-type) (mapcar #'emit-text-repr param-types)))))
 
 (defclass llvm-first-class-type (llvm-type) ())
 
@@ -69,182 +80,191 @@
 	((or (symbolp x) (consp x)) (aggregate-type-p (parse-lisp-repr x)))
 	(t nil)))
 
+(progn
+  (defclass llvm-integer (llvm-first-class-type)
+    ((nbits :initarg :nbits)))
+  ;;#+nil
+  (defmethod emit-lisp-repr ((obj llvm-integer))
+    `(integer ,(emit-lisp-repr (slot-value obj 'nbits))))
 
-(defclass llvm-integer (llvm-first-class-type)
-  ((nbits :initarg :nbits)))
-(defvar max-nbits (1- (expt 2 23)))
-(defun llvm-integer (nbits)
-  (if (or (not (integerp nbits))
-	  (< nbits 1)
-	  (> nbits max-nbits))
-      (error "NBITS argument should be positive integer not greater than ~a ~a" max-nbits nbits))
-  (make-instance 'llvm-integer :nbits nbits))
-
-#+nil
-(defmethod emit-lisp-repr ((obj llvm-integer))
-  `(integer ,(slot-value obj 'nbits)))
-
-#+nil
-(defmethod emit-text-repr ((obj llvm-integer))
-  ;;#"i$((slot-value obj 'nbits))"
-  (interpol
-   "i"
-   (slot-value obj 'nbits)))
-
-(defclass llvm-float (llvm-first-class-type)
-  ((nbits :initarg :nbits)
-   (mantissa :initarg :mantissa :initform 0)))
-#+nil
-(defun llvm-float (str)
-  (flet ((frob (nbits &optional (mantissa (/ nbits 2)))
-	   (make-instance 'llvm-float :nbits nbits :mantissa mantissa)))
-    (cond ((string= "half" str) (frob 16))
-	  ((string= "float" str) (frob 32))
-	  ((string= "double" str) (frob 64))
-	  ((string= "fp128" str) (frob 128 112))
-	  ((string= "x86_fp80" str) (frob 80))
-	  ((string= "ppc_fp128" str) (frob 128))
-	  (t (error "Unknown floating point specifier: ~a" sym)))))
-
-#+nil
-(defmethod emit-lisp-repr ((obj llvm-float))
-  `(float ,(slot-value obj 'nbits) ,(slot-value obj 'mantissa)))
-
-#+nil
-(defmethod emit-text-repr ((obj llvm-float))
-  (with-slots (nbits mantissa) obj
-    (cond ((and (equal 16 nbits) (equal 8 mantissa)) "half")
-	  ((and (equal 32 nbits) (equal 16 mantissa)) "float")
-	  ((and (equal 64 nbits) (equal 32 mantissa)) "double")
-	  ((and (equal 128 nbits) (equal 112 mantissa)) "fp128")
-	  ((and (equal 80 nbits) (equal 40 mantissa)) "x86_fp80")
-	  ((and (equal 128 nbits) (equal 64 mantissa)) "ppc_fp128")
-	  (t (error "Don't know how to represent given float as text: ~a ~a" nbits mantissa)))))
-
-(defclass llvm-x86-mmx (llvm-first-class-type) ())
-
-#+nil
-(defmethod emit-lisp-repr ((obj llvm-x86-mmx))
-  'x86-mmx)
-
-#+nil
-(defmethod emit-text-repr ((obj llvm-x86-mmx))
-  "x86_mmx")
-
-(defclass llvm-pointer (llvm-first-class-type)
-  ((pointee :initarg :pointee)
-   (address-space :initform 0 :initarg :address-space)))
-
-#+nil
-(defmethod emit-lisp-repr ((obj llvm-pointer))
-  (with-slots (pointee address-space) obj
-    `(pointer ,(emit-lisp-repr pointee)
-	      ,@(if (not (equal 0 address-space))
-		    `(,address-space)))))
-
-#+nil
-(defmethod emit-text-repr ((obj llvm-pointer))
-  (with-slots (pointee address-space) obj
-    (if (equal 0 address-space)
-	;;#"$((emit-text-repr pointee))*"
-	(interpol
-	 (emit-text-repr pointee)
-	 "*")
-	;;#"$((emit-text-repr pointee)) addrspace($(address-space))*"
-	(interpol
-	 (emit-text-repr pointee)
-	 " addrspace("
-	 address-space
-	 ")*"))))
-
-
-(defun coerce-to-llvm-type (smth)
-  (cond ((typep smth 'llvm-type) smth)
-	((stringp smth) (cg-llvm-parse 'llvm-type smth))
-	((or (consp smth) (symbolp smth)) (parse-lisp-repr smth))
-	((typep smth 'typed-value) (slot-value smth 'type))
-	(t (error "Don't know how to coerce this to LLVM type: ~a" smth))))
-
-(defun llvm-pointer (pointee &optional addrspace)
-  (let ((pointee (coerce-to-llvm-type pointee)))
-    (cond ((typep pointee 'llvm-void-type)
-	   (progn (warn "When declaring pointer type, VOID-typed pointee encountered, coercing to i8")
-		  (setf pointee (llvm-integer 8))))
-	  ((typep pointee 'llvm-label)
-	   (progn (warn "When declaring pointer type, LABEL-typed pointee encountered, coercing to i8")
-		  (setf pointee (llvm-integer 8)))))
-    (make-instance 'llvm-pointer :pointee pointee
-		   :address-space (or addrspace 0))))
-
-(defclass llvm-vector (llvm-first-class-type)
-  ((num-elts :initarg :num-elts)
-   (elt-type :initarg :elt-type)))
-(defun llvm-vector (n type)
-  (if (or (not (integerp n))
-	  (<= n 0))
-      (error "Number of elements N should be integer greater than zero"))
-  (let ((type (coerce-to-llvm-type type)))
-    (if (not (or (typep type 'llvm-integer)
-		 (typep type 'llvm-float)
-		 (typep type 'llvm-pointer)))
-	(error "Element type of vector should be integer, float or pointer, but got/deduced ~a" type))
-    (make-instance 'llvm-vector :num-elts n :elt-type type)))
-
-#+nil
-(defmethod emit-lisp-repr ((obj llvm-vector))
-  (with-slots (num-elts elt-type) obj
-    `(vector ,(emit-lisp-repr elt-type) ,num-elts)))
-
-#+nil
-(defmethod emit-text-repr ((obj llvm-vector))
-  (with-slots (num-elts elt-type) obj
-    ;;#"<$(num-elts) x $((emit-text-repr elt-type))>"
+  #+nil
+  (defmethod emit-text-repr ((obj llvm-integer))
+    ;;#"i$((slot-value obj 'nbits))"
     (interpol
-     "<"
-     num-elts
-     " x "
-     (emit-text-repr elt-type)
-     ">")))
+     "i"
+     (slot-value obj 'nbits)))
+  
+  (defvar max-nbits (1- (expt 2 23)))
+  (defun llvm-integer (nbits)
+    (if (or (not (integerp nbits))
+	    (< nbits 1)
+	    (> nbits max-nbits))
+	(error "NBITS argument should be positive integer not greater than ~a ~a" max-nbits nbits))
+    (make-instance 'llvm-integer :nbits nbits)))
 
-(defclass llvm-label (llvm-first-class-type) ())
-(defclass llvm-metadata (llvm-first-class-type) ())
+(progn
+  (progn
+    (defclass llvm-float (llvm-first-class-type)
+      ((nbits :initarg :nbits)
+       (mantissa :initarg :mantissa :initform 0)))
 
-#+nil
-(defmethod emit-lisp-repr ((obj llvm-label))
-  'label)
-#+nil
-(defmethod emit-lisp-repr ((obj llvm-metadata))
-  'metadata)
+    ;;#+nil
+    (defmethod emit-lisp-repr ((obj llvm-float))
+      `(float ,(emit-lisp-repr (slot-value obj 'nbits))
+	      ,(emit-lisp-repr (slot-value obj 'mantissa))))
 
-#+nil
-(defmethod emit-text-repr ((obj llvm-label))
-  "label")
-#+nil
-(defmethod emit-text-repr ((obj llvm-metadata))
-  "metadata")
+    #+nil
+    (defmethod emit-text-repr ((obj llvm-float))
+      (with-slots (nbits mantissa) obj
+	(cond ((and (equal 16 nbits) (equal 8 mantissa)) "half")
+	      ((and (equal 32 nbits) (equal 16 mantissa)) "float")
+	      ((and (equal 64 nbits) (equal 32 mantissa)) "double")
+	      ((and (equal 128 nbits) (equal 112 mantissa)) "fp128")
+	      ((and (equal 80 nbits) (equal 40 mantissa)) "x86_fp80")
+	      ((and (equal 128 nbits) (equal 64 mantissa)) "ppc_fp128")
+	      (t (error "Don't know how to represent given float as text: ~a ~a" nbits mantissa))))))
+
+  
+  (defun llvm-float (str)
+    (flet ((frob (nbits &optional (mantissa (/ nbits 2)))
+	     (make-instance 'llvm-float :nbits nbits :mantissa mantissa)))
+      (cond ((string= "half" str) (frob 16))
+	    ((string= "float" str) (frob 32))
+	    ((string= "double" str) (frob 64))
+	    ((string= "fp128" str) (frob 128 112))
+	    ((string= "x86_fp80" str) (frob 80))
+	    ((string= "ppc_fp128" str) (frob 128))
+	    (t (error "Unknown floating point specifier: ~a" str))))))
+
+(progn
+  (defclass llvm-x86-mmx (llvm-first-class-type) ())
+
+  ;;#+nil
+  (defmethod emit-lisp-repr ((obj llvm-x86-mmx))
+    'x86-mmx)
+
+  #+nil
+  (defmethod emit-text-repr ((obj llvm-x86-mmx))
+    "x86_mmx"))
+
+(progn
+  (progn
+    (defclass llvm-pointer (llvm-first-class-type)
+      ((pointee :initarg :pointee)
+       (address-space :initform 0 :initarg :address-space)))
+
+    ;;#+nil
+    (defmethod emit-lisp-repr ((obj llvm-pointer))
+      (with-slots (pointee address-space) obj
+	`(pointer ,(emit-lisp-repr pointee)
+		  ,@(if (not (equal 0 address-space))
+			`(,address-space)))))
+
+    #+nil
+    (defmethod emit-text-repr ((obj llvm-pointer))
+      (with-slots (pointee address-space) obj
+	(if (equal 0 address-space)
+	    ;;#"$((emit-text-repr pointee))*"
+	    (interpol
+	     (emit-text-repr pointee)
+	     "*")
+	    ;;#"$((emit-text-repr pointee)) addrspace($(address-space))*"
+	    (interpol
+	     (emit-text-repr pointee)
+	     " addrspace("
+	     address-space
+	     ")*")))))
+
+  (defun llvm-pointer (pointee &optional addrspace)
+    (let ((pointee (coerce-to-llvm-type pointee)))
+      (cond ((typep pointee 'llvm-void-type)
+	     (progn
+	       (warn "When declaring pointer type, VOID-typed pointee encountered, coercing to i8")
+	       (setf pointee (llvm-integer 8))))
+	    ((typep pointee 'llvm-label)
+	     (progn
+	       (warn "When declaring pointer type, LABEL-typed pointee encountered, coercing to i8")
+	       (setf pointee (llvm-integer 8)))))
+      (make-instance 'llvm-pointer :pointee pointee
+		     :address-space (or addrspace 0)))))
+
+(progn
+  (progn
+    (defclass llvm-vector (llvm-first-class-type)
+      ((num-elts :initarg :num-elts)
+       (elt-type :initarg :elt-type)))
+
+    ;;#+nil
+    (defmethod emit-lisp-repr ((obj llvm-vector))
+      (with-slots (num-elts elt-type) obj
+	`(vector ,(emit-lisp-repr elt-type)
+		 ,(emit-lisp-repr num-elts))))
+
+    #+nil
+    (defmethod emit-text-repr ((obj llvm-vector))
+      (with-slots (num-elts elt-type) obj
+	;;#"<$(num-elts) x $((emit-text-repr elt-type))>"
+	(interpol
+	 "<"
+	 num-elts
+	 " x "
+	 (emit-text-repr elt-type)
+	 ">"))))
+  (defun llvm-vector (n type)
+    (if (or (not (integerp n))
+	    (<= n 0))
+	(error "Number of elements N should be integer greater than zero"))
+    (let ((type (coerce-to-llvm-type type)))
+      (if (not (or (typep type 'llvm-integer)
+		   (typep type 'llvm-float)
+		   (typep type 'llvm-pointer)))
+	  (error "Element type of vector should be integer, float or pointer, but got/deduced ~a" type))
+      (make-instance 'llvm-vector :num-elts n :elt-type type))))
+
+(progn
+  (defclass llvm-label (llvm-first-class-type) ())
+  ;;#+nil
+  (defmethod emit-lisp-repr ((obj llvm-label))
+    'label)
+
+  #+nil
+  (defmethod emit-text-repr ((obj llvm-label))
+    "label"))
+
+(progn
+  (defclass llvm-metadata (llvm-first-class-type) ())
+  ;;#+nil
+  (defmethod emit-lisp-repr ((obj llvm-metadata))
+    'metadata)
+
+  #+nil
+  (defmethod emit-text-repr ((obj llvm-metadata))
+    "metadata"))
 
 (defclass llvm-aggregate-type (llvm-first-class-type) ())
 
-(defclass llvm-array (llvm-aggregate-type)
-  ((num-elts :initarg :num-elts)
-   (elt-type :initarg :elt-type)))
+(progn
+  (defclass llvm-array (llvm-aggregate-type)
+    ((num-elts :initarg :num-elts)
+     (elt-type :initarg :elt-type)))
 
-#+nil
-(defmethod emit-lisp-repr ((obj llvm-array))
-  (with-slots (num-elts elt-type) obj
-    `(array ,(emit-lisp-repr elt-type) ,num-elts)))
+  ;;#+nil
+  (defmethod emit-lisp-repr ((obj llvm-array))
+    (with-slots (num-elts elt-type) obj
+      `(array ,(emit-lisp-repr elt-type)
+	      ,(emit-lisp-repr num-elts))))
 
-#+nil
-(defmethod emit-text-repr ((obj llvm-array))
-  (with-slots (num-elts elt-type) obj
-    ;;#"[$(num-elts) x $((emit-text-repr elt-type))]"
-    (interpol
-     "["
-     num-elts
-     " x "
-     (emit-text-repr elt-type)
-     "]")
-    ))
+  #+nil
+  (defmethod emit-text-repr ((obj llvm-array))
+    (with-slots (num-elts elt-type) obj
+      ;;#"[$(num-elts) x $((emit-text-repr elt-type))]"
+      (interpol
+       "["
+       num-elts
+       " x "
+       (emit-text-repr elt-type)
+       "]")
+      )))
 
 (defun llvm-sizey-type-p (type)
   t)
@@ -258,49 +278,57 @@
 	(error "Array elt type should have a size, but got/deduced type ~a doesn't" type))
     (make-instance 'llvm-array :num-elts n :elt-type type)))
 
-(defclass llvm-struct (llvm-aggregate-type)
-  ((elt-types :initarg :elt-types)
-   (packed-p :initarg :packed-p)))
+(progn
+  (progn
+    (defclass llvm-struct (llvm-aggregate-type)
+      ((elt-types :initarg :elt-types)
+       (packed-p :initarg :packed-p)))
 
-#+nil
-(defmethod emit-lisp-repr ((obj llvm-struct))
-  (with-slots (elt-types packed-p) obj
-    `(struct ,(mapcar #'emit-lisp-repr elt-types)
-	     :packed-p ,packed-p)))
+    ;;#+nil
+    (defmethod emit-lisp-repr ((obj llvm-struct))
+      (with-slots (elt-types packed-p) obj
+	`(struct ,(mapcar #'emit-lisp-repr elt-types)
+		 :packed-p ,packed-p)))
 
-#+nil
-(defmethod emit-text-repr ((obj llvm-struct))
-  (with-slots (elt-types packed-p) obj
-    (if (not packed-p)
-	(format nil "{~{~a~^, ~}}" (mapcar #'emit-text-repr elt-types))
-	(format nil "<{~{~a~^, ~}}>" (mapcar #'emit-text-repr elt-types)))))
+    #+nil
+    (defmethod emit-text-repr ((obj llvm-struct))
+      (with-slots (elt-types packed-p) obj
+	(if (not packed-p)
+	    (format nil "{~{~a~^, ~}}" (mapcar #'emit-text-repr elt-types))
+	    (format nil "<{~{~a~^, ~}}>" (mapcar #'emit-text-repr elt-types))))))
 
+  (progn
+    (defclass llvm-opaque-struct () ())
 
-(defclass llvm-opaque-struct () ())
+    ;;#+nil
+    (defmethod emit-lisp-repr ((obj llvm-opaque-struct))
+      'opaque)
 
-#+nil
-(defmethod emit-lisp-repr ((obj llvm-opaque-struct))
-  'opaque)
+    #+nil
+    (defmethod emit-text-repr ((obj llvm-opaque-struct))
+      "opaque"))
 
-#+nil
-(defmethod emit-text-repr ((obj llvm-opaque-struct))
-  "opaque")
-
-(defun llvm-struct (&rest types)
-  (destructuring-bind (packed-p opaque-p . types) (parse-out-keywords '(:packed-p :opaque-p) types)
-    (if opaque-p
-	(progn (if (or packed-p types)
-		   (error "Struct specified to be opaque, but also contains some other specifications"))
-	       (make-instance 'llvm-opaque-struct))
-	(make-instance 'llvm-struct :packed-p packed-p
-		       :elt-types
-		       (iter (for type in types)
-			     (let ((type (coerce-to-llvm-type type)))
-			       (if (not (llvm-sizey-type-p type))
-				   (error "Struct elt type should have a size,
+  (defun llvm-struct (&rest types)
+    (destructuring-bind (packed-p opaque-p . types) (parse-out-keywords '(:packed-p :opaque-p) types)
+      (if opaque-p
+	  (progn (if (or packed-p types)
+		     (error "Struct specified to be opaque, but also contains some other specifications"))
+		 (make-instance 'llvm-opaque-struct))
+	  (make-instance 'llvm-struct :packed-p packed-p
+			 :elt-types
+			 (iter (for type in types)
+			       (let ((type (coerce-to-llvm-type type)))
+				 (if (not (llvm-sizey-type-p type))
+				     (error "Struct elt type should have a size,
                                            but got/deduced type ~a doesn't" type))
-			       (collect type)))))))
+				 (collect type))))))))
 
+(defun coerce-to-llvm-type (smth)
+  (cond ((typep smth 'llvm-type) smth)
+	((stringp smth) (cg-llvm-parse 'llvm-type smth))
+	((or (consp smth) (symbolp smth)) (parse-lisp-repr smth))
+	((typep smth 'typed-value) (slot-value smth 'type))
+	(t (error "Don't know how to coerce this to LLVM type: ~a" smth))))
 
 ;;; parsing
 
@@ -455,12 +483,6 @@
   (list (recap a)
 	(recap b)))
 
-(defclass llvm-named-type (llvm-type)
-  ((name :initarg :name :initform "You should specify the name of the named type")))
-
-(defmethod emit-lisp-repr ((obj llvm-named-type))
-  `(named ,(slot-value obj 'name)))
-
 (define-cg-llvm-rule nonpointer-type ()
   (|| (|| void-type
 	  function-type
@@ -526,6 +548,7 @@
     (otherwise (error "Do not know how to parse form ~a" expr))))
 
 (defmethod emit-lisp-repr ((smth cons))
-  smth)
+  (cons (emit-lisp-repr (car smth))
+	(emit-lisp-repr (cdr smth))))
 (defmethod emit-lisp-repr ((smth symbol))
   smth)

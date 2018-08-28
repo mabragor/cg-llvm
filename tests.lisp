@@ -24,10 +24,11 @@
 (in-suite* cg-llvm)
 
 (defun parse-fun-for-test (exp text)
-  (cg-llvm:cg-llvm-parse
-   (find-symbol (string exp)
-	   (find-package "CG-LLVM"))
-   text))
+  (emit-lisp-repr
+   (cg-llvm:cg-llvm-parse
+    (find-symbol (string exp)
+		 (find-package "CG-LLVM"))
+    text)))
 
 (defun run-tests ()
   (let ((results (run 'cg-llvm)))
@@ -140,6 +141,7 @@
     (frob "i32 (i8*, ...)") (frob "{i32, i32} (i32)")
     ))
 
+#+nil
 (test wildcard-equal
   (macrolet ((frob (x y z)
 	       `(is (equal ,x (wildcard-equal ',y ',z)))))
