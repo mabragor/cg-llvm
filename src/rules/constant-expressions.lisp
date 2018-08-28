@@ -29,7 +29,7 @@
 (define-cast-constexpr uitofp)
 (define-cast-constexpr sitofp)
 (define-cast-constexpr ptrtoint)
-(define-cast-constexpr inttopt)
+(define-cast-constexpr inttoptr)
 
 (define-cast-constexpr bitcast)
 (define-cast-constexpr addrspacecast)

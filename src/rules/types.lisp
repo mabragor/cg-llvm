@@ -126,15 +126,16 @@
 
   
   (defun llvm-float (str)
-    (flet ((frob (nbits &optional (mantissa (/ nbits 2)))
-	     (make-instance 'llvm-float :nbits nbits :mantissa mantissa)))
-      (cond ((string= "half" str) (frob 16))
-	    ((string= "float" str) (frob 32))
-	    ((string= "double" str) (frob 64))
-	    ((string= "fp128" str) (frob 128 112))
-	    ((string= "x86_fp80" str) (frob 80))
-	    ((string= "ppc_fp128" str) (frob 128))
-	    (t (error "Unknown floating point specifier: ~a" str))))))
+    (let ((str (string-downcase (string str)))) ;;;;FIXME:: symbol to string conversion is nasty
+      (flet ((frob (nbits &optional (mantissa (/ nbits 2)))
+	       (make-instance 'llvm-float :nbits nbits :mantissa mantissa)))
+	(cond ((string= "half" str) (frob 16))
+	      ((string= "float" str) (frob 32))
+	      ((string= "double" str) (frob 64))
+	      ((string= "fp128" str) (frob 128 112))
+	      ((string= "x86_fp80" str) (frob 80))
+	      ((string= "ppc_fp128" str) (frob 128))
+	      (t (error "Unknown floating point specifier: ~s" str)))))))
 
 (progn
   (defclass llvm-x86-mmx (llvm-first-class-type) ())
