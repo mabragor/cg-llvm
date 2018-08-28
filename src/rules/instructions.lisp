@@ -679,14 +679,15 @@
 	    (return-attrs (?wh 
 			       (v parameter-attrs)))
 	    (type (wh llvm-type))
-	    (ftype (?wh (v llvm-type)))
+	    ;;(ftype (?wh (v llvm-type))) ;;FIXME:two types?
 	    (fnptrval (wh llvm-identifier))
 	    (args (wh? (white-paren
 			 (? funcall-args))))
 	    (fun-attrs (?wh 
 			    (v fun-attrs))))
 	`(call ,type ,fnptrval ,args
-	       ,@(%%inject-kwds-if-nonnil cconv return-attrs ftype fun-attrs tail))))))
+	       ,@(%%inject-kwds-if-nonnil cconv return-attrs ;;ftype
+					  fun-attrs tail))))))
 
 (define-cg-llvm-rule usual-funcall-arg ()
   (let ((instr-arg (v instr-arg))

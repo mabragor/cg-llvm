@@ -334,10 +334,14 @@
 ;;; parsing
 
 (define-cg-llvm-rule pos-integer ()
-  (parse-integer (text (postimes ns-dec-digit))))
+  (let ((text (text (postimes ns-dec-digit))))
+    (! #\.) ;;prevent floats ;;FIXME
+    (parse-integer text)))
 
 (define-cg-llvm-rule integer ()
-  (parse-integer (text (? "-") (postimes ns-dec-digit))))
+  (let ((text (text (? "-") (postimes ns-dec-digit))))
+    (! #\.) ;;prevent floats ;;FIXME
+    (parse-integer text)))
 
 (define-cg-llvm-rule integer-type ()
   (v #\i)
@@ -409,7 +413,10 @@
 ;; TODO: smart pointer parsing
 
 (define-cg-llvm-rule simple-int ()
-  (parse-integer (text (postimes ns-dec-digit))))
+  (let ((text (text (postimes ns-dec-digit))))
+    ;;prevent floats ;;FIXME
+    (! #\.)
+    (parse-integer text)))
 
 (define-cg-llvm-rule white-x-white ()
   (with-whitespace #\x))

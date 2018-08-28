@@ -107,10 +107,9 @@
     (frob (function (struct ((integer 32) (integer 32)) :packed-p nil) ((integer 32)) :vararg-p nil)
 	  "{i32, i32} (i32)")))
 
-
 (test parsing-of-s-exps
   (macrolet ((frob (x)
-	       `(is (equal ',x (noop (parse-lisp-repr ',x))))))
+	       `(is (equal ',x (emit-lisp-repr (parse-lisp-repr ',x))))))
     (frob (integer 32))
     (frob (pointer (integer 32) 5))
     (frob (pointer (function (integer 32) ((pointer (integer 32))) :vararg-p nil)))
@@ -542,8 +541,7 @@
     (frob (bitcast "%V" (vector (pointer (integer 32)) 2) (vector (pointer (integer 64)) 2))
 	  "bitcast <2 x i32*> %V to <2 x i64*>")
     ))
-  
-;;;;FIXME
+
 (test misc-instructions
   (macrolet ((frob (x y z)
 	       `(is (equal ',x (parse-fun-for-test ',y ,z)))))
@@ -586,17 +584,17 @@
     ;; (frob nil ; types can be specified through local variables, that makes parsing
     ;; 	  ; context-sensitive
     ;; 	  call-instruction "call %struct.A @foo()")
+
     (frob (call void "@foo" nil (:fun-attrs (:noreturn)))
 	  call-instruction "call void @foo() noreturn")
     (frob (call (integer 32) "@bar" nil (:return-attrs (:zeroext)))
-	  call-instruction "call zeroext i32 @bar()")
-    ))
+	  call-instruction "call zeroext i32 @bar()"))
+  )
 
 (test block-labels
   (is (equal '"%entry" (parse-fun-for-test 'block-label "entry:")))
   (is (equal '"%entry" (parse-fun-for-test 'block-label "\"entry\":"))))
 
-;;;;FIXME
 (test basic-blocks
   (macrolet ((frob (x y)
 	       `(is (equal ',x (parse-fun-for-test 'basic-block ,y)))))
@@ -697,7 +695,6 @@ entry:
   (target-triple (:ARCH "x86_64") (:VENDOR "pc") (:SYSTEM "linux"))
   "target triple = \"x86_64-pc-linux\"")
     
-;;;;FIXME
 (test global-variable-definition
   (macrolet ((frob (x y)
 	       `(is (equal ',x (parse-fun-for-test 'global-variable-definition ,y)))))
