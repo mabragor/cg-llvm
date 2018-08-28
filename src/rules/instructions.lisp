@@ -76,10 +76,10 @@
   (|| valued-return
       nonvalued-return))
 
-(define-simple-instruction-rule (conditional-branch br)
+(define-simple-instruction-rule (unconditional-branch br)
     (x))
 
-(define-simple-instruction-rule (unconditional-branch br)
+(define-simple-instruction-rule (conditional-branch br)
     (cond 
      iftrue 
      iffalse))

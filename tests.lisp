@@ -408,7 +408,6 @@
   (asm "inline asm goes here") "module asm \"inline asm goes here\""
   (asm "more can go here") "module asm \"more can go here\"")
 
-;;;;FIXME
 (elt-test terminator-instructions
   (ret ((integer 32) 5)) "ret i32 5"
   (ret :void) "ret void"
