@@ -537,16 +537,10 @@
     (let ((indices (v geteltptr-indices)))
       `(,ptrval ,@indices))))
 
-;; TODO : we do not check correct types of indices of getelementptr
-;; at this stage, as this would require keeping track of symbol table
-;; (for named types) as we go along.
-;; This, apparently, should be done at later stages of the transformation
 (define-plural-rule geteltptr-indices geteltptr-index white-comma)
 
 (define-cg-llvm-rule geteltptr-index ()
-  (let ((type (emit-lisp-repr (v llvm-type))))
-    (if (not (llvm-typep '(integer ***) type))
-	(fail-parse "Geteltptr index is not an integer"))
+  (let ((type (v llvm-type)))
     (let ((what (wh (|| integer llvm-identifier))))
       (list type what))))
 
@@ -567,37 +561,7 @@
 
 (define-lvalue-instruction-alternative conversion)
 
-(defun both-integers (type1 type2)
-  (and (llvm-typep '(integer ***) type1)
-       (llvm-typep '(integer ***) type2)))
-
-(defun first-bitsize-larger (type1 type2)
-  (> (cadr type1)
-     (cadr type2)))
-
-(defun first-bitsize-smaller (type1 type2)
-  (< (cadr type1)
-     (cadr type2)))
-
-(defun both-vector-integers (type1 type2)
-  (and (llvm-typep '(vector (integer ***) *)
-		   type1)
-       (llvm-typep '(vector (integer ***) *)
-		   type2)))
-
-(defun have-same-size (type1 type2)
-  (equal (caddr type1)
-	 (caddr type2)))
-
-(defun have-different-addrspaces (type1 type2)
-  (not (equal (if (equal 3 (length type1))
-		  (caddr type1)
-		  0)
-	      (if (equal 3 (length type2))
-		  (caddr type2)
-		  0))))
-
-(defmacro define-cast-instruction (name &body constraints)
+(defmacro define-cast-instruction (name)
   (let ((rule-name (intern ;;#"$((string name))-TO-INSTRUCTION"
 		    (interpol
 		     (string name)
@@ -607,94 +571,26 @@
 	 (v whitespace)
 	 (v "to")
 	 (v whitespace)
-	 (let ((type2 (emit-lisp-repr (v llvm-type))))
-	   ,@constraints
+	 (let ((type2 (v llvm-type)))
 	   `(,value ,type1 ,type2))))))
 
+(define-cast-instruction trunc)
+(define-cast-instruction zext)
+(define-cast-instruction sext)
 
-(defmacro define-simple-based (type1 type2)
-  `(defmacro ,(intern ;;#"$((string type1))->$((string type2))-BASED"
-	       (interpol
-		(string type1)
-		"->"
-		(string type2)
-		"-BASED"))
-       (&optional condition)
-     `(or (and (llvm-typep '(,',type1 ***) type1)
-	       (llvm-typep '(,',type2 ***) type1)
-	       ,@(if condition `((,condition type1 type2))))
-	  (and (llvm-typep '(vector (,',type1 ***) *) type1)
-	       (llvm-typep '(vector (,',type2 *) *) type2)
-	       (have-same-size type1 type2)
-	       ,@(if condition `((,condition (cadr type1) (cadr type2))))))))
+(define-cast-instruction fptrunc)
+(define-cast-instruction fpext)
 
+(define-cast-instruction fptoui)
+(define-cast-instruction fptosi)
+(define-cast-instruction uitofp)
+(define-cast-instruction sitofp)
+(define-cast-instruction ptrtoint)
+(define-cast-instruction inttoptr)
 
-(define-simple-based integer integer)
-(define-simple-based float float)
+(define-cast-instruction bitcast)
 
-(define-cast-instruction trunc (integer->integer-based first-bitsize-larger))
-(define-cast-instruction zext (integer->integer-based first-bitsize-smaller))
-(define-cast-instruction sext (integer->integer-based first-bitsize-smaller))
-
-(define-cast-instruction fptrunc (float->float-based first-bitsize-larger))
-(define-cast-instruction fpext (float->float-based first-bitsize-smaller))
-
-(define-simple-based float integer)
-(define-simple-based integer float)
-(define-simple-based pointer integer)
-(define-simple-based integer pointer)
-
-(define-cast-instruction fptoui (float->integer-based))
-(define-cast-instruction fptosi (float->integer-based))
-(define-cast-instruction uitofp (integer->float-based))
-(define-cast-instruction sitofp (integer->float-based))
-(define-cast-instruction ptrtoint (pointer->integer-based))
-(define-cast-instruction inttoptr (integer->pointer-based))
-
-(defun pointer-pointer-check (type1 type2)
-  (if (not (llvm-typep '(pointer ***) type2))
-      (fail-parse-format "Second type should also be pointer, but got ~a" type2)
-      (if (have-different-addrspaces type1 type2)
-	  (fail-parse-format "Both pointer types should have same addrspace"))))
-
-(defun vector-check (type1 type2)
-  (if (not (llvm-typep '(vector ***) type2))
-      (fail-parse-format "Second type should also be a vector, but got ~a" type2)
-      (if (not (equal (caddr type1) (caddr type2)))
-	  (fail-parse-format "Lengths of vectors should match, but got ~a and ~a" (caddr type1) (caddr type2)))))
-
-(defun rough-check-bitcast-type (label type)
-  (let ((llvm-type (parse-lisp-repr type)))
-    (if (or (not (and (firstclass-type-p llvm-type)
-		      (not (aggregate-type-p llvm-type))))
-	    (typep llvm-type 'llvm-label)
-	    (typep llvm-type 'llvm-metadata))
-	(fail-parse-format "~a type must be first-class, non-aggregate type, but got: ~a"
-			   label
-			   type))))
-
-(defmacro bitcast-constraints ()
-  `(progn (rough-check-bitcast-type "First" type1)
-	  (rough-check-bitcast-type "Second" type2)
-	  (if (not (and (firstclass-type-p type2) (not (aggregate-type-p type2))))
-	      (fail-parse-format "Second type must be first-class non-aggregate type, but got: ~a" type2))
-	  (cond ((llvm-typep '(pointer ***) type1)
-		 (pointer-pointer-check type1 type2))
-		((llvm-typep '(vector (pointer ***) ***) type1)
-		 (vector-check type1 type2)
-		 (pointer-pointer-check (cadr type1) (cadr type2)))
-		(t (if (not (equal (bit-length type1) (bit-length type2)))
-		       (fail-parse "Types of BITCAST should have identical bit sizes"))))))
-
-
-
-(define-cast-instruction bitcast (bitcast-constraints))
-
-
-
-(define-simple-based pointer pointer)
-
-(define-cast-instruction addrspacecast (pointer->pointer-based have-different-addrspaces))
+(define-cast-instruction addrspacecast)
 
 (define-instruction-alternative lvalue-other
   icmp fcmp phi select call va_arg landingpad)
@@ -715,9 +611,7 @@
      ,(recap b)))
 
 (define-instruction-rule phi
-  (let ((type (emit-lisp-repr (wh llvm-type))))
-    (if (not (firstclass-type-p type))
-	(fail-parse-format "Type of phi instruction must be first-class, but got ~a" type))
+  (let ((type (wh llvm-type)))
     (v whitespace)
     (let ((first-arg (descend-with-rule 'phi-arg type)))
       (let ((rest-args (times (progn (v white-comma)
@@ -728,30 +622,11 @@
 (define-simple-instruction-rule select (cond 
 					 val1 
 					 val2 )
-  (if (llvm-typep '(integer *) (car cond))
-      (if (not (llvm-same-typep (car val1)
-				(car val2)))
-	  (fail-parse-format "Different values of SELECT should be same type, but are: ~a ~a"
-			     (car val1)
-			     (car val2)))
-      (let ((nelts (caddar cond)))
-	(if (not (and (llvm-typep '(vector ***)
-				  (car val1))
-		      (llvm-typep '(vector ***)
-				  (car val2))
-		      (llvm-same-typep (cadar val1)
-				       (cadar val2))
-		      (equal nelts (caddar val1))
-		      (equal nelts (caddar val2))))
-	    (fail-parse-format "Different values of SELECT should be same type, but are: ~a ~a"
-			       (car val1)
-			       (car val2)))))
   `(,cond ,val1 ,val2))
 
 (define-simple-instruction-rule va_arg (va-list)
   (v white-comma)
-  (let ((type (v llvm-type)))
-    `(,va-list ,type)))
+  `(,va-list ,(v llvm-type)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter known-icmp-ops
@@ -789,34 +664,22 @@
 (defmacro fcmp-kwds ()
   (any-of-kwds known-fcmp-ops))
 
-(defmacro define-cmp-rule (name typecheck errinfo)
+(defmacro define-cmp-rule (name)
   (let ((macro-name (intern ;;#"$((string name))-KWDS"
 		     (interpol
 		      (string name)
 		      "-KWDS"))))
     `(define-instruction-rule ,name
        (let ((cond (wh (,macro-name)))
-	     (type (emit-lisp-repr (wh llvm-type))))
-	 (if (not ,typecheck)
-	     (fail-parse-format ,@errinfo))
+	     (type (wh llvm-type)))
 	 (let ((val1 (wh (v instr-arg-value type))))
 	   (v white-comma)
 	   (let ((val2 (v instr-arg-value type)))
 	     `(,cond ,type ,val1 ,val2)))))))
 
-(define-cmp-rule icmp
-    (or (llvm-typep '(integer ***) type)
-	(llvm-typep '(vector (integer ***) *) type)
-	(llvm-typep '(pointer ***) type)
-	(llvm-typep '(vector (pointer ***) *) type))
-  ("Type of arguments of ICMP instruction should be INTEGER or POINTER or~
-    VECTOR of INTEGERS or VECTOR of POINTERS"))
+(define-cmp-rule icmp)
 
-(define-cmp-rule fcmp
-    (or (llvm-typep '(float ***) type)
-	(llvm-typep '(vector (float ***) *) type))
-  ("Type of arguments of FCMP instruction should be FLOAT~
-    or VECTOR of FLOATS"))
+(define-cmp-rule fcmp)
 
 (define-cg-llvm-rule cleanup-kwd ()
   (v "cleanup")
@@ -828,15 +691,15 @@
 
 (define-cg-llvm-rule filter-landingpad-clause ()
   (v "filter")
-  (list :filter (fail-parse-if-not (llvm-typep '(array ***) (car it))
-				   (wh llvm-constant))))
+  (list :filter 
+	(wh llvm-constant)))
 
 (define-cg-llvm-rule landingpad-clause ()
   (|| catch-landingpad-clause
       filter-landingpad-clause))
 
 (define-instruction-rule landingpad
-  (let ((type (emit-lisp-repr (wh llvm-type))))
+  (let ((type (wh llvm-type)))
     (wh "personality")
     (let ((pers (wh llvm-constant)))
       ;; check
@@ -857,18 +720,15 @@
 			      :must-tail)))))
       (v "call")
       (let ((cconv (?wh cconv))
-	    (return-attrs (?wh (mapcar (lambda (x)
-					 (whitelist-kwd-expr '(:zeroext :signext :inreg) x))
-				       (v parameter-attrs))))
+	    (return-attrs (?wh 
+			       (v parameter-attrs)))
 	    (type (emit-lisp-repr (wh llvm-type)))
-	    (ftype (?wh (fail-parse-if-not (llvm-typep '(pointer (function ***) ***) it)
-					   (emit-lisp-repr (v llvm-type)))))
+	    (ftype (?wh (v llvm-type)))
 	    (fnptrval (wh llvm-identifier))
 	    (args (wh? (white-paren
 			 (? funcall-args))))
-	    (fun-attrs (?wh (mapcar (lambda (x)
-				      (whitelist-kwd-expr '(:noreturn :nounwind :readonly :readnone) x))
-				    (v fun-attrs)))))
+	    (fun-attrs (?wh 
+			    (v fun-attrs))))
 	`(call ,type ,fnptrval ,args
 	       ,@(%%inject-kwds-if-nonnil cconv return-attrs ftype fun-attrs tail))))))
 
@@ -908,7 +768,7 @@
 
 (define-cg-llvm-rule declfun-arg ()
   (|| vararg-sign
-      (let* ((type (emit-lisp-repr (v llvm-type)))
+      (let* ((type (v llvm-type))
 	     (attrs (?wh (v parameter-attrs)))
 	     (id (? (wh? local-identifier))))
 	`(,type ,@(%%inject-if-nonnil id) ,@(%%inject-kwd-if-nonnil attrs)))))
@@ -1009,7 +869,7 @@
 	 (dll-storage-class (?wh dll-storage-class))
 	 (cconv (?wh cconv))
 	 (unnamed-addr (?wh-p "unnamed_addr"))
-	 (type (wh (emit-lisp-repr (v llvm-type))))
+	 (type (wh (v llvm-type)))
 	 (return-attrs (?wh parameter-attrs))
 	 (fname (wh llvm-identifier))
 	 (args (wh? defun-args))
@@ -1066,7 +926,7 @@
 				       nil)
 				(progn (v "constant")
 				       t))))
-	   (type (emit-lisp-repr (wh? llvm-type)))
+	   (type (wh? llvm-type))
 	   ;;FIXME:: llvm-constant-expression or llvm-constant-value?
 	   (value (flet ((descend ()
 			  (?wh (v llvm-constant-or-expression-value? type))))

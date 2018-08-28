@@ -1,6 +1,6 @@
 (in-package #:cg-llvm)
 
-(defmacro define-cast-constexpr (name &body constraints)
+(defmacro define-cast-constexpr (name)
   (let ((rule-name (intern ;;#"$((string name))-TO-CONSTEXPR"
 		    (interpol
 		     (string name)
@@ -17,23 +17,22 @@
 	 (let ((type2 (prog1 (v llvm-type)
 			(? whitespace)
 			(v #\)))))
-	   ,@constraints
 	   `(,value ,type1 ,type2))))))
 
-(define-cast-constexpr trunc (integer->integer-based first-bitsize-larger))
-(define-cast-constexpr zext (integer->integer-based first-bitsize-smaller))
-(define-cast-constexpr sext (integer->integer-based first-bitsize-smaller))
-(define-cast-constexpr fptrunc (float->float-based first-bitsize-larger))
-(define-cast-constexpr fpext (float->float-based first-bitsize-smaller))
-(define-cast-constexpr fptoui (float->integer-based))
-(define-cast-constexpr fptosi (float->integer-based))
-(define-cast-constexpr uitofp (integer->float-based))
-(define-cast-constexpr sitofp (integer->float-based))
-(define-cast-constexpr ptrtoint (pointer->integer-based))
-(define-cast-constexpr inttoptr (integer->pointer-based))
+(define-cast-constexpr trunc)
+(define-cast-constexpr zext)
+(define-cast-constexpr sext)
+(define-cast-constexpr fptrunc)
+(define-cast-constexpr fpext)
+(define-cast-constexpr fptoui)
+(define-cast-constexpr fptosi)
+(define-cast-constexpr uitofp)
+(define-cast-constexpr sitofp)
+(define-cast-constexpr ptrtoint)
+(define-cast-constexpr inttopt)
 
-(define-cast-constexpr bitcast (bitcast-constraints))
-(define-cast-constexpr addrspacecast (pointer->pointer-based have-different-addrspaces))
+(define-cast-constexpr bitcast)
+(define-cast-constexpr addrspacecast)
 
 (define-instruction-alternative (cast to-constexpr)
   trunc zext sext fptrunc fpext fptoui fptosi uitofp sitofp ptrtoint inttoptr
