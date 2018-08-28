@@ -75,13 +75,14 @@
 		      (? (list (v #\e)
 			       (? sign)
 			       (postimes ns-dec-digit))))))
-      `(%decimal-float ,text)))
+      (parse-number:parse-number text)))
   ;; TODO : hexadecimal float ???
   (define-cg-llvm-rule hexadecimal-float ()
     (let ((text (text (? sign)
 		      (v #\0)
 		      (v #\x)
 		      (times hex-digit))))
+      ;;;;FIXME:: hexadecimal floats
       `(%hexadecimal-float ,text))
     #+nil
     (fail-parse "Hexadecimal float is not implemented yet."))

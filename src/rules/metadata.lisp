@@ -11,7 +11,7 @@
 (define-cg-llvm-rule metadata-identifier ()
   (v #\!)
   `(meta-id
-    ,(v identifier-body)))
+    ,(parse-integer (v identifier-body))))
 
 (define-cg-llvm-rule metadata-node ()
   (v #\!)

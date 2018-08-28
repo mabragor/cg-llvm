@@ -19,10 +19,15 @@
 	    (setf tmp nil)))
     (nreverse res)))
 
-
 (cl-interpol:enable-interpol-syntax)
 
 (in-suite* cg-llvm)
+
+(defun parse-fun-for-test (exp text)
+  (cg-llvm:cg-llvm-parse
+   (find-symbol (string exp)
+	   (find-package "CG-LLVM"))
+   text))
 
 (defun run-tests ()
   (let ((results (run 'cg-llvm)))
@@ -32,7 +37,7 @@
 
 (defmacro simple-tests (name &rest cases)
   `(progn ,@(mapcar (lambda (x)
-		      `(is (equal ',(car x) (cg-llvm-parse ',name ,(cadr x)))))
+		      `(is (equal ',(car x) (parse-fun-for-test ',name ,(cadr x)))))
 		    (pairs cases))))
 
 (defmacro elt-test (name &rest cases)
@@ -46,46 +51,46 @@
 		     ,@cases))))
 
 (test basic
-  (is (equal 'void (emit-lisp-repr (cg-llvm-parse 'llvm-type "void"))))
-  (is (equal 24 (slot-value (cg-llvm-parse 'integer-type "i24") 'nbits)))
+  (is (equal 'void (emit-lisp-repr (parse-fun-for-test 'llvm-type "void"))))
+  (is (equal 24 (slot-value (parse-fun-for-test 'integer-type "i24") 'nbits)))
   (macrolet ((frob (theor expr)
-	       `(is (equal ',theor (emit-lisp-repr (cg-llvm-parse 'float-type ,expr))))))
+	       `(is (equal ',theor (emit-lisp-repr (parse-fun-for-test 'float-type ,expr))))))
     (frob (float 64 32)  "double")
     (frob (float 16 8) "half")
     (frob (float 32 16) "float")
     (frob (float 128 112) "fp128")
     (frob (float 80 40) "x86_fp80")
     (frob (float 128 64) "ppc_fp128"))
-  (is (equal 'x86-mmx (emit-lisp-repr (cg-llvm-parse 'x86-mmx "x86_mmx"))))
+  (is (equal 'x86-mmx (emit-lisp-repr (parse-fun-for-test 'x86-mmx "x86_mmx"))))
   (macrolet ((frob (theor expr)
-	       `(is (equal ',theor (emit-lisp-repr (cg-llvm-parse 'vector ,expr))))))
+	       `(is (equal ',theor (emit-lisp-repr (parse-fun-for-test 'vector ,expr))))))
     (frob (vector (integer 32) 4) "<4 x i32>")
     (frob (vector (float 32 16) 8) "<8 x float>")
     (frob (vector (integer 64) 2) "<2 x i64>")
     (frob (vector (pointer (integer 64)) 4) "<4 x i64*>"))
   (macrolet ((frob (theor expr)
-	       `(is (equal ',theor (emit-lisp-repr (cg-llvm-parse 'array ,expr))))))
+	       `(is (equal ',theor (emit-lisp-repr (parse-fun-for-test 'array ,expr))))))
     (frob (array (array (integer 32) 4) 3) "[3 x [4 x i32]]")
     (frob (array (array (float 32 16) 10) 12) "[12 x [10 x float]]")
     (frob (array (array (array (integer 16) 4) 3) 2) "[2 x [3 x [4 x i16]]]"))
   (macrolet ((frob (theor expr)
-	       `(is (equal ',theor (emit-lisp-repr (cg-llvm-parse 'struct ,expr))))))
+	       `(is (equal ',theor (emit-lisp-repr (parse-fun-for-test 'struct ,expr))))))
     (frob (struct ((integer 32) (integer 16) (integer 8)) :packed-p nil)
 	  "{ i32, i16, i8 }")
     (frob (struct ((integer 32) (pointer (float 32 16))) :packed-p nil)
 	  "{ i32, float * }")
     (frob (struct ((integer 8) (integer 32)) :packed-p t)
 	  "<{ i8, i32 }>"))
-  (is (equal 'opaque (emit-lisp-repr (cg-llvm-parse 'struct "opaque"))))
+  (is (equal 'opaque (emit-lisp-repr (parse-fun-for-test 'struct "opaque"))))
   (is (equal '(named "%struct.ST")
-	     (emit-lisp-repr (cg-llvm-parse 'llvm-type "%struct.ST"))))
+	     (emit-lisp-repr (parse-fun-for-test 'llvm-type "%struct.ST"))))
   (is (equal '(pointer (named "%struct.ST"))
-	     (emit-lisp-repr (cg-llvm-parse 'llvm-type "%struct.ST*")))))
+	     (emit-lisp-repr (parse-fun-for-test 'llvm-type "%struct.ST*")))))
     
 
 (test more-complicated
   (macrolet ((frob (theor expr)
-	       `(is (equal ',theor (emit-lisp-repr (cg-llvm-parse 'llvm-type ,expr))))))
+	       `(is (equal ',theor (emit-lisp-repr (parse-fun-for-test 'llvm-type ,expr))))))
     (frob (pointer (integer 32) 5) #?"i32\naddrspace(5)*")
     (frob (pointer (function (integer 32) ((pointer (integer 32))) :vararg-p nil))
 	  "i32 (i32 *) *")
@@ -123,7 +128,7 @@
 
 (test emitting-of-text
   (macrolet ((frob (x &optional y)
-	       `(is (equal ,x (emit-text-repr (cg-llvm-parse 'llvm-type ,(or y x)))))))
+	       `(is (equal ,x (emit-text-repr (parse-fun-for-test 'llvm-type ,(or y x)))))))
     (frob "i32") (frob "void")
     (frob "double") (frob "half") (frob "float") (frob "fp128") (frob "x86_fp80") (frob "ppc_fp128")
     (frob "x86_mmx")
@@ -325,11 +330,11 @@
 
 (test complex-constants
   (is (equal '((array (integer 8) 3) (((integer 8) 1) ((integer 8) 2) ((integer 8) 3)))
-	     (cg-llvm-parse 'array-constant "[ 3 x i8 ] [ i8 1, i8 2, i8 3 ]")))
+	     (parse-fun-for-test 'array-constant "[ 3 x i8 ] [ i8 1, i8 2, i8 3 ]")))
   (is (equal '((array (integer 8) 3) :zero-initializer)
-	     (cg-llvm-parse 'zero-init-constant "[ 3 x i8 ] zeroinitializer")))
+	     (parse-fun-for-test 'zero-init-constant "[ 3 x i8 ] zeroinitializer")))
   (is (equal '((array (integer 8) 3) (((integer 8) 97) ((integer 8) 115) ((integer 8) 100) ((integer 8) 102)))
-	     (cg-llvm-parse 'string-constant "[ 3 x i8 ] c\"asdf\""))))
+	     (parse-fun-for-test 'string-constant "[ 3 x i8 ] c\"asdf\""))))
 
 (elt-test llvm-constants
 	  ((integer 8) 1) "i8 1"
@@ -357,10 +362,10 @@
 	  "!0 = distinct !{!\"test\\00\", i32 10}")
 
 (test llvm-identifier
-  (is (equal '"@foo" (cg-llvm-parse 'llvm-identifier "@foo")))
-  (is (equal '"@foo" (cg-llvm-parse 'llvm-identifier "@\"foo\"")))
+  (is (equal '"@foo" (parse-fun-for-test 'llvm-identifier "@foo")))
+  (is (equal '"@foo" (parse-fun-for-test 'llvm-identifier "@\"foo\"")))
   (is (equal (concatenate 'string "%" (string (code-char 1)) "foo")
-	     (string (cg-llvm-parse 'llvm-identifier "%\"\\01foo\"")))))
+	     (string (parse-fun-for-test 'llvm-identifier "%\"\\01foo\"")))))
 
 (elt-test function-declarations
 	  (declare "@foo" (((integer 32) "%a") ((pointer (integer 8)) "%b")) ((integer 32)))
@@ -373,13 +378,13 @@
 
 
 (test thread-local
-  (is (equal '(:thread_local t) (cg-llvm-parse 'thread-local "thread_local")))
-  (is (equal '(:thread_local :initialexec) (cg-llvm-parse 'thread-local "thread_local(initialexec)")))
-  (signals error (cg-llvm-parse 'thread-local "thread_local(adsf)")))
+  (is (equal '(:thread_local t) (parse-fun-for-test 'thread-local "thread_local")))
+  (is (equal '(:thread_local :initialexec) (parse-fun-for-test 'thread-local "thread_local(initialexec)")))
+  (signals error (parse-fun-for-test 'thread-local "thread_local(adsf)")))
 
 (test aliases
   (macrolet ((frob (x y)
-	       `(is (equal ,x (cg-llvm-parse 'alias ,y)))))
+	       `(is (equal ,x (parse-fun-for-test 'alias ,y)))))
     (frob '(alias "@foo" "@bar" (integer 8)) "@foo = alias i8 @bar")
     (frob '(alias "@foo" "@bar" (integer 16)
 	    (:linkage :private)
@@ -413,7 +418,7 @@
 
 (test parsing-binop-instructions
   (macrolet ((frob (x y z)
-	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
+	       `(is (equal ',x (parse-fun-for-test ',y ,z)))))
     (frob (add (integer 32) 4 "%var" (:nuw t) (:nsw t)) add-instruction "add nuw nsw i32 4, %var")
     (frob (add (integer 32) 4 "%var" (:nuw t) (:nsw t)) add-instruction "add nsw nuw i32 4, %var")
     (frob (add (integer 32) 4 "%var") add-instruction "add i32 4, %var")
@@ -429,7 +434,7 @@
   
 (test aggregate-instructions
   (macrolet ((frob (x y z)
-	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
+	       `(is (equal ',x (parse-fun-for-test ',y ,z)))))
     (frob (extractelement ((vector (integer 32) 4) "%vec") ((integer 32) 0))
 	  extractelement-instruction "extractelement <4 x i32> %vec, i32 0")
     (frob (insertelement ((vector (integer 32) 4) "%vec") ((integer 32) 1) ((integer 32) 0))
@@ -470,7 +475,7 @@
 
 (test simple-memory-instructions
   (macrolet ((frob (x y z)
-	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
+	       `(is (equal ',x (parse-fun-for-test ',y ,z)))))
     (with-frob1 alloca
       (frob1 ((integer 32)) "i32")
       (frob1 ((integer 32) (:nelts ((integer 32) 4))) "i32, i32 4")
@@ -498,7 +503,7 @@
 
 ;; (test complex-memory-instructions
 ;;   (macrolet ((frob (x y z)
-;; 	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
+;; 	       `(is (equal ',x (parse-fun-for-test ',y ,z)))))
 ;;     (with-frob1 getelementptr
 ;;       (frob1 nil "inbounds %struct.ST, %struct.ST* %s, i64 1, i32 2, i32 1, i64 5, i64 13"))))
 
@@ -516,7 +521,7 @@
   
 (test conversion-instructions
   (macrolet ((frob (x y)
-	       `(is (equal ',x (cg-llvm-parse 'conversion-instruction ,y)))))
+	       `(is (equal ',x (parse-fun-for-test 'conversion-instruction ,y)))))
     (frob (trunc 257 (integer 32) (integer 8)) "trunc i32 257 to i8")
     (frob (trunc 123 (integer 32) (integer 1)) "trunc i32 123 to i1")
     (frob (trunc 122 (integer 32) (integer 1)) "trunc i32 122 to i1")
@@ -536,7 +541,7 @@
 
 (test misc-instructions
   (macrolet ((frob (x y z)
-	       `(is (equal ',x (cg-llvm-parse ',y ,z)))))
+	       `(is (equal ',x (parse-fun-for-test ',y ,z)))))
     (frob (phi (integer 32) (0 "%LoopHeader")) phi-instruction "phi i32 [ 0, %LoopHeader ]")
     (frob (phi (integer 32) (0 "%LoopHeader") ("%nextindvar" "%Loop"))
 	  phi-instruction "phi i32 [ 0, %LoopHeader ], [ %nextindvar, %Loop ]")
@@ -583,12 +588,12 @@
     ))
 
 (test block-labels
-  (is (equal '"%entry" (cg-llvm-parse 'block-label "entry:")))
-  (is (equal '"%entry" (cg-llvm-parse 'block-label "\"entry\":"))))
+  (is (equal '"%entry" (parse-fun-for-test 'block-label "entry:")))
+  (is (equal '"%entry" (parse-fun-for-test 'block-label "\"entry\":"))))
 
 (test basic-blocks
   (macrolet ((frob (x y)
-	       `(is (equal ',x (cg-llvm-parse 'basic-block ,y)))))
+	       `(is (equal ',x (parse-fun-for-test 'basic-block ,y)))))
     (frob (block (ret ((integer 32) 3))) "ret i32 3")
     (frob (block (:label "%end") (ret ((integer 32) 3))) "end: ret i32 3")
     (frob (block (:label "%entry")
@@ -633,7 +638,7 @@
 
 (test function-definitions
   (macrolet ((frob (x y)
-	       `(is (equal ',x (cg-llvm-parse 'function-definition ,y)))))
+	       `(is (equal ',x (parse-fun-for-test 'function-definition ,y)))))
     (frob (define (float 64 32) "@" nil
 	    (:body ((block (:label "%entry")
 		      (= "%addtmp" (fadd (float 64 32) 4.0 5.0))
@@ -675,7 +680,7 @@ entry:
 
 (test target-datalayout
   (macrolet ((frob (x y)
-	       `(is (equal ',x (cg-llvm-parse 'target-datalayout ,y)))))
+	       `(is (equal ',x (parse-fun-for-test 'target-datalayout ,y)))))
     (frob (target-datalayout (:endianness :little) (:mangling :elf) (:integer 64 (:abi 64))
 	    (:float 80 (:abi 128)) (:native-integers 8 16 32 64) (:stack 128))
 	  "target datalayout = \"e-m:e-i64:64-f80:128-n8:16:32:64-S128\"")))
@@ -689,7 +694,7 @@ entry:
 
 (test global-variable-definition
   (macrolet ((frob (x y)
-	       `(is (equal ',x (cg-llvm-parse 'global-variable-definition ,y)))))
+	       `(is (equal ',x (parse-fun-for-test 'global-variable-definition ,y)))))
     (frob (:global-var "@G" (integer 32) nil (:linkage :external))
 	  "@G = external global i32")
     (frob (:global-var "@G" (integer 32) 0 (:thread_local :initialexec) (:align 4))
@@ -709,7 +714,7 @@ entry:
 	  
 (test attribute-groups
   (macrolet ((frob (x y)
-	       `(is (equal ',x (cg-llvm-parse 'attribute-group ,y)))))
+	       `(is (equal ',x (parse-fun-for-test 'attribute-group ,y)))))
     (frob (attributes 0 :alwaysinline (:alignstack 4))
 	  "attributes #0 = { alwaysinline alignstack(4) }")
     (frob (attributes 1 "no-sse")
@@ -732,10 +737,10 @@ entry:
     ))
 
 (test more-function-declarations
-  (is (equal '(((pointer (integer 8))) :vararg) (cg-llvm-parse 'declfun-args "(i8*, ...)")))
-  (is (equal '((:group 1)) (cg-llvm-parse 'parameter-attrs "#1")))
+  (is (equal '(((pointer (integer 8))) :vararg) (parse-fun-for-test 'declfun-args "(i8*, ...)")))
+  (is (equal '((:group 1)) (parse-fun-for-test 'parameter-attrs "#1")))
   (macrolet ((frob (x y)
-	       `(is (equal ',x (cg-llvm-parse 'function-declaration ,y)))))
+	       `(is (equal ',x (parse-fun-for-test 'function-declaration ,y)))))
     (frob (declare "@printf"
 		   (((pointer (integer 8))) :vararg)
 		   ((integer 32))
@@ -774,7 +779,7 @@ entry:
 
 (test constant-expressions
   (macrolet ((frob (x y)
-	       `(is (equal ',x (cg-llvm-parse 'constant-expression-value ,y)))))
+	       `(is (equal ',x (parse-fun-for-test 'constant-expression-value ,y)))))
     (frob (getelementptr ((pointer (array (integer 8) 14)) "@.str")
 			 ((integer 32) 0) ((integer 32) 0)
 			 (:inbounds t))

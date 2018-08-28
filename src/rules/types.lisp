@@ -77,7 +77,7 @@
   (if (or (not (integerp nbits))
 	  (< nbits 1)
 	  (> nbits max-nbits))
-      (error "NBITS argument should be positive integer not greater than ~a" max-nbits))
+      (error "NBITS argument should be positive integer not greater than ~a ~a" max-nbits nbits))
   (make-instance 'llvm-integer :nbits nbits))
 
 #+nil
@@ -305,10 +305,10 @@
 ;;; parsing
 
 (define-cg-llvm-rule pos-integer ()
-  `(%pos-integer ,(text (postimes ns-dec-digit))))
+  (parse-integer (text (postimes ns-dec-digit))))
 
 (define-cg-llvm-rule integer ()
-  `(%integer ,(text (? "-") (postimes ns-dec-digit))))
+  (parse-integer (text (? "-") (postimes ns-dec-digit))))
 
 (define-cg-llvm-rule integer-type ()
   (v #\i)
