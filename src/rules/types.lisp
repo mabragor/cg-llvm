@@ -385,8 +385,8 @@
 			  ((v "half") 'half)
 			  ((v "float") 'float)
 			  ((v "fp128") 'fp128)
-			  ((v "x86_fp80") 'x86-fp80)
-			  ((v "ppc_fp128") 'ppc-fp128))))
+			  ((v "x86_fp80") 'x86_fp80)
+			  ((v "ppc_fp128") 'ppc_fp128))))
 
 (define-cg-llvm-rule x86-mmx ()
   (v "x86_mmx")
@@ -409,7 +409,7 @@
 ;; TODO: smart pointer parsing
 
 (define-cg-llvm-rule simple-int ()
-  `(%simple-int (text (postimes ns-dec-digit))))
+  (parse-integer (text (postimes ns-dec-digit))))
 
 (define-cg-llvm-rule white-x-white ()
   (with-whitespace #\x))
