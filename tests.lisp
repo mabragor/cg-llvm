@@ -92,7 +92,6 @@
   (is (equal '(pointer (named "%struct.ST"))
 	     (noop (parse-fun-for-test 'llvm-type "%struct.ST*")))))
     
-;;;;FIXME
 (test more-complicated
   (macrolet ((frob (theor expr)
 	       `(is (equal ',theor (noop (parse-fun-for-test 'llvm-type ,expr))))))
@@ -334,7 +333,6 @@
 ;;   (frob-context #?"%tmpsel1 = select i1 true, i32 17, i32 42\n"
 ;; 		(select 'true 17 42)))
 
-;;;;FIXME
 (test complex-constants
   (is (equal '((array (integer 8) 3) (((integer 8) 1) ((integer 8) 2) ((integer 8) 3)))
 	     (parse-fun-for-test 'array-constant "[ 3 x i8 ] [ i8 1, i8 2, i8 3 ]")))
@@ -343,7 +341,6 @@
   (is (equal '((array (integer 8) 3) (((integer 8) 97) ((integer 8) 115) ((integer 8) 100) ((integer 8) 102)))
 	     (parse-fun-for-test 'string-constant "[ 3 x i8 ] c\"asdf\""))))
 
-;;;;FIXME
 (elt-test llvm-constants
 	  ((integer 8) 1) "i8 1"
 	  ((integer 32) 42) "i32 42"
@@ -425,7 +422,6 @@
   "resume { i8*, i32 } %exn"
   (unreachable) "unreachable")
 
-;;;;FIXME
 (test parsing-binop-instructions
   (macrolet ((frob (x y z)
 	       `(is (equal ',x (parse-fun-for-test ',y ,z)))))
@@ -442,7 +438,6 @@
 	  shl-instruction "shl <2 x i32> < i32 1, i32 1>, < i32 1, i32 2>")
     ))
 
-;;;;FIXME
 (test aggregate-instructions
   (macrolet ((frob (x y z)
 	       `(is (equal ',x (parse-fun-for-test ',y ,z)))))
@@ -530,7 +525,6 @@
     ;;   (frob1 nil "i8, <4 x i8*> %ptrs, <4 x i64> %offsets"))
     ;; ))
 
-;;;;FIXME
 (test conversion-instructions
   (macrolet ((frob (x y)
 	       `(is (equal ',x (parse-fun-for-test 'conversion-instruction ,y)))))
@@ -649,7 +643,6 @@
   ret double %calltmp")
     ))
 
-;;;;FIXME
 (test function-definitions
   (macrolet ((frob (x y)
 	       `(is (equal ',x (parse-fun-for-test 'function-definition ,y)))))
@@ -791,7 +784,6 @@ entry:
 	  "declare i8* @llvm.invariant.group.barrier(i8*)")
     ))
 
-;;;;FIXME
 (test constant-expressions
   (macrolet ((frob (x y)
 	       `(is (equal ',x (parse-fun-for-test 'constant-expression-value ,y)))))
