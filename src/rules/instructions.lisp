@@ -121,7 +121,7 @@
 	     :from 0)))) 
    `((,value ,default-dest) ,@(recap? result))))
 
-(define-simple-instruction-rule indirectbr ((address (llvm-typep '(pointer ***) (car it))))
+(define-simple-instruction-rule indirectbr (address)
   (v some-magic-similar-to-switch-???))
 
 (define-cg-llvm-rule br-instruction ()
@@ -213,7 +213,7 @@
 				   "-CONSTANT-VALUE"))))
       `((nest
 	 (progn (v whitespace))
-	 (let- (type (emit-lisp-repr (v llvm-type))))
+	 (let- (type (v llvm-type)))
 	 (flet ((parse-arg ()
 		  (|| (if (llvm-typep '(,type ***) type)
 			  (descend-with-rule ',constant-value-symbol type)
@@ -722,7 +722,7 @@
       (let ((cconv (?wh cconv))
 	    (return-attrs (?wh 
 			       (v parameter-attrs)))
-	    (type (emit-lisp-repr (wh llvm-type)))
+	    (type (wh llvm-type))
 	    (ftype (?wh (v llvm-type)))
 	    (fnptrval (wh llvm-identifier))
 	    (args (wh? (white-paren
@@ -758,7 +758,7 @@
   (recap? args))
 
 (define-cg-llvm-rule short-defun-arg ()
-  `(,(emit-lisp-repr (v llvm-type))))
+  `(,(v llvm-type)))
 (define-cg-llvm-rule long-defun-arg ()
   `(,@(v short-defun-arg) ,(wh? local-identifier)))
 

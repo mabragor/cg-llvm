@@ -437,8 +437,7 @@
   (v whitespace)
   (cap b struct)
   (list (recap a)
-	(emit-lisp-repr
-	       (recap b))))
+	(recap b)))
 
 (defclass llvm-named-type (llvm-type)
   ((name :initarg :name :initform "You should specify the name of the named type")))

@@ -56,7 +56,7 @@
       global-ident-constant))
 
 (define-cg-llvm-rule simple-constant-value (type)
-  (let ((ltype (emit-lisp-repr type)))
+  (let ((ltype type))
     (|| (descend-with-rule 'boolean-constant-value ltype)
 	(descend-with-rule 'integer-constant-value ltype)
 	(descend-with-rule 'float-constant-value ltype)
@@ -132,8 +132,6 @@
 	  (coerce (v llvm-string) 'list)))
 
 (define-constant-rules zero-init
-    t
-    ("")
   (v "zeroinitializer")
   :zero-initializer)
 

@@ -250,7 +250,7 @@
 
 
 (defun return-type-lisp-form (type attrs)
-  `(,(emit-lisp-repr type) ,@(%%inject-kwd-if-nonnil attrs)))
+  `(,type ,@(%%inject-kwd-if-nonnil attrs)))
 
 (defmacro with-rule-names ((name-var) &body body)
   `(destructuring-bind (rule-name instr-name)
@@ -377,7 +377,7 @@
 			    (v llvm-type)))
 	       (old-name (progn (v whitespace)
 				(v llvm-identifier))))
-	  `(alias ,name ,old-name ,(emit-lisp-repr type)
+	  `(alias ,name ,old-name ,type
 		  ,@(%%inject-kwd-if-nonnil linkage)
 		  ,@(%%inject-kwd-if-nonnil visibility)
 		  ,@(%%inject-kwd-if-nonnil dll-storage-class)
