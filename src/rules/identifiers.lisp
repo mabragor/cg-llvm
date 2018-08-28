@@ -37,8 +37,3 @@
 (define-cg-llvm-rule llvm-identifier ()
   (|| local-identifier
       global-identifier))
-
-;;;;FIXME:: destringify-symbol does not do anything
-(defun try-destringify-symbol (str)
-  (handler-case (destringify-symbol str)
-    (error () str)))

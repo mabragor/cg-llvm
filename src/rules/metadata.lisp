@@ -13,9 +13,7 @@
 (define-cg-llvm-rule metadata-identifier ()
   (v #\!)
   `(meta-id
-    ,(let ((it (v identifier-body)))
-	  (handler-case (parse-integer it)
-	    (error () (try-destringify-symbol it))))))
+    ,(v identifier-body)))
 
 (define-cg-llvm-rule metadata-node ()
   (v #\!)

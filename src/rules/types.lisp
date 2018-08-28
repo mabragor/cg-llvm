@@ -201,8 +201,10 @@
 (defmethod emit-lisp-repr ((obj llvm-metadata))
   'metadata)
 
+#+nil
 (defmethod emit-text-repr ((obj llvm-label))
   "label")
+#+nil
 (defmethod emit-text-repr ((obj llvm-metadata))
   "metadata")
 
@@ -216,6 +218,7 @@
   (with-slots (num-elts elt-type) obj
     `(array ,(emit-lisp-repr elt-type) ,num-elts)))
 
+#+nil
 (defmethod emit-text-repr ((obj llvm-array))
   (with-slots (num-elts elt-type) obj
     ;;#"[$(num-elts) x $((emit-text-repr elt-type))]"
@@ -248,6 +251,7 @@
     `(struct ,(mapcar #'emit-lisp-repr elt-types)
 	     :packed-p ,packed-p)))
 
+#+nil
 (defmethod emit-text-repr ((obj llvm-struct))
   (with-slots (elt-types packed-p) obj
     (if (not packed-p)
@@ -260,6 +264,7 @@
 (defmethod emit-lisp-repr ((obj llvm-opaque-struct))
   'opaque)
 
+#+nil
 (defmethod emit-text-repr ((obj llvm-opaque-struct))
   "opaque")
 
@@ -282,10 +287,10 @@
 ;;; parsing
 
 (define-cg-llvm-rule pos-integer ()
-  (parse-integer (text (postimes ns-dec-digit))))
+  `(%pos-integer ,(text (postimes ns-dec-digit))))
 
 (define-cg-llvm-rule integer ()
-  (parse-integer (text (? "-") (postimes ns-dec-digit))))
+  `(%integer ,(text (? "-") (postimes ns-dec-digit))))
 
 (define-cg-llvm-rule integer-type ()
   (v #\i)
@@ -357,7 +362,7 @@
 ;; TODO: smart pointer parsing
 
 (define-cg-llvm-rule simple-int ()
-  (parse-integer (text (postimes ns-dec-digit))))
+  `(%simple-int (text (postimes ns-dec-digit))))
 
 (define-cg-llvm-rule white-x-white ()
   (with-whitespace #\x))
