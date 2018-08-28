@@ -196,17 +196,8 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun binop-instruction-body (name type)
-    (let ((fail (progn
-		  ;;$((string name)) instruction expects <type> to be $((string type)) \
-		  ;; or VECTOR OF $((string type))S, but got: ~a
-		  (interpol
-		   (string name)
-		   " instruction expects <type> to be "
-		   (string type)
-		   "~% or VECTOR OF "
-		   (string type)
-		   "S, but got: ~a")))
-	  (constant-value-symbol (intern
+    (declare (ignore name))
+    (let ((constant-value-symbol (intern
 				  ;;"$((string type))-CONSTANT-VALUE"
 				  (interpol
 				   (string type)
@@ -215,63 +206,28 @@
 	 (progn (v whitespace))
 	 (let- (type (v llvm-type)))
 	 (flet ((parse-arg ()
-		  (|| (if (llvm-typep '(,type ***) type)
-			  (descend-with-rule ',constant-value-symbol type)
-			  (descend-with-rule 'vector-constant-value type))
+		  (|| (descend-with-rule ',constant-value-symbol type)
+		      (descend-with-rule 'vector-constant-value type)
 		      llvm-identifier))))
-	 (progn (if (not (or (llvm-typep '(,type ***) type)
-			     (llvm-typep '(vector (,type ***) *) type)))
-		    (fail-parse-format
-		     ,fail
-		     type)))
 	 (progn (v whitespace))
 	 (let- (arg1 (parse-arg)))
 	 (progn (v white-comma))
 	 (let- (arg2 (parse-arg)))
 	 `(,type ,arg1 ,arg2 ,@prefix-kwds)))))
   (defun binop-constexpr-body (name type)
-    (let ((fail-format
-	   (progn
-	       ;;;$((string name)) constexpr expects <type> to be $((string type))
-	     ;;	       or VECTOR OF $((string type))S, but got: ~a
-	     (interpol
-	      (string name)
-	      " constexpr expects <type> to be "
-	      (string type)
-	      "~% or VECTOR OF"
-	      (string type)
-	      "S, but got: ~a")))
-	  (fail2
-	   (progn
-	     ;;$((string name)) constexpr expects types of its arguments to coincide
-	     ;;but got: ~a and ~a
-	     (interpol
-	      (string name)
-	      " constexpr expects types of its arguments to coincide~% but got: ~a and ~a"))))
-      `((nest
-	 (progn (v wh?))
-	 (progn (v #\())
-	 (progn (v wh?))
-	 (let- (val1 (v llvm-constant)))
-	 (progn (v wh?))
-	 (progn (v #\,))
-	 (progn (v wh?)) 
-	 (let- (val2 (v llvm-constant)))
-	 (progn (v wh?))
-	 (progn (v #\)))
-	 (progn
-	   (if (not (or (llvm-typep '(,type ***) (car val1))
-			(llvm-typep '(vector (,type ***) *) (car val1))))
-	       (fail-parse-format
-		,fail-format
-		(car val1))))
-	 (progn
-	   (if (not (llvm-same-typep (car val1) (car val2)))
-	       (fail-parse-format
-		,fail2
-		(car val1)
-		(car val2))))
-	 `(,val1 ,val2 ,@prefix-kwds))))))
+    (declare (ignorable name type))
+    `((nest
+       (progn (v wh?))
+       (progn (v #\())
+       (progn (v wh?))
+       (let- (val1 (v llvm-constant)))
+       (progn (v wh?))
+       (progn (v #\,))
+       (progn (v wh?)) 
+       (let- (val2 (v llvm-constant)))
+       (progn (v wh?))
+       (progn (v #\)))
+       `(,val1 ,val2 ,@prefix-kwds)))))
 
 (defmacro unordered-simple-keywords (&rest kwds)
   `(let ((kwds (times (progn

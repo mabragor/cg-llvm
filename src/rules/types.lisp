@@ -4,9 +4,11 @@
 
 (in-package #:cg-llvm)
 
+#+nil
 (defgeneric emit-lisp-repr (obj)
   (:documentation "Emit cons-style representation of the object"))
 
+#+nil
 (defgeneric emit-text-repr (obj)
   (:documentation "Emit text-style representation of the object"))
 
@@ -24,22 +26,19 @@
    (value :initform (error "You should specify the value")
 	  :initarg :value)))
 
-(defun mk-typed-value (type value)
-  (make-instance 'typed-value
-		 :type (coerce-to-llvm-type type)
-		 :value value))
-
-
 (defclass llvm-no-value (llvm-type)
   ())
 
+#+nil
 (defmethod emit-lisp-repr ((obj llvm-void-type))
   'void)
 
+#+nil
 (defmethod emit-lisp-repr ((obj llvm-function-type))
   (with-slots (ret-type param-types vararg-p) obj
     `(function ,(emit-lisp-repr ret-type) ,(mapcar #'emit-lisp-repr param-types)
 	       :vararg-p ,vararg-p)))
+
 
 #+nil
 (defmethod emit-text-repr ((obj llvm-void-type))
@@ -54,6 +53,7 @@
 
 (defclass llvm-first-class-type (llvm-type) ())
 
+#+nil
 (defun firstclass-type-p (x)
   (cond ((typep x 'llvm-type) (typep x 'llvm-first-class-type))
 	((stringp x) (handler-case (firstclass-type-p (cg-llvm-parse 'llvm-type x))
@@ -61,6 +61,7 @@
 	((or (symbolp x) (consp x)) (firstclass-type-p (parse-lisp-repr x)))
 	(t nil)))
 
+#+nil
 (defun aggregate-type-p (x)
   (cond ((typep x 'llvm-type) (typep x 'llvm-aggregate-type))
 	((stringp x) (handler-case (aggregate-type-p (cg-llvm-parse 'llvm-type x))
@@ -79,9 +80,11 @@
       (error "NBITS argument should be positive integer not greater than ~a" max-nbits))
   (make-instance 'llvm-integer :nbits nbits))
 
+#+nil
 (defmethod emit-lisp-repr ((obj llvm-integer))
   `(integer ,(slot-value obj 'nbits)))
 
+#+nil
 (defmethod emit-text-repr ((obj llvm-integer))
   ;;#"i$((slot-value obj 'nbits))"
   (interpol
@@ -91,21 +94,23 @@
 (defclass llvm-float (llvm-first-class-type)
   ((nbits :initarg :nbits)
    (mantissa :initarg :mantissa :initform 0)))
-(defun llvm-float (sym)
-  (let ((str (underscorize sym)))
-    (flet ((frob (nbits &optional (mantissa (/ nbits 2)))
-	     (make-instance 'llvm-float :nbits nbits :mantissa mantissa)))
-      (cond ((string= "half" str) (frob 16))
-	    ((string= "float" str) (frob 32))
-	    ((string= "double" str) (frob 64))
-	    ((string= "fp128" str) (frob 128 112))
-	    ((string= "x86_fp80" str) (frob 80))
-	    ((string= "ppc_fp128" str) (frob 128))
-	    (t (error "Unknown floating point specifier: ~a" sym))))))
+#+nil
+(defun llvm-float (str)
+  (flet ((frob (nbits &optional (mantissa (/ nbits 2)))
+	   (make-instance 'llvm-float :nbits nbits :mantissa mantissa)))
+    (cond ((string= "half" str) (frob 16))
+	  ((string= "float" str) (frob 32))
+	  ((string= "double" str) (frob 64))
+	  ((string= "fp128" str) (frob 128 112))
+	  ((string= "x86_fp80" str) (frob 80))
+	  ((string= "ppc_fp128" str) (frob 128))
+	  (t (error "Unknown floating point specifier: ~a" sym)))))
 
+#+nil
 (defmethod emit-lisp-repr ((obj llvm-float))
   `(float ,(slot-value obj 'nbits) ,(slot-value obj 'mantissa)))
 
+#+nil
 (defmethod emit-text-repr ((obj llvm-float))
   (with-slots (nbits mantissa) obj
     (cond ((and (equal 16 nbits) (equal 8 mantissa)) "half")
@@ -118,9 +123,11 @@
 
 (defclass llvm-x86-mmx (llvm-first-class-type) ())
 
+#+nil
 (defmethod emit-lisp-repr ((obj llvm-x86-mmx))
   'x86-mmx)
 
+#+nil
 (defmethod emit-text-repr ((obj llvm-x86-mmx))
   "x86_mmx")
 
@@ -128,12 +135,14 @@
   ((pointee :initarg :pointee)
    (address-space :initform 0 :initarg :address-space)))
 
+#+nil
 (defmethod emit-lisp-repr ((obj llvm-pointer))
   (with-slots (pointee address-space) obj
     `(pointer ,(emit-lisp-repr pointee)
 	      ,@(if (not (equal 0 address-space))
 		    `(,address-space)))))
 
+#+nil
 (defmethod emit-text-repr ((obj llvm-pointer))
   (with-slots (pointee address-space) obj
     (if (equal 0 address-space)
@@ -181,10 +190,12 @@
 	(error "Element type of vector should be integer, float or pointer, but got/deduced ~a" type))
     (make-instance 'llvm-vector :num-elts n :elt-type type)))
 
+#+nil
 (defmethod emit-lisp-repr ((obj llvm-vector))
   (with-slots (num-elts elt-type) obj
     `(vector ,(emit-lisp-repr elt-type) ,num-elts)))
 
+#+nil
 (defmethod emit-text-repr ((obj llvm-vector))
   (with-slots (num-elts elt-type) obj
     ;;#"<$(num-elts) x $((emit-text-repr elt-type))>"
@@ -198,8 +209,10 @@
 (defclass llvm-label (llvm-first-class-type) ())
 (defclass llvm-metadata (llvm-first-class-type) ())
 
+#+nil
 (defmethod emit-lisp-repr ((obj llvm-label))
   'label)
+#+nil
 (defmethod emit-lisp-repr ((obj llvm-metadata))
   'metadata)
 
@@ -216,6 +229,7 @@
   ((num-elts :initarg :num-elts)
    (elt-type :initarg :elt-type)))
 
+#+nil
 (defmethod emit-lisp-repr ((obj llvm-array))
   (with-slots (num-elts elt-type) obj
     `(array ,(emit-lisp-repr elt-type) ,num-elts)))
@@ -248,6 +262,7 @@
   ((elt-types :initarg :elt-types)
    (packed-p :initarg :packed-p)))
 
+#+nil
 (defmethod emit-lisp-repr ((obj llvm-struct))
   (with-slots (elt-types packed-p) obj
     `(struct ,(mapcar #'emit-lisp-repr elt-types)
@@ -263,6 +278,7 @@
 
 (defclass llvm-opaque-struct () ())
 
+#+nil
 (defmethod emit-lisp-repr ((obj llvm-opaque-struct))
   'opaque)
 
@@ -509,64 +525,7 @@
     ('opaque (make-instance 'llvm-opaque-struct))
     (otherwise (error "Do not know how to parse form ~a" expr))))
 
-
-(defun test-frob (expr)
-  (match expr
-    ('foo 1)
-    (otherwise 'otherwise)))
-
-(define-condition wildcard () ())
-
-(defun %wildcard-equal (x y)
-  (cond ((atom x) (cond ((equal x '*) t)
-			((equal x '***) (error 'wildcard))
-			(t (equal x y))))
-	((null y) (equal x '***) t)
-	(t (and (not (atom y))
-		(handler-case (%wildcard-equal (car x) (car y))
-		  (wildcard () (return-from %wildcard-equal t)))
-		(%wildcard-equal (cdr x) (cdr y))))))
-
-(defun wildcard-equal (x y)
-  (handler-case (%wildcard-equal x y)
-    (wildcard () t)))
-
-(defun lispy-llvm-type (smth)
-  (cond ((typep smth 'typed-value) (emit-lisp-repr (slot-value smth 'type)))
-	((typep smth 'llvm-type) (emit-lisp-repr smth))
-	;; TODO : probably some check can be made here ...
-	((or (consp smth) (symbolp smth)) smth)
-	(t (error "Don't know how to calculate LLVM-TYPE of this: ~a" smth))))
-
 (defmethod emit-lisp-repr ((smth cons))
   smth)
 (defmethod emit-lisp-repr ((smth symbol))
   smth)
-
-
-(defun llvm-typep (type smth)
-  (wildcard-equal type (lispy-llvm-type smth)))
-
-(defun llvm-same-typep (smth1 smth2)
-  (wildcard-equal (lispy-llvm-type smth1)
-		  (lispy-llvm-type smth2)))
-
-(defgeneric bit-length (x))
-
-(defmethod bit-length ((x llvm-integer))
-  (slot-value x 'nbits))
-(defmethod bit-length ((x llvm-float))
-  (slot-value x 'nbits))
-(defmethod bit-length ((x llvm-x86-mmx))
-  ;; the value from wiki page about MMX registers
-  64)
-(defmethod bit-length ((x llvm-vector))
-  (with-slots (num-elts elt-type) x
-    (* num-elts (bit-length elt-type))))
-
-(defmethod bit-length ((x cons))
-  (bit-length (parse-lisp-repr x)))
-
-(defmethod bit-length ((x symbol))
-  (bit-length (parse-lisp-repr x)))
-
