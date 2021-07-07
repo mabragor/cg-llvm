@@ -24,7 +24,7 @@
   #:trunc #:zext #:sext #:fptrunc #:fpext #:fptoui #:fptosi #:sitofp
   #:ptrtoint #:inttoptr #:bitcast #:addrspacecast
   ;; other operations
-  #:icmp #:fcmp #:phi #:select #:call #:va-arg #:landingpad
+  #:icmp #:fcmp #:phi #:select #:call #:va_arg #:landingpad
   ;; #:catchpad #:cleanuppad
   ;; other symbols
   #:meta-str #:meta-node #:meta-id

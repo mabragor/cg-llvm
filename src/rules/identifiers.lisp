@@ -1,28 +1,19 @@
-
 (in-package #:cg-llvm)
 
-(cl-interpol:enable-interpol-syntax)
-(enable-read-macro-tokens)
-(quasiquote-2.0:enable-quasiquote-2.0)
-
+;;;;regex for name values ‘[%@][-a-zA-Z$._][-a-zA-Z$._0-9]*’
 (define-cg-llvm-rule named-identifier-body ()
   (text (list (|| alpha-char #\- #\$ #\. #\_)
 	      (times (|| alphanumeric-char #\- #\$ #\. #\_)))))
 
+;;;;Unnamed values are represented as an unsigned numeric value with their prefix.
+;;;;For example, %12, @2, %44.
 (define-cg-llvm-rule unnamed-identifier-body ()
   (text (list (postimes (character-ranges (#\0 #\9))))))
 
-(defun try-destringify-symbol (str)
-  (handler-case (destringify-symbol str)
-    (error () str)))
-  
-(define-cg-llvm-rule hex-digit ()
-  (character-ranges (#\0 #\9) (#\a #\f) (#\A #\F)))
-
 (define-cg-llvm-rule double-hex-escaped-char ()
-  #\\
-  (code-char (parse-number:parse-number (text (times hex-digit :exactly 2))
-					:radix 16)))
+  (v #\\)
+  (code-char (parse-integer (text (times hex-digit :exactly 2))
+			    :radix 16)))
 
 (define-cg-llvm-rule llvm-string ()
   (text (progm #\"
@@ -30,16 +21,18 @@
 			     (|| double-hex-escaped-char
 				 (descend-with-rule 'character nil))))
 	       #\")))
-  
+
 (define-cg-llvm-rule identifier-body ()
   (|| named-identifier-body
       llvm-string
       unnamed-identifier-body))
 
 (define-cg-llvm-rule local-identifier ()
-  (try-destringify-symbol (text (list #\% identifier-body))))
+  (text (list (v #\%)
+	      (v identifier-body))))
 (define-cg-llvm-rule global-identifier ()
-  (try-destringify-symbol (text (list #\@ identifier-body))))
+  (text (list (v #\@)
+	      (v identifier-body))))
 
 (define-cg-llvm-rule llvm-identifier ()
   (|| local-identifier

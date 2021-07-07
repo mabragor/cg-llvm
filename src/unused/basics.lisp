@@ -6,6 +6,10 @@
 (enable-read-macro-tokens)
 (quasiquote-2.0:enable-quasiquote-2.0)
 
+;;;;FIXME::are the following libraries used here?
+;;;;#:cl-ppcre
+;;;;#:lol-re
+
 ;; TODO: extra sugar like autounderscoring symbols or assembling lists into something sensible?
 ;; Does this make sense for LLVM IR at all?
 
